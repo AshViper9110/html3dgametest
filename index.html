@@ -378,11 +378,86 @@ textarea:focus {
   font-size: 1.4em;
 }
 
-#score-display .score-label {
-  font-size: 0.7em;
-  text-transform: uppercase;
-  color: #444466;
-}
+    #player-list {
+      margin: 12px 0;
+      text-align: left;
+    }
+    #player-list .pl-entry {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      margin: 4px 0;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.2);
+      font-size: 0.9em;
+      letter-spacing: 1px;
+    }
+    #player-list .pl-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px currentColor;
+    }
+    #player-list .pl-name {
+      flex: 1;
+      color: #ccccee;
+    }
+    #player-list .pl-tag {
+      font-size: 0.7em;
+      font-family: 'Orbitron', monospace;
+      letter-spacing: 2px;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    #player-list .pl-tag.host {
+      border: 1px solid rgba(0,240,255,0.3);
+      color: #00f0ff;
+    }
+    #player-list .pl-tag.you {
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #888;
+    }
+
+    .map-selector {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 10px 0;
+    }
+    .map-btn {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 0.8em;
+      letter-spacing: 1px;
+      padding: 10px 16px;
+      border: 1px solid rgba(0,240,255,0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: rgba(0,0,0,0.3);
+      color: #8888aa;
+      text-transform: uppercase;
+    }
+    .map-btn:hover {
+      border-color: rgba(0,240,255,0.4);
+      color: #ccccee;
+    }
+    .map-btn.active {
+      border-color: #00f0ff;
+      color: #00f0ff;
+      background: rgba(0,240,255,0.1);
+      box-shadow: 0 0 15px rgba(0,240,255,0.2);
+    }
+    .map-btn .map-desc {
+      display: block;
+      font-weight: 300;
+      font-size: 0.75em;
+      color: #666688;
+      margin-top: 2px;
+    }
 </style>
 </head>
 <body>
@@ -445,27 +520,33 @@ textarea:focus {
     </div>
 
     <div id="step-join" class="step-section" style="display:none;">
-      <span class="step-label">▼ Enter the host's room ID</span>
-      <input id="room-id-input" type="text" placeholder="e.g. NEON-A7X3" style="width:100%; padding:12px; background:rgba(10,10,18,0.8); border:1px solid rgba(0,240,255,0.2); border-radius:6px; color:#00f0ff; font-family:'Orbitron',monospace; font-size:1.2em; text-align:center; letter-spacing:4px; outline:none;">
-      <div style="margin-top:8px;">
-        <button class="btn btn-secondary btn-small" id="btn-join-room">⚡ Join Arena</button>
-      </div>
-      <div style="margin-top:8px;">
-        <button class="btn btn-primary btn-small" id="btn-join-back">← Back</button>
-      </div>
+      <span class="step-label">▼ Enter host's room ID and your name</span>
+      <input id="room-id-input" type="text" placeholder="Room ID e.g. NEON-A7X3" style="width:100%; padding:12px; background:rgba(10,10,18,0.8); border:1px solid rgba(0,240,255,0.2); border-radius:6px; color:#00f0ff; font-family:'Orbitron',monospace; font-size:1em; text-align:center; letter-spacing:3px; outline:none; margin-bottom:8px;">
+      <input id="player-name-input" type="text" placeholder="Your name" maxlength="12" style="width:100%; padding:12px; background:rgba(10,10,18,0.8); border:1px solid rgba(255,0,255,0.2); border-radius:6px; color:#ff00ff; font-family:'Rajdhani',sans-serif; font-size:1em; text-align:center; letter-spacing:2px; outline:none; margin-bottom:8px;">
+      <button class="btn btn-secondary btn-small" id="btn-join-room">⚡ Join Arena</button>
+      <button class="btn btn-primary btn-small" id="btn-join-back" style="margin-left:8px;">← Back</button>
     </div>
 
     <div class="status-text" id="overlay-status">Launching... click a button to start</div>
 
     <div id="waiting-room" style="display:none; text-align:center;">
-      <div style="border-top:1px solid rgba(0,240,255,0.1); margin:20px 0 16px 0;"></div>
-      <div style="font-family:'Orbitron',monospace; font-size:1.3em; letter-spacing:4px; color:#00f0ff; text-shadow:0 0 20px rgba(0,240,255,0.3); margin-bottom:12px;">CONNECTED</div>
-      <div id="waiting-room-status" style="color:#8888aa; font-size:0.95em; letter-spacing:2px; margin-bottom:20px;"></div>
-      <button class="btn btn-primary" id="btn-start-game" style="display:none;">▶ START GAME</button>
-      <div style="margin-top:12px; display:flex; justify-content:center; gap:4px;" id="waiting-players">
-        <span style="color:#00f0ff; font-family:'Orbitron',monospace; font-size:0.8em; letter-spacing:2px; border:1px solid rgba(0,240,255,0.2); padding:4px 12px; border-radius:4px;">● HOST</span>
-        <span style="color:#ff0055; font-family:'Orbitron',monospace; font-size:0.8em; letter-spacing:2px; border:1px solid rgba(255,0,85,0.2); padding:4px 12px; border-radius:4px;">● GUEST</span>
+      <div style="border-top:1px solid rgba(0,240,255,0.1); margin:16px 0 12px 0;"></div>
+      <div style="font-family:'Orbitron',monospace; font-size:1.1em; letter-spacing:4px; color:#00f0ff; text-shadow:0 0 20px rgba(0,240,255,0.3); margin-bottom:4px;">LOBBY</div>
+      <div id="waiting-room-status" style="color:#8888aa; font-size:0.85em; letter-spacing:2px; margin-bottom:12px;"></div>
+
+      <div id="player-list"></div>
+
+      <div id="map-select-host" style="display:none;">
+        <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">▼ SELECT MAP</div>
+        <div class="map-selector" id="map-selector"></div>
       </div>
+
+      <div id="map-info-guest" style="display:none;">
+        <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">MAP</div>
+        <div id="guest-map-name" style="color:#8888aa; font-size:0.9em; letter-spacing:2px;"></div>
+      </div>
+
+      <button class="btn btn-primary" id="btn-start-game" style="display:none; margin-top:8px;">▶ START GAME</button>
     </div>
   </div>
 </div>
@@ -477,91 +558,104 @@ textarea:focus {
 const THREE = window.THREE;
 
 const CONFIG = {
-  arenaSize: 40,
-  wallHeight: 3,
-  wallThick: 0.5,
-  playerSize: 1.0,
-  playerHeight: 1.4,
-  playerSpeed: 12,
-  projectileRadius: 0.2,
-  projectileSpeed: 45,
-  projectileLifetime: 2.0,
-  maxHealth: 5,
-  respawnDelay: 3,
-  stateSendRate: 0.05,
-  colors: {
-    localPlayer: 0x00f0ff,
-    remotePlayer: 0xff0055,
-    projectile: 0xffee00,
-    wall: 0x222244,
-    wallGlow: 0x00f0ff,
-    floor: 0x0d0d1a,
-  }
+  playerSize: 1.0, playerHeight: 1.4, playerSpeed: 12,
+  projectileRadius: 0.2, projectileSpeed: 45, projectileLifetime: 2.0,
+  maxHealth: 5, respawnDelay: 3, stateSendRate: 0.05,
+  colors: { projectile: 0xffee00 },
+};
+
+const PLAYER_COLORS = [
+  0x00f0ff, 0xff0055, 0x00ff88, 0xffaa00,
+  0xaa00ff, 0x00ccff, 0xff6600, 0xff44aa,
+];
+
+const MAPS = {
+  grid: {
+    name: 'NEON GRID', desc: 'Standard open arena',
+    size: 40, wallHeight: 3, wallThick: 0.5,
+    bg: 0x0a0a12, fogNear: 30, fogFar: 60,
+    wallColor: 0x1a1a2e, floorColor: 0x0d0d1a,
+    edgeColors: [0x00f0ff, 0xff00ff],
+    gridColor: 0x00f0ff,
+    ambientColor: 0x111122, ambientIntensity: 0.5,
+    dirColor: 0x8844ff, dirIntensity: 1.0,
+    rimColors: [0x00f0ff, 0xff00ff, 0x00f0ff, 0xff00ff],
+    walls: [],
+  },
+  maze: {
+    name: 'MAZE', desc: 'Navigate corridors',
+    size: 50, wallHeight: 4, wallThick: 0.5,
+    bg: 0x0a0018, fogNear: 20, fogFar: 40,
+    wallColor: 0x1a0030, floorColor: 0x080010,
+    edgeColors: [0xaa00ff, 0xff00aa],
+    gridColor: 0xaa00ff,
+    ambientColor: 0x110022, ambientIntensity: 0.4,
+    dirColor: 0x8844ff, dirIntensity: 0.8,
+    rimColors: [0xaa00ff, 0xff00aa, 0xaa00ff, 0xff00aa],
+    walls: [
+      { p: [-10,2,0], s: [0.5,4,20] }, { p: [10,2,0], s: [0.5,4,20] },
+      { p: [0,2,-10], s: [20,4,0.5] }, { p: [0,2,10], s: [20,4,0.5] },
+      { p: [-5,2,-5], s: [0.5,4,10] }, { p: [5,2,5], s: [0.5,4,10] },
+      { p: [-15,2,-15], s: [10,4,0.5] }, { p: [15,2,15], s: [10,4,0.5] },
+      { p: [-18,2,8], s: [0.5,4,10] }, { p: [18,2,-8], s: [0.5,4,10] },
+    ],
+  },
+  colloseum: {
+    name: 'COLLOSEUM', desc: 'Compact with pillars',
+    size: 35, wallHeight: 3, wallThick: 0.5,
+    bg: 0x120a00, fogNear: 22, fogFar: 45,
+    wallColor: 0x2e1a0a, floorColor: 0x1a0a00,
+    edgeColors: [0xff8800, 0xff4400],
+    gridColor: 0xff6600,
+    ambientColor: 0x221100, ambientIntensity: 0.4,
+    dirColor: 0xff6600, dirIntensity: 0.8,
+    rimColors: [0xff8800, 0xff4400, 0xff8800, 0xff4400],
+    walls: [
+      { p: [-8,2,-8], s: [1.5,4,1.5] }, { p: [8,2,-8], s: [1.5,4,1.5] },
+      { p: [-8,2,8], s: [1.5,4,1.5] }, { p: [8,2,8], s: [1.5,4,1.5] },
+      { p: [0,2,-12], s: [1.5,4,1.5] }, { p: [0,2,12], s: [1.5,4,1.5] },
+      { p: [-12,2,0], s: [1.5,4,1.5] }, { p: [12,2,0], s: [1.5,4,1.5] },
+    ],
+  },
 };
 
 const _v3 = new THREE.Vector3();
 const _v3b = new THREE.Vector3();
 
+// ===== Projectile =====
+
 class Projectile {
-  constructor(scene, origin, direction, ownerId, id) {
-    this.scene = scene;
-    this.ownerId = ownerId;
-    this.id = id;
-    this.alive = true;
-    this.age = 0;
-
-    const geo = new THREE.SphereGeometry(CONFIG.projectileRadius * 1.5, 8, 8);
-    const mat = new THREE.MeshBasicMaterial({ color: CONFIG.colors.projectile });
+  constructor(scene, origin, dir, ownerId, id, color) {
+    this.scene = scene; this.ownerId = ownerId; this.id = id;
+    this.alive = true; this.age = 0; this.color = color || CONFIG.colors.projectile;
+    const r = CONFIG.projectileRadius;
+    const geo = new THREE.SphereGeometry(r * 1.5, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ color: this.color });
     this.mesh = new THREE.Mesh(geo, mat);
-    this.mesh.position.copy(origin);
-    this.mesh.position.y += CONFIG.playerHeight * 0.6;
+    this.mesh.position.copy(origin); this.mesh.position.y += CONFIG.playerHeight * 0.6;
     this.scene.add(this.mesh);
-
-    this.velocity = direction.clone().multiplyScalar(CONFIG.projectileSpeed);
+    this.velocity = dir.clone().multiplyScalar(CONFIG.projectileSpeed);
     this.velocity.y = 0;
-
-    const glowGeo = new THREE.SphereGeometry(CONFIG.projectileRadius * 3, 8, 8);
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: CONFIG.colors.projectile,
-      transparent: true,
-      opacity: 0.25,
-    });
-    this.glow = new THREE.Mesh(glowGeo, glowMat);
+    const ggeo = new THREE.SphereGeometry(r * 3, 8, 8);
+    const gmat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.25 });
+    this.glow = new THREE.Mesh(ggeo, gmat);
     this.glow.position.copy(this.mesh.position);
     this.scene.add(this.glow);
-
-    this.trail = [];
-    this.trailTimer = 0;
+    this.trail = []; this.trailTimer = 0;
   }
-
   update(dt) {
     if (!this.alive) return;
     this.age += dt;
-    if (this.age > CONFIG.projectileLifetime) {
-      this.destroy();
-      return;
-    }
-
+    if (this.age > CONFIG.projectileLifetime) { this.destroy(); return; }
     this.mesh.position.x += this.velocity.x * dt;
     this.mesh.position.z += this.velocity.z * dt;
-
-    const halfArena = CONFIG.arenaSize / 2 - 1;
-    if (Math.abs(this.mesh.position.x) > halfArena || Math.abs(this.mesh.position.z) > halfArena) {
-      this.destroy();
-      return;
-    }
-
+    const half = 25 - 1;
+    if (Math.abs(this.mesh.position.x) > half || Math.abs(this.mesh.position.z) > half) { this.destroy(); return; }
     this.glow.position.copy(this.mesh.position);
-
     const pulse = 1 + 0.3 * Math.sin(this.age * 20);
     this.glow.scale.setScalar(pulse);
-
     this.trailTimer += dt;
-    if (this.trailTimer > 0.03) {
-      this.trailTimer = 0;
-      this.spawnTrail();
-    }
-
+    if (this.trailTimer > 0.03) { this.trailTimer = 0; this._spawnTrail(); }
     this.trail = this.trail.filter(t => {
       t.life += dt;
       if (t.life > 0.4) { this.scene.remove(t.mesh); return false; }
@@ -571,107 +665,70 @@ class Projectile {
       return true;
     });
   }
-
-  spawnTrail() {
-    const geo = new THREE.SphereGeometry(CONFIG.projectileRadius, 4, 4);
-    const mat = new THREE.MeshBasicMaterial({
-      color: CONFIG.colors.projectile,
-      transparent: true,
-      opacity: 0.4,
-    });
+  _spawnTrail() {
+    const r = CONFIG.projectileRadius;
+    const geo = new THREE.SphereGeometry(r, 4, 4);
+    const mat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.4 });
     const m = new THREE.Mesh(geo, mat);
     m.position.copy(this.mesh.position);
     this.scene.add(m);
     this.trail.push({ mesh: m, life: 0 });
   }
-
   destroy() {
     this.alive = false;
-    this.scene.remove(this.mesh);
-    this.scene.remove(this.glow);
-    this.mesh.geometry.dispose();
-    this.mesh.material.dispose();
-    this.glow.geometry.dispose();
-    this.glow.material.dispose();
+    this.scene.remove(this.mesh); this.scene.remove(this.glow);
+    this.mesh.geometry.dispose(); this.mesh.material.dispose();
+    this.glow.geometry.dispose(); this.glow.material.dispose();
     this.trail.forEach(t => { this.scene.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); });
     this.trail = [];
   }
 }
 
+// ===== Player =====
+
 class Player {
-  constructor(scene, id, color, isLocal) {
-    this.scene = scene;
-    this.id = id;
-    this.color = color;
-    this.isLocal = isLocal;
-    this.health = CONFIG.maxHealth;
-    this.maxHealth = CONFIG.maxHealth;
-    this.alive = true;
-    this.kills = 0;
-    this.deaths = 0;
+  constructor(scene, id, color) {
+    this.scene = scene; this.id = id; this.color = color;
+    this.health = CONFIG.maxHealth; this.maxHealth = CONFIG.maxHealth;
+    this.alive = true; this.name = '';
+    this.kills = 0; this.deaths = 0;
 
     const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
     const mat = new THREE.MeshStandardMaterial({
-      color: color,
-      emissive: color,
-      emissiveIntensity: 0.3,
-      metalness: 0.1,
-      roughness: 0.4,
+      color, emissive: color, emissiveIntensity: 0.3, metalness: 0.1, roughness: 0.4,
     });
     this.mesh = new THREE.Mesh(geo, mat);
-    this.mesh.castShadow = false;
     this.scene.add(this.mesh);
 
-    const glowGeo = new THREE.BoxGeometry(CONFIG.playerSize * 1.6, CONFIG.playerHeight * 0.2, CONFIG.playerSize * 1.6);
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: color,
-      transparent: true,
-      opacity: 0.1,
-    });
-    this.glowRing = new THREE.Mesh(glowGeo, glowMat);
+    const ggeo = new THREE.BoxGeometry(CONFIG.playerSize * 1.6, CONFIG.playerHeight * 0.2, CONFIG.playerSize * 1.6);
+    const gmat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.1 });
+    this.glowRing = new THREE.Mesh(ggeo, gmat);
     this.glowRing.position.y = 0.05;
     this.scene.add(this.glowRing);
 
     this.edgeGeo = new THREE.EdgesGeometry(geo);
-    this.edgeMat = new THREE.LineBasicMaterial({
-      color: color,
-      transparent: true,
-      opacity: 0.4,
-    });
+    this.edgeMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 });
     this.edgeLine = new THREE.LineSegments(this.edgeGeo, this.edgeMat);
-    this.edgeLine.position.copy(this.mesh.position);
     this.scene.add(this.edgeLine);
 
     this.position = new THREE.Vector3();
     this.rotation = 0;
     this.targetPosition = new THREE.Vector3();
     this.targetRotation = 0;
-
     this.spawn();
   }
-
   spawn() {
-    const half = CONFIG.arenaSize / 2 - 3;
-    this.position.set(
-      (Math.random() - 0.5) * half * 2,
-      0,
-      (Math.random() - 0.5) * half * 2
-    );
+    const half = 20;
+    this.position.set((Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2);
     this.targetPosition.copy(this.position);
-    this.health = CONFIG.maxHealth;
-    this.alive = true;
+    this.health = CONFIG.maxHealth; this.alive = true;
     this.updateMesh();
   }
-
   takeDamage(amount) {
     this.health = Math.max(0, this.health - amount);
-    if (this.health <= 0 && this.alive) {
-      this.alive = false;
-      this.deaths++;
-    }
+    if (this.health <= 0 && this.alive) { this.alive = false; this.deaths++; }
     return !this.alive;
   }
-
   updateMesh() {
     this.mesh.position.set(this.position.x, CONFIG.playerHeight / 2, this.position.z);
     this.mesh.rotation.y = this.rotation;
@@ -679,317 +736,282 @@ class Player {
     this.edgeLine.position.copy(this.mesh.position);
     this.edgeLine.rotation.y = this.rotation;
   }
-
-  setPosition(pos) {
-    this.position.copy(pos);
-    this.targetPosition.copy(pos);
-  }
-
-  setRotation(rot) {
-    this.rotation = rot;
-    this.targetRotation = rot;
-  }
-
+  setPosition(pos) { this.position.copy(pos); this.targetPosition.copy(pos); }
+  setRotation(rot) { this.rotation = rot; this.targetRotation = rot; }
   lerpToTarget(dt) {
     this.position.lerp(this.targetPosition, 1 - Math.exp(-10 * dt));
     const diff = this.targetRotation - this.rotation;
     this.rotation += diff * Math.min(1, 10 * dt);
   }
-
   update(dt) {
     if (!this.alive) {
-      this.mesh.visible = false;
-      this.edgeLine.visible = false;
-      this.glowRing.visible = false;
+      this.mesh.visible = false; this.edgeLine.visible = false; this.glowRing.visible = false;
       return;
     }
-    this.mesh.visible = true;
-    this.edgeLine.visible = true;
-    this.glowRing.visible = true;
+    this.mesh.visible = true; this.edgeLine.visible = true; this.glowRing.visible = true;
     this.updateMesh();
   }
-
   destroy() {
-    this.scene.remove(this.mesh);
-    this.scene.remove(this.glowRing);
-    this.scene.remove(this.edgeLine);
-    this.mesh.geometry.dispose();
-    this.mesh.material.dispose();
-    this.glowRing.geometry.dispose();
-    this.glowRing.material.dispose();
-    this.edgeGeo.dispose();
-    this.edgeMat.dispose();
+    [this.mesh, this.glowRing, this.edgeLine].forEach(o => { this.scene.remove(o); });
+    this.mesh.geometry.dispose(); this.mesh.material.dispose();
+    this.glowRing.geometry.dispose(); this.glowRing.material.dispose();
+    this.edgeGeo.dispose(); this.edgeMat.dispose();
   }
 }
+
+// ===== NetworkManager (Star Topology) =====
 
 class NetworkManager {
   constructor(game) {
     this.game = game;
     this.peer = null;
+    this.connections = [];
     this.conn = null;
-    this.connected = false;
-    this.peerConnected = false;
-    this.connectionType = null;
-    this.sendTimer = 0;
-    this.latency = 0;
+    this.isHost = false;
     this.roomId = null;
+    this.myId = null;
+    this.connected = false;
+    this.sendTimer = 0;
   }
 
   async createRoom() {
-    this.connectionType = 'host';
+    this.isHost = true;
     const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
     this.roomId = 'NEON-' + suffix;
-
     return new Promise((resolve, reject) => {
       this.peer = new Peer(this.roomId, { debug: 0 });
-      this.peer.on('open', () => resolve(this.roomId));
+      this.peer.on('open', () => { this.myId = this.roomId; resolve(this.roomId); });
       this.peer.on('connection', (conn) => {
-        this.conn = conn;
-        this._setupConnection();
+        this.connections.push(conn);
+        this._setupConn(conn);
       });
       this.peer.on('error', (err) => reject(err));
     });
   }
 
-  async joinRoom(roomId) {
-    this.connectionType = 'join';
+  async joinRoom(roomId, playerName) {
+    this.isHost = false;
     this.roomId = roomId;
-
     return new Promise((resolve, reject) => {
       this.peer = new Peer(undefined, { debug: 0 });
-      this.peer.on('open', () => {
+      this.peer.on('open', (id) => {
+        this.myId = id;
         const conn = this.peer.connect(roomId, { reliable: true });
         this.conn = conn;
-        this._setupConnection();
-        resolve();
+        this._setupConn(conn);
+        conn.on('open', () => {
+          conn.send({ type: 'join', name: playerName || 'Player' });
+          resolve();
+        });
       });
       this.peer.on('error', (err) => reject(err));
     });
   }
 
-  _setupConnection() {
-    this.conn.on('open', () => {
-      this.connected = true;
-      this.peerConnected = true;
-      this.game.onConnected();
+  _setupConn(conn) {
+    conn.on('data', (data) => this.game.handleMessage(data, conn));
+    conn.on('close', () => {
+      if (this.isHost) {
+        const idx = this.connections.indexOf(conn);
+        if (idx >= 0) this.connections.splice(idx, 1);
+        this.game.onPlayerLeft(conn.peer);
+      } else {
+        this.connected = false;
+        this.game.onDisconnected();
+      }
     });
-    this.conn.on('data', (data) => {
-      this.game.handleMessage(data);
-    });
-    this.conn.on('close', () => {
-      this.connected = false;
-      this.peerConnected = false;
-      this.game.onDisconnected();
-    });
-  }
-
-  send(data) {
-    if (this.conn && this.conn.open) {
-      this.conn.send(data);
+    if (!this.isHost) {
+      conn.on('open', () => { this.connected = true; });
     }
   }
 
+  send(data) { if (this.conn && this.conn.open) this.conn.send(data); }
+  broadcast(data, exclude) { this.connections.forEach(c => { if (c !== exclude && c.open) c.send(data); }); }
+
   sendState(dt) {
-    if (!this.peerConnected) return;
+    if (!this.connected && !this.isHost) return;
     this.sendTimer += dt;
     if (this.sendTimer < CONFIG.stateSendRate) return;
     this.sendTimer = 0;
-
     const p = this.game.localPlayer;
-    if (!p) return;
-    this.send({
+    if (!p || !p.scene) return;
+    const data = {
       type: 'state',
+      id: this.myId,
       pos: { x: p.position.x, y: p.position.y, z: p.position.z },
-      rot: p.rotation,
-      health: p.health,
-      alive: p.alive,
-      ts: Date.now(),
-    });
+      rot: p.rotation, health: p.health, alive: p.alive,
+    };
+    if (this.isHost) this.broadcast(data);
+    else this.send(data);
   }
 
   close() {
+    this.connections.forEach(c => c.close());
     if (this.conn) this.conn.close();
     if (this.peer) this.peer.destroy();
+    this.connections = [];
     this.connected = false;
-    this.peerConnected = false;
   }
 }
 
+// ===== Game =====
+
 class Game {
   constructor() {
-    this.scene = null;
-    this.camera = null;
-    this.renderer = null;
-    this.localPlayer = null;
-    this.remotePlayer = null;
-    this.remotePlayerObj = null;
+    this.players = new Map();
+    this.localId = null;
     this.projectiles = [];
-    this.projectileIdCounter = 0;
+    this.projIdCounter = 0;
     this.keys = {};
     this.mouseDelta = 0;
     this.network = new NetworkManager(this);
-    this.state = 'init';
     this.gameStarted = false;
     this.connectionHandled = false;
     this.kills = 0;
     this.deaths = 0;
     this.respawnTimer = 0;
+    this.selectedMap = 'grid';
     this.pointerLocked = false;
     this.clock = new THREE.Clock();
-
-    this.wallMeshes = [];
-    this.floorGrid = null;
-    this.ambientLight = null;
-    this.dirLight = null;
+    this.scene = null;
+    this.camera = null;
+    this.renderer = null;
+    this.arenaObjects = [];
     this.rimLights = [];
   }
+
+  get localPlayer() { return this.players.get(this.localId); }
 
   init() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a0a12);
     this.scene.fog = new THREE.Fog(0x0a0a12, 30, 60);
-
     this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: false,
-    });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-    const container = document.getElementById('game-container');
-    container.appendChild(this.renderer.domElement);
-
+    document.getElementById('game-container').appendChild(this.renderer.domElement);
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
-
     document.addEventListener('pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === this.renderer.domElement;
       document.getElementById('instructions').classList.toggle('hidden', !this.pointerLocked);
     });
-
-    document.addEventListener('mousemove', (e) => {
-      if (this.pointerLocked) {
-        this.mouseDelta += e.movementX;
-      }
-    });
-
+    document.addEventListener('mousemove', (e) => { if (this.pointerLocked) this.mouseDelta += e.movementX; });
     document.addEventListener('keydown', (e) => { this.keys[e.key.toLowerCase()] = true; });
     document.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
-
     this.renderer.domElement.addEventListener('click', () => {
-      if (this.network.peerConnected && !this.pointerLocked) {
-        this.renderer.domElement.requestPointerLock();
-      }
+      if (this.network.connected && !this.pointerLocked) this.renderer.domElement.requestPointerLock();
     });
-
     this.renderer.domElement.addEventListener('mousedown', (e) => {
-      if (e.button === 0 && this.pointerLocked && this.localPlayer && this.localPlayer.alive) {
-        this.shoot();
-      }
+      if (e.button === 0 && this.pointerLocked && this.localPlayer && this.localPlayer.alive) this.shoot();
     });
-
     this._setupLights();
-    this._createArena();
-
+    this._createArena(this.selectedMap);
     this.animate();
   }
 
   _setupLights() {
     this.ambientLight = new THREE.AmbientLight(0x111122, 0.5);
     this.scene.add(this.ambientLight);
-
     this.dirLight = new THREE.DirectionalLight(0x8844ff, 1.0);
     this.dirLight.position.set(10, 20, 10);
     this.scene.add(this.dirLight);
-
-    const rimPositions = [
-      [-20, 8, -20], [20, 8, -20], [-20, 8, 20], [20, 8, 20],
-    ];
-    const rimColors = [0x00f0ff, 0xff00ff, 0x00f0ff, 0xff00ff];
-    rimPositions.forEach((pos, i) => {
-      const light = new THREE.PointLight(rimColors[i], 0.6, 30);
-      light.position.set(pos[0], pos[1], pos[2]);
-      this.scene.add(light);
-      this.rimLights.push(light);
-
-      const helper = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 8, 8),
-        new THREE.MeshBasicMaterial({ color: rimColors[i] })
-      );
-      helper.position.copy(light.position);
-      this.scene.add(helper);
+    [
+      [[-20, 8, -20], 0x00f0ff], [[20, 8, -20], 0xff00ff],
+      [[-20, 8, 20], 0x00f0ff], [[20, 8, 20], 0xff00ff],
+    ].forEach(([pos, col]) => {
+      const l = new THREE.PointLight(col, 0.6, 30);
+      l.position.set(pos[0], pos[1], pos[2]);
+      this.scene.add(l);
+      this.rimLights.push(l);
+      const h = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: col }));
+      h.position.copy(l.position);
+      this.scene.add(h);
     });
   }
 
-  _createArena() {
-    const half = CONFIG.arenaSize / 2;
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x1a1a2e,
-      metalness: 0.2,
-      roughness: 0.6,
-    });
+  _clearArena() {
+    this.arenaObjects.forEach(o => { this.scene.remove(o); if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    this.arenaObjects = [];
+    this.rimLights.forEach(l => this.scene.remove(l));
+    this.rimLights = [];
+  }
+
+  _createArena(mapKey) {
+    this._clearArena();
+    const map = MAPS[mapKey] || MAPS.grid;
+    this.scene.background = new THREE.Color(map.bg);
+    this.scene.fog = new THREE.Fog(map.bg, map.fogNear, map.fogFar);
+
+    this.ambientLight.color.setHex(map.ambientColor);
+    this.ambientLight.intensity = map.ambientIntensity;
+    this.dirLight.color.setHex(map.dirColor);
+    this.dirLight.intensity = map.dirIntensity;
+
+    const half = map.size / 2;
+    const wallMat = new THREE.MeshStandardMaterial({ color: map.wallColor, metalness: 0.2, roughness: 0.6 });
+
+    const addWall = (pos, size, idx) => {
+      const geo = new THREE.BoxGeometry(...size);
+      const mesh = new THREE.Mesh(geo, wallMat);
+      mesh.position.set(pos[0], pos[1], pos[2]);
+      this.scene.add(mesh); this.arenaObjects.push(mesh);
+      const eg = new THREE.EdgesGeometry(geo);
+      const em = new THREE.LineBasicMaterial({
+        color: map.edgeColors[idx % map.edgeColors.length],
+        transparent: true, opacity: 0.25,
+      });
+      const el = new THREE.LineSegments(eg, em);
+      el.position.copy(mesh.position);
+      this.scene.add(el); this.arenaObjects.push(el);
+    };
 
     const wallData = [
-      { pos: [0, CONFIG.wallHeight/2, -half], size: [CONFIG.arenaSize, CONFIG.wallHeight, CONFIG.wallThick] },
-      { pos: [0, CONFIG.wallHeight/2, half], size: [CONFIG.arenaSize, CONFIG.wallHeight, CONFIG.wallThick] },
-      { pos: [-half, CONFIG.wallHeight/2, 0], size: [CONFIG.wallThick, CONFIG.wallHeight, CONFIG.arenaSize] },
-      { pos: [half, CONFIG.wallHeight/2, 0], size: [CONFIG.wallThick, CONFIG.wallHeight, CONFIG.arenaSize] },
+      { p: [0, map.wallHeight/2, -half], s: [map.size, map.wallHeight, map.wallThick] },
+      { p: [0, map.wallHeight/2, half], s: [map.size, map.wallHeight, map.wallThick] },
+      { p: [-half, map.wallHeight/2, 0], s: [map.wallThick, map.wallHeight, map.size] },
+      { p: [half, map.wallHeight/2, 0], s: [map.wallThick, map.wallHeight, map.size] },
     ];
+    wallData.forEach((d, i) => addWall(d.p, d.s, i));
+    map.walls.forEach((w, i) => addWall(w.p, w.s, i + 4));
 
-    wallData.forEach((d, idx) => {
-      const geo = new THREE.BoxGeometry(...d.size);
-      const mesh = new THREE.Mesh(geo, wallMat);
-      mesh.position.set(d.pos[0], d.pos[1], d.pos[2]);
-      mesh.receiveShadow = true;
-      this.scene.add(mesh);
-      this.wallMeshes.push(mesh);
-
-      const edgeGeo = new THREE.EdgesGeometry(geo);
-      const edgeMat = new THREE.LineBasicMaterial({
-        color: idx % 2 === 0 ? 0x00f0ff : 0xff00ff,
-        transparent: true,
-        opacity: 0.25,
-      });
-      const edgeLine = new THREE.LineSegments(edgeGeo, edgeMat);
-      edgeLine.position.copy(mesh.position);
-      this.scene.add(edgeLine);
-    });
-
-    const floorGeo = new THREE.PlaneGeometry(CONFIG.arenaSize - 1, CONFIG.arenaSize - 1);
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x0d0d1a,
-      metalness: 0.3,
-      roughness: 0.7,
-    });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
+    const fgeo = new THREE.PlaneGeometry(map.size - 1, map.size - 1);
+    const fmat = new THREE.MeshStandardMaterial({ color: map.floorColor, metalness: 0.3, roughness: 0.7 });
+    const floor = new THREE.Mesh(fgeo, fmat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = 0;
-    floor.receiveShadow = true;
-    this.scene.add(floor);
+    this.scene.add(floor); this.arenaObjects.push(floor);
 
-    const gridHelper = new THREE.GridHelper(CONFIG.arenaSize - 2, 20, 0x00f0ff, 0x222255);
-    gridHelper.material.transparent = true;
-    gridHelper.material.opacity = 0.15;
-    gridHelper.position.y = 0.02;
-    this.scene.add(gridHelper);
+    const gh1 = new THREE.GridHelper(map.size - 2, 20, map.gridColor, 0x222255);
+    gh1.material.transparent = true; gh1.material.opacity = 0.15;
+    gh1.position.y = 0.02;
+    this.scene.add(gh1); this.arenaObjects.push(gh1);
 
-    const gridHelper2 = new THREE.GridHelper(CONFIG.arenaSize - 2, 40, 0x4444aa, 0x222255);
-    gridHelper2.material.transparent = true;
-    gridHelper2.material.opacity = 0.08;
-    gridHelper2.position.y = 0.01;
-    this.scene.add(gridHelper2);
+    const gh2 = new THREE.GridHelper(map.size - 2, 40, 0x4444aa, 0x222255);
+    gh2.material.transparent = true; gh2.material.opacity = 0.08;
+    gh2.position.y = 0.01;
+    this.scene.add(gh2); this.arenaObjects.push(gh2);
+
+    this.arenaMap = map;
   }
 
-  setState(s) {
-    this.state = s;
+  addPlayer(id, color, name) {
+    if (this.players.has(id)) return this.players.get(id);
+    const p = new Player(this.scene, id, color);
+    p.name = name || 'Player';
+    this.players.set(id, p);
+    return p;
+  }
+
+  removePlayer(id) {
+    const p = this.players.get(id);
+    if (p) { p.destroy(); this.players.delete(id); }
   }
 
   onConnected() {
@@ -997,22 +1019,73 @@ class Game {
     this.connectionHandled = true;
     document.getElementById('conn-status').textContent = '● CONNECTED';
     document.getElementById('conn-status').classList.add('connected');
-    this.showWaitingRoom();
+  }
+
+  onPlayerLeft(peerId) {
+    this.removePlayer(peerId);
+    this.updatePlayerListUI();
+    this.addKillFeed('👋 A player disconnected');
   }
 
   showWaitingRoom() {
     document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
     document.getElementById('waiting-room').style.display = 'block';
-
-    if (this.network.connectionType === 'host') {
-      document.getElementById('waiting-room-status').textContent = 'Waiting for opponent to ready up...';
+    if (this.network.isHost) {
+      document.getElementById('map-select-host').style.display = 'block';
+      document.getElementById('map-info-guest').style.display = 'none';
+      document.getElementById('waiting-room-status').textContent = 'Waiting for players...';
       document.getElementById('btn-start-game').style.display = 'inline-block';
-      document.getElementById('overlay-status').textContent = 'Press START when both are ready';
+      document.getElementById('overlay-status').textContent = 'Select map and press START';
+      this._setupMapSelector();
     } else {
-      document.getElementById('waiting-room-status').textContent = 'Waiting for host to start the game...';
+      document.getElementById('map-select-host').style.display = 'none';
+      document.getElementById('map-info-guest').style.display = 'block';
       document.getElementById('btn-start-game').style.display = 'none';
-      document.getElementById('overlay-status').textContent = 'Waiting for host...';
+      document.getElementById('waiting-room-status').textContent = 'Connected! Waiting for host...';
+      document.getElementById('overlay-status').textContent = 'Waiting for host to start...';
     }
+    this.updatePlayerListUI();
+  }
+
+  _setupMapSelector() {
+    const container = document.getElementById('map-selector');
+    container.innerHTML = '';
+    Object.entries(MAPS).forEach(([key, map]) => {
+      const btn = document.createElement('button');
+      btn.className = 'map-btn' + (key === this.selectedMap ? ' active' : '');
+      btn.innerHTML = `${map.name} <span class="map-desc">${map.desc}</span>`;
+      btn.addEventListener('click', () => {
+        this.selectedMap = key;
+        container.querySelectorAll('.map-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.network.broadcast({ type: 'map_select', map: key });
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  updatePlayerListUI() {
+    const list = document.getElementById('player-list');
+    list.innerHTML = '';
+    this.players.forEach((p, id) => {
+      const entry = document.createElement('div');
+      entry.className = 'pl-entry';
+      const dot = document.createElement('span');
+      dot.className = 'pl-dot';
+      dot.style.color = '#' + p.color.toString(16).padStart(6, '0');
+      dot.style.background = '#' + p.color.toString(16).padStart(6, '0');
+      const name = document.createElement('span');
+      name.className = 'pl-name';
+      name.textContent = p.name;
+      const tag = document.createElement('span');
+      tag.className = 'pl-tag';
+      if (id === this.network.myId) { tag.textContent = 'YOU'; tag.classList.add('you'); }
+      else if (id === this.network.roomId) { tag.textContent = 'HOST'; tag.classList.add('host'); }
+      entry.appendChild(dot);
+      entry.appendChild(name);
+      entry.appendChild(tag);
+      list.appendChild(entry);
+    });
   }
 
   startGame() {
@@ -1020,14 +1093,8 @@ class Game {
     this.network.sendTimer = CONFIG.stateSendRate;
     document.getElementById('overlay').classList.add('hidden');
     document.getElementById('instructions').classList.remove('hidden');
-    if (this.network.connectionType === 'host') {
-      this.addKillFeed('⚔ Game started by host');
-    } else {
-      this.addKillFeed('⚔ Game started!');
-    }
-    if (!this.pointerLocked) {
-      setTimeout(() => { this.renderer.domElement.requestPointerLock(); }, 300);
-    }
+    this.addKillFeed('⚔ GAME START!');
+    if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
   }
 
   onDisconnected() {
@@ -1045,61 +1112,49 @@ class Game {
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
   }
 
-  spawnLocalPlayer() {
-    this.localPlayer = new Player(
-      this.scene,
-      'local',
-      CONFIG.colors.localPlayer,
-      true
-    );
-    this.localPlayer.spawn();
-    this.updateHealthUI();
-  }
-
-  createRemotePlayer() {
-    if (this.remotePlayerObj) {
-      this.remotePlayerObj.destroy();
-    }
-    this.remotePlayerObj = new Player(
-      this.scene,
-      'remote',
-      CONFIG.colors.remotePlayer,
-      false
-    );
-  }
-
   shoot() {
-    if (!this.localPlayer || !this.localPlayer.alive) return;
+    const lp = this.localPlayer;
+    if (!lp || !lp.alive) return;
     const dir = new THREE.Vector3(0, 0, -1);
-    dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.localPlayer.rotation);
-    dir.y = 0;
-    dir.normalize();
-
-    const id = this.localPlayer.id + '_' + (this.projectileIdCounter++);
-    const proj = new Projectile(this.scene, this.localPlayer.position, dir, this.localPlayer.id, id);
+    dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
+    dir.y = 0; dir.normalize();
+    const pid = this.network.myId + '_' + (this.projIdCounter++);
+    const proj = new Projectile(this.scene, lp.position, dir, this.network.myId, pid, lp.color);
     this.projectiles.push(proj);
-
-    this.network.send({
-      type: 'shoot',
-      pos: { x: this.localPlayer.position.x, y: 0, z: this.localPlayer.position.z },
-      dir: { x: dir.x, y: 0, z: dir.z },
-      id: id,
-    });
+    const msg = { type: 'shoot', ownerId: this.network.myId, pos: { x: lp.position.x, y: 0, z: lp.position.z }, dir: { x: dir.x, y: 0, z: dir.z }, id: pid, color: lp.color };
+    if (this.network.isHost) this.network.broadcast(msg);
+    else this.network.send(msg);
   }
 
-  handleMessage(msg) {
-    switch (msg.type) {
+  handleMessage(data, conn) {
+    if (!data || !data.type) return;
+    switch (data.type) {
+      case 'join':
+        if (this.network.isHost) this._handleJoin(data, conn);
+        break;
+      case 'welcome':
+        this._handleWelcome(data);
+        break;
+      case 'player_joined':
+        this._handlePlayerJoined(data);
+        break;
       case 'state':
-        this.handleRemoteState(msg);
+        this._handleState(data);
         break;
       case 'shoot':
-        this.handleRemoteShoot(msg);
+        this._handleRemoteShoot(data);
         break;
       case 'hit':
-        this.handleRemoteHit(msg);
+        this._handleHit(data);
         break;
       case 'respawn':
-        this.handleRemoteRespawn(msg);
+        this._handleRemoteRespawn(data);
+        break;
+      case 'game_start':
+        this._handleGameStart(data);
+        break;
+      case 'map_select':
+        this._handleMapSelect(data);
         break;
       case 'start':
         this.startGame();
@@ -1107,58 +1162,123 @@ class Game {
     }
   }
 
-  handleRemoteState(msg) {
-    if (!this.remotePlayerObj) {
-      this.createRemotePlayer();
+  _handleJoin(data, conn) {
+    const peerId = conn.peer;
+    const colorIdx = this.players.size % PLAYER_COLORS.length;
+    const color = PLAYER_COLORS[colorIdx];
+    const name = data.name || 'Player';
+    this.addPlayer(peerId, color, name);
+    this.network.connected = true;
+    if (!this.connectionHandled) {
+      this.connectionHandled = true;
+      this.onConnected();
+      this.showWaitingRoom();
     }
-    const rp = this.remotePlayerObj;
-    rp.targetPosition.set(msg.pos.x, msg.pos.y, msg.pos.z);
-    rp.targetRotation = msg.rot;
-    if (msg.alive !== undefined) rp.alive = msg.alive;
+    conn.send({
+      type: 'welcome',
+      players: Array.from(this.players.entries()).map(([id, p]) => ({ id, name: p.name, color: p.color })),
+      yourId: peerId,
+      map: this.selectedMap,
+    });
+    this.network.broadcast({ type: 'player_joined', id: peerId, name, color }, conn);
+    this.updatePlayerListUI();
+    this.addKillFeed(`⚡ ${name} joined`);
   }
 
-  handleRemoteShoot(msg) {
-    if (!this.remotePlayerObj) return;
-    const origin = new THREE.Vector3(msg.pos.x, msg.pos.y, msg.pos.z);
-    const dir = new THREE.Vector3(msg.dir.x, msg.dir.y, msg.dir.z);
-    const proj = new Projectile(this.scene, origin, dir, 'remote', msg.id);
+  _handleWelcome(data) {
+    this.connectionHandled = true;
+    this.onConnected();
+    data.players.forEach(p => {
+      this.addPlayer(p.id, p.color, p.name);
+    });
+    this.localId = data.yourId;
+    this.selectedMap = data.map || 'grid';
+    this.showWaitingRoom();
+    if (data.map) {
+      document.getElementById('guest-map-name').textContent = (MAPS[data.map] || MAPS.grid).name;
+    }
+  }
+
+  _handlePlayerJoined(data) {
+    this.addPlayer(data.id, data.color, data.name);
+    this.updatePlayerListUI();
+    this.addKillFeed(`⚡ ${data.name} joined`);
+  }
+
+  _handleState(data) {
+    const p = this.players.get(data.id);
+    if (!p) return;
+    p.targetPosition.set(data.pos.x, data.pos.y, data.pos.z);
+    p.targetRotation = data.rot;
+    if (data.alive !== undefined) p.alive = data.alive;
+    if (data.health !== undefined) p.health = data.health;
+    if (this.network.isHost) {
+      this.network.broadcast(data, this._findConn(data.id));
+    }
+  }
+
+  _findConn(playerId) {
+    return this.network.connections.find(c => c.peer === playerId);
+  }
+
+  _handleRemoteShoot(data) {
+    const origin = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
+    const dir = new THREE.Vector3(data.dir.x, data.dir.y, data.dir.z);
+    const proj = new Projectile(this.scene, origin, dir, data.ownerId, data.id, data.color);
     proj.isRemote = true;
     this.projectiles.push(proj);
+    if (this.network.isHost) this.network.broadcast(data, this._findConn(data.ownerId));
   }
 
-  handleRemoteHit(msg) {
-    if (!this.localPlayer) return;
-    const killed = this.localPlayer.takeDamage(msg.damage || 1);
-    this.updateHealthUI();
-    if (killed) {
-      this.deaths++;
-      document.getElementById('death-count').textContent = this.deaths;
-      this.respawnTimer = CONFIG.respawnDelay;
-      document.getElementById('death-screen').classList.add('show');
-      document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
-      this.addKillFeed('☠ You were eliminated');
-    }
-  }
-
-  handleRemoteRespawn(msg) {
-    if (this.remotePlayerObj) {
-      this.remotePlayerObj.health = CONFIG.maxHealth;
-      this.remotePlayerObj.alive = true;
-      if (msg.pos) {
-        this.remotePlayerObj.position.set(msg.pos.x, msg.pos.y, msg.pos.z);
-        this.remotePlayerObj.targetPosition.copy(this.remotePlayerObj.position);
-      } else {
-        this.remotePlayerObj.spawn();
+  _handleHit(data) {
+    if (data.targetId === this.network.myId) {
+      const killed = this.localPlayer.takeDamage(data.damage || 1);
+      this.updateHealthUI();
+      if (killed) {
+        this.deaths++;
+        document.getElementById('death-count').textContent = this.deaths;
+        this.respawnTimer = CONFIG.respawnDelay;
+        document.getElementById('death-screen').classList.add('show');
+        document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
+        this.addKillFeed(`☠ Eliminated by ${data.shooterName || 'opponent'}`);
       }
-      this.remotePlayerObj.updateMesh();
+    }
+    const shooter = this.players.get(data.shooterId);
+    if (shooter && data.targetId !== this.network.myId) {
+      this.addKillFeed(`🎯 ${data.shooterName || 'Someone'} eliminated ${data.targetName || 'opponent'}`);
+    }
+    if (this.network.isHost) this.network.broadcast(data, this._findConn(data.shooterId));
+  }
+
+  _handleRemoteRespawn(data) {
+    const p = this.players.get(data.id);
+    if (p) {
+      p.health = CONFIG.maxHealth;
+      p.alive = true;
+      if (data.pos) { p.position.set(data.pos.x, data.pos.y, data.pos.z); p.targetPosition.copy(p.position); }
+      else p.spawn();
+      p.updateMesh();
+    }
+    if (this.network.isHost) this.network.broadcast(data, this._findConn(data.id));
+  }
+
+  _handleGameStart(data) {
+    this.selectedMap = data.map;
+    this._createArena(data.map);
+    this.startGame();
+  }
+
+  _handleMapSelect(data) {
+    if (!this.network.isHost) {
+      this.selectedMap = data.map;
+      document.getElementById('guest-map-name').textContent = (MAPS[data.map] || MAPS.grid).name;
     }
   }
 
   updateHealthUI() {
-    if (!this.localPlayer) return;
-    const hp = this.localPlayer.health;
-    const max = this.localPlayer.maxHealth;
-    const pct = (hp / max) * 100;
+    const lp = this.localPlayer;
+    if (!lp) return;
+    const pct = (lp.health / lp.maxHealth) * 100;
     const bar = document.getElementById('health-bar');
     bar.style.width = pct + '%';
     bar.classList.toggle('low', pct <= 30);
@@ -1166,153 +1286,118 @@ class Game {
 
   update(dt) {
     if (!this.gameStarted) return;
-    if (this.localPlayer && this.localPlayer.alive) {
-      let moveX = 0, moveZ = 0;
-      if (this.keys['w']) moveZ -= 1;
-      if (this.keys['s']) moveZ += 1;
-      if (this.keys['a']) moveX -= 1;
-      if (this.keys['d']) moveX += 1;
+    const lp = this.localPlayer;
 
-      if (moveX !== 0 || moveZ !== 0) {
-        const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
-        moveX /= len;
-        moveZ /= len;
+    if (lp && lp.alive) {
+      let mx = 0, mz = 0;
+      if (this.keys['w']) mz -= 1;
+      if (this.keys['s']) mz += 1;
+      if (this.keys['a']) mx -= 1;
+      if (this.keys['d']) mx += 1;
 
-        const forward = new THREE.Vector3(0, 0, -1);
-        forward.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.localPlayer.rotation);
-        const right = new THREE.Vector3(1, 0, 0);
-        right.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.localPlayer.rotation);
-
-        _v3.copy(forward).multiplyScalar(-moveZ);
-        _v3b.copy(right).multiplyScalar(moveX);
-        _v3.add(_v3b);
-        _v3.normalize();
-        _v3.multiplyScalar(CONFIG.playerSpeed * dt);
-
-        this.localPlayer.position.x += _v3.x;
-        this.localPlayer.position.z += _v3.z;
-
-        const half = CONFIG.arenaSize / 2 - 0.8;
-        this.localPlayer.position.x = Math.max(-half, Math.min(half, this.localPlayer.position.x));
-        this.localPlayer.position.z = Math.max(-half, Math.min(half, this.localPlayer.position.z));
-        this.localPlayer.targetPosition.copy(this.localPlayer.position);
+      if (mx !== 0 || mz !== 0) {
+        const len = Math.sqrt(mx * mx + mz * mz);
+        mx /= len; mz /= len;
+        const fwd = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
+        const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
+        _v3.copy(fwd).multiplyScalar(-mz);
+        _v3b.copy(right).multiplyScalar(mx);
+        _v3.add(_v3b).normalize().multiplyScalar(CONFIG.playerSpeed * dt);
+        lp.position.x += _v3.x;
+        lp.position.z += _v3.z;
+        const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 0.8;
+        lp.position.x = Math.max(-half, Math.min(half, lp.position.x));
+        lp.position.z = Math.max(-half, Math.min(half, lp.position.z));
+        lp.targetPosition.copy(lp.position);
       }
 
       if (this.mouseDelta !== 0) {
-        this.localPlayer.rotation -= this.mouseDelta * 0.003;
-        this.localPlayer.targetRotation = this.localPlayer.rotation;
+        lp.rotation -= this.mouseDelta * 0.003;
+        lp.targetRotation = lp.rotation;
         this.mouseDelta = 0;
       }
     }
 
-    if (this.remotePlayerObj) {
-      this.remotePlayerObj.lerpToTarget(dt);
-      this.remotePlayerObj.update(dt);
-    }
-
-    if (this.localPlayer) {
-      this.localPlayer.update(dt);
-    }
+    this.players.forEach(p => { if (p.id !== this.network.myId) p.lerpToTarget(dt); p.update(dt); });
 
     this.projectiles = this.projectiles.filter(p => p.alive);
     this.projectiles.forEach(p => p.update(dt));
 
-    this.checkProjectileHits();
+    this._checkProjectileHits();
 
     if (this.respawnTimer > 0) {
       this.respawnTimer -= dt;
-      document.getElementById('respawn-timer').textContent =
-        `RESPAWN IN ${Math.ceil(Math.max(0, this.respawnTimer))}`;
+      document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(Math.max(0, this.respawnTimer))}`;
       if (this.respawnTimer <= 0) {
         this.respawnTimer = 0;
         document.getElementById('death-screen').classList.remove('show');
-        this.respawnLocalPlayer();
+        this._respawnLocal();
       }
     }
 
-    if (this.gameStarted) {
-      this.network.sendState(dt);
-    }
-
+    this.network.sendState(dt);
     this._updateCamera(dt);
   }
 
-  checkProjectileHits() {
-    if (!this.localPlayer) return;
+  _checkProjectileHits() {
+    const lp = this.localPlayer;
+    if (!lp) return;
     for (const p of this.projectiles) {
       if (!p.alive) continue;
-
-      if (p.ownerId === this.localPlayer.id) {
-        if (this.remotePlayerObj && this.remotePlayerObj.alive) {
-          const dist = p.mesh.position.distanceTo(
-            new THREE.Vector3(
-              this.remotePlayerObj.position.x,
-              CONFIG.playerHeight / 2,
-              this.remotePlayerObj.position.z
-            )
-          );
+      if (p.ownerId === this.network.myId) {
+        this.players.forEach((other, id) => {
+          if (id === this.network.myId || !other.alive) return;
+          const dist = p.mesh.position.distanceTo(new THREE.Vector3(other.position.x, CONFIG.playerHeight / 2, other.position.z));
           if (dist < CONFIG.playerSize * 0.8) {
             p.destroy();
-            this.network.send({
-              type: 'hit',
-              damage: 1,
-            });
-            this.remotePlayerObj.takeDamage(1);
-            if (!this.remotePlayerObj.alive) {
+            other.takeDamage(1);
+            const hitMsg = {
+              type: 'hit', shooterId: this.network.myId, targetId: id,
+              damage: 1, shooterName: lp.name, targetName: other.name,
+            };
+            if (this.network.isHost) {
+              this.network.broadcast(hitMsg);
+            } else {
+              this.network.send(hitMsg);
+            }
+            if (!other.alive) {
               this.kills++;
               document.getElementById('kill-count').textContent = this.kills;
-              this.addKillFeed('🎯 Eliminated opponent');
+              this.addKillFeed(`🎯 Eliminated ${other.name}`);
             }
           }
-        }
-      } else if (p.ownerId === 'remote') {
-        if (this.localPlayer && this.localPlayer.alive) {
-          const dist = p.mesh.position.distanceTo(
-            new THREE.Vector3(
-              this.localPlayer.position.x,
-              CONFIG.playerHeight / 2,
-              this.localPlayer.position.z
-            )
-          );
-          if (dist < CONFIG.playerSize * 0.8) {
-            p.destroy();
-          }
+        });
+      } else {
+        if (lp && lp.alive) {
+          const dist = p.mesh.position.distanceTo(new THREE.Vector3(lp.position.x, CONFIG.playerHeight / 2, lp.position.z));
+          if (dist < CONFIG.playerSize * 0.8) p.destroy();
         }
       }
     }
   }
 
-  respawnLocalPlayer() {
-    if (!this.localPlayer) return;
-    const half = CONFIG.arenaSize / 2 - 3;
-    this.localPlayer.position.set(
-      (Math.random() - 0.5) * half * 2,
-      0,
-      (Math.random() - 0.5) * half * 2
-    );
-    this.localPlayer.targetPosition.copy(this.localPlayer.position);
-    this.localPlayer.health = CONFIG.maxHealth;
-    this.localPlayer.alive = true;
+  _respawnLocal() {
+    const lp = this.localPlayer;
+    if (!lp) return;
+    const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 3;
+    lp.position.set((Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2);
+    lp.targetPosition.copy(lp.position);
+    lp.health = CONFIG.maxHealth;
+    lp.alive = true;
     this.updateHealthUI();
     this.addKillFeed('🔄 Respawned');
-    this.network.send({
-      type: 'respawn',
-      pos: { x: this.localPlayer.position.x, y: 0, z: this.localPlayer.position.z },
-    });
+    const msg = { type: 'respawn', id: this.network.myId, pos: { x: lp.position.x, y: 0, z: lp.position.z } };
+    if (this.network.isHost) this.network.broadcast(msg);
+    else this.network.send(msg);
   }
 
   _updateCamera(dt) {
-    if (!this.localPlayer) return;
-    const p = this.localPlayer.position;
-    const dist = 18;
-    const height = 14;
-    const angle = this.localPlayer.rotation;
-
-    const targetX = p.x + Math.sin(angle) * dist;
-    const targetZ = p.z + Math.cos(angle) * dist;
-    const targetY = p.y + height;
-
-    this.camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 1 - Math.exp(-8 * dt));
+    const lp = this.localPlayer;
+    if (!lp) return;
+    const p = lp.position;
+    const dist = 18, height = 14, angle = lp.rotation;
+    const target = new THREE.Vector3(p.x + Math.sin(angle) * dist, p.y + height, p.z + Math.cos(angle) * dist);
+    this.camera.position.lerp(target, 1 - Math.exp(-8 * dt));
     this.camera.lookAt(p.x, 0.5, p.z);
   }
 
@@ -1324,7 +1409,8 @@ class Game {
   }
 }
 
-// ---- UI Setup ----
+// ===== UI Setup =====
+
 const game = new Game();
 game.init();
 
@@ -1332,15 +1418,14 @@ document.getElementById('btn-host').addEventListener('click', async () => {
   document.getElementById('step-1').style.display = 'none';
   document.getElementById('step-host').style.display = 'block';
   document.getElementById('overlay-status').textContent = '⏳ Creating room...';
-
   try {
-    game.spawnLocalPlayer();
     const roomId = await game.network.createRoom();
+    game.localId = roomId;
+    game.addPlayer(roomId, PLAYER_COLORS[0], 'Host');
     document.getElementById('room-id-display').textContent = roomId;
-    document.getElementById('overlay-status').textContent = 'Share this room ID with your friend';
-    document.getElementById('step-host-status').textContent = 'Waiting for opponent to join...';
+    document.getElementById('overlay-status').textContent = 'Share this room ID with friends';
+    document.getElementById('step-host-status').textContent = 'Waiting for players to join...';
   } catch (err) {
-    console.error(err);
     document.getElementById('overlay-status').textContent = '❌ Error: ' + err.message;
   }
 });
@@ -1348,6 +1433,7 @@ document.getElementById('btn-host').addEventListener('click', async () => {
 document.getElementById('btn-host-back').addEventListener('click', () => {
   game.network.close();
   game.connectionHandled = false;
+  game.players.forEach((p, id) => { if (id !== game.localId) game.removePlayer(id); });
   document.getElementById('step-host').style.display = 'none';
   document.getElementById('step-1').style.display = 'block';
   document.getElementById('overlay-status').textContent = 'Click a button to start';
@@ -1369,14 +1455,12 @@ document.getElementById('btn-join-room').addEventListener('click', async () => {
   let roomId = document.getElementById('room-id-input').value.trim().toUpperCase();
   if (!roomId.startsWith('NEON-')) roomId = 'NEON-' + roomId;
   if (roomId === 'NEON-') return;
+  const playerName = document.getElementById('player-name-input').value.trim() || 'Player';
   document.getElementById('overlay-status').textContent = '⏳ Joining room...';
-
   try {
-    game.spawnLocalPlayer();
-    await game.network.joinRoom(roomId);
-    document.getElementById('overlay-status').textContent = '🔗 Connected!';
+    await game.network.joinRoom(roomId, playerName);
+    document.getElementById('overlay-status').textContent = '🔗 Connecting...';
   } catch (err) {
-    console.error(err);
     document.getElementById('overlay-status').textContent = '❌ Error: ' + err.message;
   }
 });
@@ -1384,12 +1468,13 @@ document.getElementById('btn-join-room').addEventListener('click', async () => {
 document.getElementById('btn-copy-room').addEventListener('click', () => {
   const text = document.getElementById('room-id-display').textContent;
   navigator.clipboard.writeText(text).catch(() => {});
-  document.getElementById('overlay-status').textContent = '✅ Copied! Share this ID with your friend';
+  document.getElementById('overlay-status').textContent = '✅ Copied! Share this ID with friends';
 });
 
 document.getElementById('btn-start-game').addEventListener('click', () => {
+  game._createArena(game.selectedMap);
+  game.network.broadcast({ type: 'game_start', map: game.selectedMap });
   game.startGame();
-  game.network.send({ type: 'start' });
 });
 
 console.log('🚀 NEON ARENA loaded. Click "Host Game" or "Join Game" to begin.');
