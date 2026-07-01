@@ -1205,6 +1205,8 @@ class Game {
         this.killCamKillerId = data.shooterId;
         document.getElementById('death-screen').classList.add('show');
         document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
+        /* キルカメラ中はマウスを自由に */
+        if (document.pointerLockElement) document.exitPointerLock();
         const wpName = data.weapon ? WEAPONS[data.weapon]?.name || data.weapon : '';
         this.addKillFeed(`☠ Eliminated by ${data.shooterName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
       }
@@ -1451,6 +1453,7 @@ class Game {
                 this.addKillFeed(`🎯 Eliminated ${other.name} [${wp.name}]`);
                 this._trackKill(this.network.myId, id);
               }
+              p.destroy(); /* 命中後は弾を即座に破棄（連続ヒット防止） */
             }
           }
         });
@@ -1870,6 +1873,30 @@ document.getElementById('death-weapon-btns').addEventListener('click', (e) => {
   }
   document.querySelectorAll('#death-weapon-btns .map-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+});
+
+/* 待機室退出ボタン */
+document.getElementById('btn-leave-lobby').addEventListener('click', () => {
+  game.network.close();
+  game.connectionHandled = false;
+  game.players.forEach((p, id) => game.removePlayer(id));
+  game.projectiles.forEach(p => p.destroy());
+  game.projectiles = [];
+  game.gameStarted = false;
+  game.gameOver = false;
+  document.getElementById('result-screen').classList.remove('show');
+  document.getElementById('death-screen').classList.remove('show');
+  document.getElementById('overlay').classList.remove('hidden');
+  document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
+  document.getElementById('waiting-room').style.display = 'none';
+  document.getElementById('step-1').style.display = 'block';
+  document.getElementById('overlay-status').textContent = 'Click a button to start';
+  document.getElementById('match-btn').style.display = '';
+});
+
+/* ブラウザリロード/タブ閉じ時のクリーンアップ */
+window.addEventListener('beforeunload', () => {
+  game.network.close();
 });
 
 console.log('🚀 NEON ARENA loaded. Click "Host Game" or "Join Game" to begin.');
