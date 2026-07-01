@@ -682,6 +682,8 @@ textarea:focus {
     </div>
 
     <div id="step-host" class="step-section" style="display:none;">
+      <span class="step-label">▼ Your name</span>
+      <input id="host-name-input" type="text" placeholder="Your name" maxlength="12" value="Host" style="width:100%; padding:12px; background:rgba(10,10,18,0.8); border:1px solid rgba(0,240,255,0.2); border-radius:6px; color:#00f0ff; font-family:'Rajdhani',sans-serif; font-size:1em; text-align:center; letter-spacing:2px; outline:none; margin-bottom:10px;">
       <span class="step-label">▼ Share this room ID with your friend</span>
       <div id="room-id-display" style="font-family:'Orbitron',monospace; font-size:2em; letter-spacing:6px; color:#00f0ff; text-shadow:0 0 20px rgba(0,240,255,0.3); padding:16px; border:1px solid rgba(0,240,255,0.2); border-radius:8px; margin:8px 0; background:rgba(0,0,0,0.3);">NEON-XXXX</div>
       <button class="btn btn-primary btn-small" id="btn-copy-room">📋 Copy ID</button>
@@ -732,8 +734,9 @@ const THREE = window.THREE;
 const CONFIG = {
   playerSize: 1.0, playerHeight: 1.4, playerSpeed: 12,
   projectileRadius: 0.2, projectileSpeed: 45, projectileLifetime: 2.0,
-  maxHealth: 5, respawnDelay: 3, stateSendRate: 0.05,
+  maxHealth: 10, respawnDelay: 3, stateSendRate: 0.05,
   gameTimeLimit: 180, killCamDuration: 2,
+  dashSpeed: 35, dashDuration: 0.12, dashCooldown: 0.8,
   colors: { projectile: 0xffee00 },
 };
 
@@ -749,12 +752,12 @@ const WEAPONS = {
     spread: 0.06, color: 0xff6600, hitRadius: 0.7,
   },
   sniper: {
-    name: 'SNIPER', damage: 3, fireRate: 1.0,
+    name: 'SNIPER', damage: 2, fireRate: 1.0,
     projSpeed: 90, projLifetime: 2.0, projRadius: 0.3,
     spread: 0, color: 0x00ffff, hitRadius: 0.9,
   },
   rpg: {
-    name: 'RPG', damage: 3, fireRate: 1.2,
+    name: 'RPG', damage: 2, fireRate: 1.2,
     projSpeed: 18, projLifetime: 3.0, projRadius: 0.4,
     spread: 0, color: 0xff2200, hitRadius: 2.5,
     explosive: true,
@@ -1191,7 +1194,7 @@ class Game {
     document.addEventListener('mousemove', (e) => { if (this.pointerLocked) this.mouseDelta += e.movementX; });
     document.addEventListener('keydown', (e) => {
       this.keys[e.key.toLowerCase()] = true;
-      if (this.gameStarted && !this.gameOver) this._handleWeaponKey(e.key);
+      this._handleWeaponKey(e.key);
     });
     document.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
     this.renderer.domElement.addEventListener('mousedown', (e) => {
@@ -1389,6 +1392,9 @@ class Game {
     this.scoreboard.clear();
     this.killCamTimer = 0;
     this.killCamKillerId = null;
+    this.mouseDown = false;
+    this.dashTimer = 0;
+    this.dashCooldown = 0;
     this.network.sendTimer = CONFIG.stateSendRate;
     document.getElementById('result-screen').classList.remove('show');
     document.getElementById('death-screen').classList.remove('show');
@@ -1397,7 +1403,6 @@ class Game {
     this.addKillFeed('⚔ GAME START!');
     this.updateTimerUI();
     this.updateWeaponUI();
-    if (this.localPlayer) { this.localPlayer.weapon = 'pistol'; this.localPlayer.lastFireTime = 0; }
     if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
   }
 
@@ -1480,7 +1485,19 @@ class Game {
     const colorIdx = this.players.size % PLAYER_COLORS.length;
     const color = PLAYER_COLORS[colorIdx];
     const name = data.name || 'Player';
+    const joiningMidGame = this.gameStarted && !this.gameOver;
     this.addPlayer(peerId, color, name);
+    if (joiningMidGame) {
+      const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 3;
+      const p = this.players.get(peerId);
+      if (p) {
+        p.position.set((Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2);
+        p.targetPosition.copy(p.position);
+        p.health = CONFIG.maxHealth;
+        p.alive = true;
+        p.updateMesh();
+      }
+    }
     this.network.connected = true;
     if (!this.connectionHandled) {
       this.connectionHandled = true;
@@ -1492,6 +1509,8 @@ class Game {
       players: Array.from(this.players.entries()).map(([id, p]) => ({ id, name: p.name, color: p.color })),
       yourId: peerId,
       map: this.selectedMap,
+      gameStarted: this.gameStarted,
+      gameTimer: this.gameTimer,
     });
     this.network.broadcast({ type: 'player_joined', id: peerId, name, color }, conn);
     this.updatePlayerListUI();
@@ -1506,9 +1525,25 @@ class Game {
     });
     this.localId = data.yourId;
     this.selectedMap = data.map || 'grid';
-    this.showWaitingRoom();
-    if (data.map) {
-      document.getElementById('guest-map-name').textContent = (MAPS[data.map] || MAPS.grid).name;
+    if (data.gameStarted) {
+      this._createArena(this.selectedMap);
+      this.gameStarted = true;
+      this.gameOver = false;
+      this.gameTimer = data.gameTimer || CONFIG.gameTimeLimit;
+      this.network.sendTimer = CONFIG.stateSendRate;
+      document.getElementById('overlay').classList.add('hidden');
+      document.getElementById('instructions').classList.remove('hidden');
+      document.getElementById('result-screen').classList.remove('show');
+      document.getElementById('death-screen').classList.remove('show');
+      this.updateTimerUI();
+      this.updateWeaponUI();
+      this.addKillFeed('⚔ Joined game in progress');
+      if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
+    } else {
+      this.showWaitingRoom();
+      if (data.map) {
+        document.getElementById('guest-map-name').textContent = (MAPS[data.map] || MAPS.grid).name;
+      }
     }
   }
 
@@ -1617,6 +1652,7 @@ class Game {
     const wp = map[key];
     if (!wp || !this.localPlayer) return;
     if (this.localPlayer.weapon === wp) return;
+    if (this.gameStarted && this.localPlayer.alive && !this.gameOver) return;
     this.localPlayer.weapon = wp;
     this.localPlayer.lastFireTime = 0;
     this.updateWeaponUI();
@@ -1640,6 +1676,8 @@ class Game {
       if (this.keys['a']) mx -= 1;
       if (this.keys['d']) mx += 1;
 
+      this.dashCooldown = Math.max(0, this.dashCooldown - dt);
+
       if (mx !== 0 || mz !== 0) {
         const len = Math.sqrt(mx * mx + mz * mz);
         mx /= len; mz /= len;
@@ -1647,7 +1685,21 @@ class Game {
         const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
         _v3.copy(fwd).multiplyScalar(-mz);
         _v3b.copy(right).multiplyScalar(mx);
-        _v3.add(_v3b).normalize().multiplyScalar(CONFIG.playerSpeed * dt);
+        _v3.add(_v3b).normalize();
+
+        if (this.keys['shift'] && this.dashCooldown <= 0 && this.dashTimer <= 0) {
+          this.dashTimer = CONFIG.dashDuration;
+          this.dashCooldown = CONFIG.dashCooldown;
+        }
+
+        let speed = CONFIG.playerSpeed;
+        if (this.dashTimer > 0) {
+          speed = CONFIG.dashSpeed;
+          this.dashTimer -= dt;
+          if (this.dashTimer <= 0) this.dashTimer = 0;
+        }
+
+        _v3.multiplyScalar(speed * dt);
         lp.position.x += _v3.x;
         lp.position.z += _v3.z;
         const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 0.8;
@@ -1691,7 +1743,9 @@ class Game {
       if (this.killCamTimer <= 0) {
         this.killCamTimer = 0;
         this.killCamKillerId = null;
-        this.mouseDown = false;
+    this.mouseDown = false;
+    this.dashTimer = 0;
+    this.dashCooldown = 0;
         this.respawnTimer = CONFIG.respawnDelay;
         document.getElementById('death-screen').classList.add('show');
         document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
@@ -2014,7 +2068,8 @@ document.getElementById('btn-host').addEventListener('click', async () => {
   try {
     const roomId = await game.network.createRoom();
     game.localId = roomId;
-    game.addPlayer(roomId, PLAYER_COLORS[0], 'Host');
+    const hostName = document.getElementById('host-name-input').value.trim() || 'Host';
+    game.addPlayer(roomId, PLAYER_COLORS[0], hostName);
     document.getElementById('room-id-display').textContent = roomId;
     document.getElementById('overlay-status').textContent = 'Share this room ID with friends';
     document.getElementById('step-host-status').textContent = 'Waiting for players to join...';
@@ -2070,10 +2125,21 @@ document.getElementById('btn-start-game').addEventListener('click', () => {
   game.startGame();
 });
 
+document.getElementById('host-name-input').addEventListener('input', () => {
+  const p = game.players.get(game.localId);
+  if (p) {
+    p.name = document.getElementById('host-name-input').value.trim() || 'Host';
+    game.updatePlayerListUI();
+  }
+});
+
 document.getElementById('btn-back-lobby').addEventListener('click', () => {
   document.getElementById('result-screen').classList.remove('show');
   game.gameStarted = false;
   game.gameOver = false;
+  game.mouseDown = false;
+  game.dashTimer = 0;
+  game.dashCooldown = 0;
   game.players.forEach(p => { p.alive = true; p.health = CONFIG.maxHealth; p.updateMesh(); });
   game.projectiles.forEach(p => p.destroy());
   game.projectiles = [];
@@ -2081,10 +2147,15 @@ document.getElementById('btn-back-lobby').addEventListener('click', () => {
   document.getElementById('instructions').classList.add('hidden');
   document.getElementById('death-screen').classList.remove('show');
   document.getElementById('timer-display').textContent = '--:--';
+  game.updatePlayerListUI();
   if (game.network.isHost) {
+    const name = document.getElementById('host-name-input').value.trim() || 'Host';
+    const me = game.players.get(game.localId);
+    if (me) me.name = name;
     document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
     document.getElementById('waiting-room').style.display = 'block';
     document.getElementById('overlay-status').textContent = 'Select map and press START';
+    game.updatePlayerListUI();
   } else {
     document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
     document.getElementById('waiting-room').style.display = 'block';
