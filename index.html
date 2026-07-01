@@ -212,6 +212,47 @@ textarea:focus {
   box-shadow: 0 0 20px rgba(255, 0, 68, 0.5);
 }
 
+#weapon-bar {
+  position: fixed;
+  bottom: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+}
+.weapon-slot {
+  padding: 6px 14px;
+  border: 1px solid rgba(0,240,255,0.15);
+  border-radius: 6px;
+  background: rgba(10,10,18,0.85);
+  color: #555577;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.7em;
+  letter-spacing: 1px;
+  text-align: center;
+  transition: all 0.3s;
+  backdrop-filter: blur(4px);
+  min-width: 64px;
+}
+.weapon-slot .w-key {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.65em;
+  color: #444466;
+  display: block;
+  margin-bottom: 1px;
+}
+.weapon-slot.active {
+  border-color: #00f0ff;
+  color: #00f0ff;
+  box-shadow: 0 0 15px rgba(0,240,255,0.2);
+  background: rgba(0,240,255,0.08);
+}
+.weapon-slot.active .w-key {
+  color: #00f0ff;
+}
+
 #health-hearts {
   display: flex;
   gap: 4px;
@@ -592,6 +633,13 @@ textarea:focus {
   </div>
 </div>
 
+<div id="weapon-bar">
+  <div class="weapon-slot active" data-weapon="pistol"><span class="w-key">1</span>PISTOL</div>
+  <div class="weapon-slot" data-weapon="assault"><span class="w-key">2</span>ASSAULT</div>
+  <div class="weapon-slot" data-weapon="sniper"><span class="w-key">3</span>SNIPER</div>
+  <div class="weapon-slot" data-weapon="rpg"><span class="w-key">4</span>RPG</div>
+</div>
+
 <div id="score-display">
   <div class="score-label">KILLS</div>
   <div class="score-val" id="kill-count">0</div>
@@ -687,6 +735,30 @@ const CONFIG = {
   maxHealth: 5, respawnDelay: 3, stateSendRate: 0.05,
   gameTimeLimit: 180, killCamDuration: 2,
   colors: { projectile: 0xffee00 },
+};
+
+const WEAPONS = {
+  pistol: {
+    name: 'PISTOL', damage: 1, fireRate: 0.25,
+    projSpeed: 50, projLifetime: 1.5, projRadius: 0.2,
+    spread: 0, color: 0xffee00, hitRadius: 0.8,
+  },
+  assault: {
+    name: 'ASSAULT', damage: 1, fireRate: 0.08,
+    projSpeed: 55, projLifetime: 1.5, projRadius: 0.15,
+    spread: 0.06, color: 0xff6600, hitRadius: 0.7,
+  },
+  sniper: {
+    name: 'SNIPER', damage: 3, fireRate: 1.0,
+    projSpeed: 90, projLifetime: 2.0, projRadius: 0.3,
+    spread: 0, color: 0x00ffff, hitRadius: 0.9,
+  },
+  rpg: {
+    name: 'RPG', damage: 3, fireRate: 1.2,
+    projSpeed: 18, projLifetime: 3.0, projRadius: 0.4,
+    spread: 0, color: 0xff2200, hitRadius: 2.5,
+    explosive: true,
+  },
 };
 
 const PLAYER_COLORS = [
@@ -805,16 +877,18 @@ const _v3b = new THREE.Vector3();
 // ===== Projectile =====
 
 class Projectile {
-  constructor(scene, origin, dir, ownerId, id, color) {
+  constructor(scene, origin, dir, ownerId, id, color, weapon) {
     this.scene = scene; this.ownerId = ownerId; this.id = id;
-    this.alive = true; this.age = 0; this.color = color || CONFIG.colors.projectile;
-    const r = CONFIG.projectileRadius;
+    this.weapon = weapon || 'pistol';
+    this.wp = WEAPONS[this.weapon] || WEAPONS.pistol;
+    this.alive = true; this.age = 0; this.color = this.wp.color;
+    const r = this.wp.projRadius;
     const geo = new THREE.SphereGeometry(r * 1.5, 8, 8);
     const mat = new THREE.MeshBasicMaterial({ color: this.color });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.copy(origin); this.mesh.position.y += CONFIG.playerHeight * 0.6;
     this.scene.add(this.mesh);
-    this.velocity = dir.clone().multiplyScalar(CONFIG.projectileSpeed);
+    this.velocity = dir.clone().multiplyScalar(this.wp.projSpeed);
     this.velocity.y = 0;
     const ggeo = new THREE.SphereGeometry(r * 3, 8, 8);
     const gmat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.25 });
@@ -822,11 +896,12 @@ class Projectile {
     this.glow.position.copy(this.mesh.position);
     this.scene.add(this.glow);
     this.trail = []; this.trailTimer = 0;
+    this.exploded = false;
   }
   update(dt) {
     if (!this.alive) return;
     this.age += dt;
-    if (this.age > CONFIG.projectileLifetime) { this.destroy(); return; }
+    if (this.age > this.wp.projLifetime) { this.destroy(); return; }
     this.mesh.position.x += this.velocity.x * dt;
     this.mesh.position.z += this.velocity.z * dt;
     const half = 30;
@@ -846,7 +921,7 @@ class Projectile {
     });
   }
   _spawnTrail() {
-    const r = CONFIG.projectileRadius;
+    const r = this.wp.projRadius;
     const geo = new THREE.SphereGeometry(r, 4, 4);
     const mat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.4 });
     const m = new THREE.Mesh(geo, mat);
@@ -854,7 +929,31 @@ class Projectile {
     this.scene.add(m);
     this.trail.push({ mesh: m, life: 0 });
   }
+  explosionFX() {
+    if (this.exploded) return;
+    this.exploded = true;
+    const r = this.wp.projRadius * 8;
+    const geo = new THREE.SphereGeometry(r, 12, 12);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xff4400, transparent: true, opacity: 0.6,
+    });
+    const boom = new THREE.Mesh(geo, mat);
+    boom.position.copy(this.mesh.position);
+    this.scene.add(boom);
+    const start = performance.now();
+    const anim = () => {
+      const t = (performance.now() - start) / 400;
+      if (t >= 1) { this.scene.remove(boom); boom.geometry.dispose(); boom.material.dispose(); return; }
+      const s = 1 + t * 3;
+      boom.scale.setScalar(s);
+      boom.material.opacity = 0.6 * (1 - t);
+      requestAnimationFrame(anim);
+    };
+    anim();
+  }
   destroy() {
+    if (!this.alive) return;
+    if (this.wp.explosive) this.explosionFX();
     this.alive = false;
     this.scene.remove(this.mesh); this.scene.remove(this.glow);
     this.mesh.geometry.dispose(); this.mesh.material.dispose();
@@ -872,6 +971,8 @@ class Player {
     this.health = CONFIG.maxHealth; this.maxHealth = CONFIG.maxHealth;
     this.alive = true; this.name = '';
     this.kills = 0; this.deaths = 0;
+    this.weapon = 'pistol';
+    this.lastFireTime = 0;
 
     const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
     const mat = new THREE.MeshStandardMaterial({
@@ -1088,13 +1189,19 @@ class Game {
       document.getElementById('instructions').classList.toggle('hidden', !this.pointerLocked);
     });
     document.addEventListener('mousemove', (e) => { if (this.pointerLocked) this.mouseDelta += e.movementX; });
-    document.addEventListener('keydown', (e) => { this.keys[e.key.toLowerCase()] = true; });
+    document.addEventListener('keydown', (e) => {
+      this.keys[e.key.toLowerCase()] = true;
+      if (this.gameStarted && !this.gameOver) this._handleWeaponKey(e.key);
+    });
     document.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
+    this.renderer.domElement.addEventListener('mousedown', (e) => {
+      if (e.button === 0) this.mouseDown = true;
+    });
+    this.renderer.domElement.addEventListener('mouseup', (e) => {
+      if (e.button === 0) this.mouseDown = false;
+    });
     this.renderer.domElement.addEventListener('click', () => {
       if (this.network.connected && !this.pointerLocked) this.renderer.domElement.requestPointerLock();
-    });
-    this.renderer.domElement.addEventListener('mousedown', (e) => {
-      if (e.button === 0 && this.pointerLocked && this.localPlayer && this.localPlayer.alive) this.shoot();
     });
     this._setupLights();
     this._createArena(this.selectedMap);
@@ -1289,6 +1396,8 @@ class Game {
     document.getElementById('instructions').classList.remove('hidden');
     this.addKillFeed('⚔ GAME START!');
     this.updateTimerUI();
+    this.updateWeaponUI();
+    if (this.localPlayer) { this.localPlayer.weapon = 'pistol'; this.localPlayer.lastFireTime = 0; }
     if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
   }
 
@@ -1310,13 +1419,19 @@ class Game {
   shoot() {
     const lp = this.localPlayer;
     if (!lp || !lp.alive) return;
+    const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
     const dir = new THREE.Vector3(0, 0, -1);
     dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
     dir.y = 0; dir.normalize();
+    if (wp.spread > 0) {
+      dir.x += (Math.random() - 0.5) * wp.spread;
+      dir.z += (Math.random() - 0.5) * wp.spread;
+      dir.normalize();
+    }
     const pid = this.network.myId + '_' + (this.projIdCounter++);
-    const proj = new Projectile(this.scene, lp.position, dir, this.network.myId, pid, lp.color);
+    const proj = new Projectile(this.scene, lp.position, dir, this.network.myId, pid, lp.color, lp.weapon);
     this.projectiles.push(proj);
-    const msg = { type: 'shoot', ownerId: this.network.myId, pos: { x: lp.position.x, y: 0, z: lp.position.z }, dir: { x: dir.x, y: 0, z: dir.z }, id: pid, color: lp.color };
+    const msg = { type: 'shoot', ownerId: this.network.myId, pos: { x: lp.position.x, y: 0, z: lp.position.z }, dir: { x: dir.x, y: 0, z: dir.z }, id: pid, color: lp.color, weapon: lp.weapon };
     if (this.network.isHost) this.network.broadcast(msg);
     else this.network.send(msg);
   }
@@ -1422,7 +1537,7 @@ class Game {
   _handleRemoteShoot(data) {
     const origin = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
     const dir = new THREE.Vector3(data.dir.x, data.dir.y, data.dir.z);
-    const proj = new Projectile(this.scene, origin, dir, data.ownerId, data.id, data.color);
+    const proj = new Projectile(this.scene, origin, dir, data.ownerId, data.id, data.color, data.weapon);
     proj.isRemote = true;
     this.projectiles.push(proj);
     if (this.network.isHost) this.network.broadcast(data, this._findConn(data.ownerId));
@@ -1437,7 +1552,8 @@ class Game {
         document.getElementById('death-count').textContent = this.deaths;
         this.killCamTimer = CONFIG.killCamDuration;
         this.killCamKillerId = data.shooterId;
-        this.addKillFeed(`☠ Eliminated by ${data.shooterName || 'opponent'}`);
+        const wpName = data.weapon ? WEAPONS[data.weapon]?.name || data.weapon : '';
+        this.addKillFeed(`☠ Eliminated by ${data.shooterName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
       }
     }
     if (data.lethal) {
@@ -1445,7 +1561,8 @@ class Game {
     }
     const shooter = this.players.get(data.shooterId);
     if (data.lethal && data.targetId !== this.network.myId) {
-      this.addKillFeed(`🎯 ${data.shooterName || 'Someone'} eliminated ${data.targetName || 'opponent'}`);
+      const wpName = data.weapon ? WEAPONS[data.weapon]?.name || data.weapon : '';
+      this.addKillFeed(`🎯 ${data.shooterName || 'Someone'} eliminated ${data.targetName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
     }
     if (this.network.isHost) this.network.broadcast(data, this._findConn(data.shooterId));
   }
@@ -1495,6 +1612,23 @@ class Game {
     bar.classList.toggle('low', pct <= 30);
   }
 
+  _handleWeaponKey(key) {
+    const map = { '1': 'pistol', '2': 'assault', '3': 'sniper', '4': 'rpg' };
+    const wp = map[key];
+    if (!wp || !this.localPlayer) return;
+    if (this.localPlayer.weapon === wp) return;
+    this.localPlayer.weapon = wp;
+    this.localPlayer.lastFireTime = 0;
+    this.updateWeaponUI();
+  }
+
+  updateWeaponUI() {
+    const wp = this.localPlayer ? this.localPlayer.weapon : 'pistol';
+    document.querySelectorAll('.weapon-slot').forEach(el => {
+      el.classList.toggle('active', el.dataset.weapon === wp);
+    });
+  }
+
   update(dt) {
     if (!this.gameStarted || this.gameOver) return;
     const lp = this.localPlayer;
@@ -1528,12 +1662,26 @@ class Game {
         lp.targetRotation = lp.rotation;
         this.mouseDelta = 0;
       }
+
+      const wp = WEAPONS[lp.weapon];
+      if (this.mouseDown && this.pointerLocked) {
+        const now = performance.now();
+        if (now - lp.lastFireTime > wp.fireRate * 1000) {
+          lp.lastFireTime = now;
+          this.shoot();
+        }
+      }
     }
 
     this.players.forEach(p => { if (p.id !== this.network.myId) p.lerpToTarget(dt); p.update(dt); });
 
     this.projectiles = this.projectiles.filter(p => p.alive);
-    this.projectiles.forEach(p => p.update(dt));
+    this.projectiles.forEach(p => {
+      if (p.alive && p.wp.explosive && p.age + dt * 1.1 >= p.wp.projLifetime && p.ownerId === this.network.myId) {
+        this._rpgExplosion(p);
+      }
+      p.update(dt);
+    });
     this._checkProjectileWalls();
 
     this._checkProjectileHits();
@@ -1543,6 +1691,7 @@ class Game {
       if (this.killCamTimer <= 0) {
         this.killCamTimer = 0;
         this.killCamKillerId = null;
+        this.mouseDown = false;
         this.respawnTimer = CONFIG.respawnDelay;
         document.getElementById('death-screen').classList.add('show');
         document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
@@ -1575,35 +1724,57 @@ class Game {
     if (!lp) return;
     for (const p of this.projectiles) {
       if (!p.alive) continue;
+      const wp = p.wp;
+      const hitDist = CONFIG.playerSize * 0.5 + wp.hitRadius;
       if (p.ownerId === this.network.myId) {
+        let rpgHitPlayers = [];
         this.players.forEach((other, id) => {
           if (id === this.network.myId || !other.alive) return;
           const dist = p.mesh.position.distanceTo(new THREE.Vector3(other.position.x, CONFIG.playerHeight / 2, other.position.z));
-          if (dist < CONFIG.playerSize * 0.8) {
-            p.destroy();
-            const killed = other.takeDamage(1);
-            const hitMsg = {
-              type: 'hit', shooterId: this.network.myId, targetId: id,
-              damage: 1, shooterName: lp.name, targetName: other.name,
-              lethal: killed,
-            };
-            if (this.network.isHost) {
-              this.network.broadcast(hitMsg);
+          if (dist < hitDist) {
+            if (wp.explosive) {
+              rpgHitPlayers.push({ id, other, dist });
             } else {
-              this.network.send(hitMsg);
-            }
-            if (killed) {
-              this.kills++;
-              document.getElementById('kill-count').textContent = this.kills;
-              this.addKillFeed(`🎯 Eliminated ${other.name}`);
-              this._trackKill(this.network.myId, id);
+              const killed = other.takeDamage(wp.damage);
+              const hitMsg = {
+                type: 'hit', shooterId: this.network.myId, targetId: id,
+                damage: wp.damage, shooterName: lp.name, targetName: other.name,
+                lethal: killed, weapon: lp.weapon,
+              };
+              if (this.network.isHost) this.network.broadcast(hitMsg);
+              else this.network.send(hitMsg);
+              if (killed) {
+                this.kills++;
+                document.getElementById('kill-count').textContent = this.kills;
+                this.addKillFeed(`🎯 Eliminated ${other.name} [${wp.name}]`);
+                this._trackKill(this.network.myId, id);
+              }
             }
           }
         });
+        if (wp.explosive && rpgHitPlayers.length > 0) {
+          p.destroy();
+          rpgHitPlayers.forEach(({ id, other }) => {
+            const killed = other.takeDamage(wp.damage);
+            const hitMsg = {
+              type: 'hit', shooterId: this.network.myId, targetId: id,
+              damage: wp.damage, shooterName: lp.name, targetName: other.name,
+              lethal: killed, weapon: lp.weapon,
+            };
+            if (this.network.isHost) this.network.broadcast(hitMsg);
+            else this.network.send(hitMsg);
+            if (killed) {
+              this.kills++;
+              document.getElementById('kill-count').textContent = this.kills;
+              this.addKillFeed(`🎯 Eliminated ${other.name} [${wp.name}]`);
+              this._trackKill(this.network.myId, id);
+            }
+          });
+        }
       } else {
         if (lp && lp.alive) {
           const dist = p.mesh.position.distanceTo(new THREE.Vector3(lp.position.x, CONFIG.playerHeight / 2, lp.position.z));
-          if (dist < CONFIG.playerSize * 0.8) p.destroy();
+          if (dist < hitDist) p.destroy();
         }
       }
     }
@@ -1617,6 +1788,7 @@ class Game {
     lp.targetPosition.copy(lp.position);
     lp.health = CONFIG.maxHealth;
     lp.alive = true;
+    this.mouseDown = false;
     this.updateHealthUI();
     this.addKillFeed('🔄 Respawned');
     const msg = { type: 'respawn', id: this.network.myId, pos: { x: lp.position.x, y: 0, z: lp.position.z } };
@@ -1699,6 +1871,7 @@ class Game {
     const allWalls = (map.walls || []).concat(perimeterWalls);
     for (const p of this.projectiles) {
       if (!p.alive) continue;
+      let hitWall = false;
       for (const w of allWalls) {
         const wx = w.p[0], wz = w.p[2];
         const wHalfX = w.s[0] / 2 + CONFIG.projectileRadius;
@@ -1706,11 +1879,43 @@ class Game {
         const dx = p.mesh.position.x - wx;
         const dz = p.mesh.position.z - wz;
         if (Math.abs(dx) < wHalfX && Math.abs(dz) < wHalfZ) {
+          if (p.wp.explosive && p.ownerId === this.network.myId) {
+            this._rpgExplosion(p);
+          }
           p.destroy();
+          hitWall = true;
           break;
         }
       }
+      if (hitWall) continue;
     }
+  }
+
+  _rpgExplosion(proj) {
+    const lp = this.localPlayer;
+    if (!lp) return;
+    const wp = proj.wp;
+    const rpgPos = proj.mesh.position;
+    this.players.forEach((other, id) => {
+      if (id === this.network.myId || !other.alive) return;
+      const dist = rpgPos.distanceTo(new THREE.Vector3(other.position.x, CONFIG.playerHeight / 2, other.position.z));
+      if (dist < CONFIG.playerSize * 0.5 + wp.hitRadius) {
+        const killed = other.takeDamage(wp.damage);
+        const hitMsg = {
+          type: 'hit', shooterId: this.network.myId, targetId: id,
+          damage: wp.damage, shooterName: lp.name, targetName: other.name,
+          lethal: killed, weapon: proj.weapon,
+        };
+        if (this.network.isHost) this.network.broadcast(hitMsg);
+        else this.network.send(hitMsg);
+        if (killed) {
+          this.kills++;
+          document.getElementById('kill-count').textContent = this.kills;
+          this.addKillFeed(`💥 Eliminated ${other.name} [${wp.name}]`);
+          this._trackKill(this.network.myId, id);
+        }
+      }
+    });
   }
 
   updateTimerUI() {
