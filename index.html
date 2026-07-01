@@ -428,44 +428,30 @@ textarea:focus {
     <div class="subtitle">Real-Time PvP</div>
 
     <div id="step-1" class="step-section">
-      <span class="step-label">▼ Step 1: Host or Join</span>
       <div class="btn-group">
         <button class="btn btn-primary" id="btn-host">🚀 Host Game</button>
         <button class="btn btn-secondary" id="btn-join">⚡ Join Game</button>
       </div>
     </div>
 
-    <div id="step-2" class="step-section" style="display:none;">
-      <span class="step-label" id="step-2-label">▼ Copy this invite code &amp; send to friend</span>
-      <textarea id="signaling-output" readonly></textarea>
+    <div id="step-host" class="step-section" style="display:none;">
+      <span class="step-label">▼ Share this room ID with your friend</span>
+      <div id="room-id-display" style="font-family:'Orbitron',monospace; font-size:2em; letter-spacing:6px; color:#00f0ff; text-shadow:0 0 20px rgba(0,240,255,0.3); padding:16px; border:1px solid rgba(0,240,255,0.2); border-radius:8px; margin:8px 0; background:rgba(0,0,0,0.3);">NEON-XXXX</div>
+      <button class="btn btn-primary btn-small" id="btn-copy-room">📋 Copy ID</button>
+      <div class="status-text" id="step-host-status">Waiting for opponent to join...</div>
       <div style="margin-top:8px;">
-        <button class="btn btn-primary btn-small" id="btn-copy">📋 Copy</button>
+        <button class="btn btn-secondary btn-small" id="btn-host-back">← Back</button>
       </div>
-      <div class="status-text" id="step-2-status">Waiting for peer to connect...</div>
     </div>
 
     <div id="step-join" class="step-section" style="display:none;">
-      <span class="step-label">▼ Paste invite code from host</span>
-      <textarea id="signaling-input" placeholder="Paste invite code here..."></textarea>
+      <span class="step-label">▼ Enter the host's room ID</span>
+      <input id="room-id-input" type="text" placeholder="e.g. NEON-A7X3" style="width:100%; padding:12px; background:rgba(10,10,18,0.8); border:1px solid rgba(0,240,255,0.2); border-radius:6px; color:#00f0ff; font-family:'Orbitron',monospace; font-size:1.2em; text-align:center; letter-spacing:4px; outline:none;">
       <div style="margin-top:8px;">
-        <button class="btn btn-secondary btn-small" id="btn-submit-offer">Join Arena</button>
+        <button class="btn btn-secondary btn-small" id="btn-join-room">⚡ Join Arena</button>
       </div>
-    </div>
-
-    <div id="step-3" class="step-section" style="display:none;">
-      <span class="step-label">▼ Send this answer code back to the host</span>
-      <textarea id="signaling-answer" readonly></textarea>
       <div style="margin-top:8px;">
-        <button class="btn btn-secondary btn-small" id="btn-copy-answer">📋 Copy</button>
-      </div>
-      <div class="status-text" id="step-3-status">Waiting for host to complete connection...</div>
-    </div>
-
-    <div id="step-host-final" class="step-section" style="display:none;">
-      <span class="step-label">▼ Paste the answer code from your friend</span>
-      <textarea id="signaling-answer-input" placeholder="Paste answer code here..."></textarea>
-      <div style="margin-top:8px;">
-        <button class="btn btn-primary btn-small" id="btn-finalize">🔗 Connect</button>
+        <button class="btn btn-primary btn-small" id="btn-join-back">← Back</button>
       </div>
     </div>
 
@@ -485,6 +471,7 @@ textarea:focus {
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
 <script>
 const THREE = window.THREE;
@@ -738,133 +725,67 @@ class Player {
 class NetworkManager {
   constructor(game) {
     this.game = game;
-    this.pc = null;
-    this.dc = null;
+    this.peer = null;
+    this.conn = null;
     this.connected = false;
-    this.remotePlayer = null;
-    this.messageQueue = [];
-    this.pendingCandidates = [];
-    this.connectionType = null;
-    this.onStateChange = null;
-    this.pingStart = 0;
-    this.latency = 0;
-    this.sendTimer = 0;
     this.peerConnected = false;
+    this.connectionType = null;
+    this.sendTimer = 0;
+    this.latency = 0;
+    this.roomId = null;
   }
 
-  async createOffer() {
+  async createRoom() {
     this.connectionType = 'host';
-    this.pc = this._createPC();
-    this.dc = this.pc.createDataChannel('game', { ordered: true });
-    this._setupDataChannel();
+    const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    this.roomId = 'NEON-' + suffix;
 
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
-    await this._waitForIceGathering();
-
-    this.game.setState('waiting_peer');
-    return btoa(JSON.stringify(this.pc.localDescription));
-  }
-
-  async createAnswer(offerB64) {
-    this.connectionType = 'join';
-    const offerDesc = JSON.parse(atob(offerB64));
-    this.pc = this._createPC();
-    this.pc.ondatachannel = (e) => {
-      this.dc = e.channel;
-      this._setupDataChannel();
-    };
-
-    await this.pc.setRemoteDescription(new RTCSessionDescription(offerDesc));
-    const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
-    await this._waitForIceGathering();
-
-    this.game.setState('waiting_finalize');
-    return btoa(JSON.stringify(this.pc.localDescription));
-  }
-
-  async setRemoteAnswer(answerB64) {
-    const answerDesc = JSON.parse(atob(answerB64));
-    await this.pc.setRemoteDescription(new RTCSessionDescription(answerDesc));
-  }
-
-  _createPC() {
-    const config = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-      ],
-    };
-    const pc = new RTCPeerConnection(config);
-
-    pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        this.pendingCandidates.push(e.candidate);
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        this.connected = true;
-        this.peerConnected = true;
-        this.game.onConnected();
-      } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-        this.connected = false;
-        this.peerConnected = false;
-        this.game.onDisconnected();
-      }
-    };
-
-    return pc;
-  }
-
-  async _waitForIceGathering() {
-    if (this.pc.iceGatheringState === 'complete') return;
-    return new Promise(resolve => {
-      const handler = () => {
-        if (this.pc.iceGatheringState === 'complete') {
-          this.pc.removeEventListener('icegatheringstatechange', handler);
-          resolve();
-        }
-      };
-      this.pc.addEventListener('icegatheringstatechange', handler);
-      if (this.pc.iceGatheringState === 'complete') {
-        this.pc.removeEventListener('icegatheringstatechange', handler);
-        resolve();
-      }
+    return new Promise((resolve, reject) => {
+      this.peer = new Peer(this.roomId, { debug: 0 });
+      this.peer.on('open', () => resolve(this.roomId));
+      this.peer.on('connection', (conn) => {
+        this.conn = conn;
+        this._setupConnection();
+      });
+      this.peer.on('error', (err) => reject(err));
     });
   }
 
-  _setupDataChannel() {
-    if (!this.dc) return;
-    this.dc.onopen = () => {
+  async joinRoom(roomId) {
+    this.connectionType = 'join';
+    this.roomId = roomId;
+
+    return new Promise((resolve, reject) => {
+      this.peer = new Peer(undefined, { debug: 0 });
+      this.peer.on('open', () => {
+        const conn = this.peer.connect(roomId, { reliable: true });
+        this.conn = conn;
+        this._setupConnection();
+        resolve();
+      });
+      this.peer.on('error', (err) => reject(err));
+    });
+  }
+
+  _setupConnection() {
+    this.conn.on('open', () => {
       this.connected = true;
       this.peerConnected = true;
       this.game.onConnected();
-    };
-    this.dc.onclose = () => {
+    });
+    this.conn.on('data', (data) => {
+      this.game.handleMessage(data);
+    });
+    this.conn.on('close', () => {
       this.connected = false;
       this.peerConnected = false;
       this.game.onDisconnected();
-    };
-    this.dc.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        this.game.handleMessage(msg);
-      } catch (err) {
-        console.error('msg parse error:', err);
-      }
-    };
+    });
   }
 
   send(data) {
-    if (this.dc && this.dc.readyState === 'open') {
-      try {
-        this.dc.send(JSON.stringify(data));
-      } catch (e) {
-        // ignore
-      }
+    if (this.conn && this.conn.open) {
+      this.conn.send(data);
     }
   }
 
@@ -887,8 +808,8 @@ class NetworkManager {
   }
 
   close() {
-    if (this.dc) { try { this.dc.close(); } catch(e) {} }
-    if (this.pc) { try { this.pc.close(); } catch(e) {} }
+    if (this.conn) this.conn.close();
+    if (this.peer) this.peer.destroy();
     this.connected = false;
     this.peerConnected = false;
   }
@@ -1409,93 +1330,61 @@ game.init();
 
 document.getElementById('btn-host').addEventListener('click', async () => {
   document.getElementById('step-1').style.display = 'none';
-  document.getElementById('step-2').style.display = 'block';
+  document.getElementById('step-host').style.display = 'block';
   document.getElementById('overlay-status').textContent = '⏳ Creating room...';
 
   try {
     game.spawnLocalPlayer();
-    const offer = await game.network.createOffer();
-    document.getElementById('signaling-output').value = offer;
-    document.getElementById('overlay-status').textContent = '📋 Copy the code above and send it to your friend';
-    document.getElementById('step-2-label').textContent = '▼ Copy this invite code & send to friend';
-    document.getElementById('step-2-status').textContent = 'Waiting for peer to submit answer...';
+    const roomId = await game.network.createRoom();
+    document.getElementById('room-id-display').textContent = roomId;
+    document.getElementById('overlay-status').textContent = 'Share this room ID with your friend';
+    document.getElementById('step-host-status').textContent = 'Waiting for opponent to join...';
   } catch (err) {
     console.error(err);
-    document.getElementById('overlay-status').textContent = '❌ Error creating room: ' + err.message;
+    document.getElementById('overlay-status').textContent = '❌ Error: ' + err.message;
   }
+});
+
+document.getElementById('btn-host-back').addEventListener('click', () => {
+  game.network.close();
+  game.connectionHandled = false;
+  document.getElementById('step-host').style.display = 'none';
+  document.getElementById('step-1').style.display = 'block';
+  document.getElementById('overlay-status').textContent = 'Click a button to start';
 });
 
 document.getElementById('btn-join').addEventListener('click', () => {
   document.getElementById('step-1').style.display = 'none';
   document.getElementById('step-join').style.display = 'block';
-  document.getElementById('overlay-status').textContent = '📝 Paste the invite code from the host';
+  document.getElementById('overlay-status').textContent = 'Enter the host\'s room ID';
 });
 
-document.getElementById('btn-submit-offer').addEventListener('click', async () => {
-  const offer = document.getElementById('signaling-input').value.trim();
-  if (!offer) return;
+document.getElementById('btn-join-back').addEventListener('click', () => {
+  document.getElementById('step-join').style.display = 'none';
+  document.getElementById('step-1').style.display = 'block';
+  document.getElementById('overlay-status').textContent = 'Click a button to start';
+});
 
+document.getElementById('btn-join-room').addEventListener('click', async () => {
+  let roomId = document.getElementById('room-id-input').value.trim().toUpperCase();
+  if (!roomId.startsWith('NEON-')) roomId = 'NEON-' + roomId;
+  if (roomId === 'NEON-') return;
   document.getElementById('overlay-status').textContent = '⏳ Joining room...';
 
   try {
     game.spawnLocalPlayer();
-    const answer = await game.network.createAnswer(offer);
-    document.getElementById('step-join').style.display = 'none';
-    document.getElementById('step-3').style.display = 'block';
-    document.getElementById('signaling-answer').value = answer;
-    document.getElementById('overlay-status').textContent = '📋 Copy the answer code and send it back to the host';
-    document.getElementById('step-3-status').textContent = 'Waiting for host to finalize...';
-  } catch (err) {
-    console.error(err);
-    document.getElementById('overlay-status').textContent = '❌ Error joining: ' + err.message;
-  }
-});
-
-document.getElementById('btn-copy').addEventListener('click', () => {
-  const ta = document.getElementById('signaling-output');
-  ta.select();
-  navigator.clipboard.writeText(ta.value).catch(() => {});
-  document.getElementById('overlay-status').textContent = '✅ Copied! Send this code to your friend';
-});
-
-document.getElementById('btn-copy-answer').addEventListener('click', () => {
-  const ta = document.getElementById('signaling-answer');
-  ta.select();
-  navigator.clipboard.writeText(ta.value).catch(() => {});
-  document.getElementById('overlay-status').textContent = '✅ Copied! Send this back to the host';
-});
-
-document.getElementById('btn-finalize').addEventListener('click', async () => {
-  document.getElementById('step-host-final').style.display = 'none';
-  const answer = document.getElementById('signaling-answer-input').value.trim();
-  if (!answer) return;
-
-  document.getElementById('overlay-status').textContent = '⏳ Connecting...';
-
-  try {
-    await game.network.setRemoteAnswer(answer);
+    await game.network.joinRoom(roomId);
     document.getElementById('overlay-status').textContent = '🔗 Connected!';
   } catch (err) {
     console.error(err);
-    document.getElementById('overlay-status').textContent = '❌ Connection error: ' + err.message;
+    document.getElementById('overlay-status').textContent = '❌ Error: ' + err.message;
   }
 });
 
-document.getElementById('signaling-output').addEventListener('click', function() { this.select(); });
-
-// Show host final step after host creates offer - need a way to trigger step-host-final visibility
-// We'll add a button or auto-show it
-// Actually let's add a "I have the answer code" button after step 2
-document.getElementById('step-2').insertAdjacentHTML('beforeend', `
-  <div style="margin-top:12px; border-top:1px solid rgba(0,240,255,0.1); padding-top:12px;">
-    <button class="btn btn-primary btn-small" id="btn-have-answer">🔑 I have the answer code</button>
-  </div>
-`);
-
-document.getElementById('btn-have-answer').addEventListener('click', () => {
-  document.getElementById('step-2').style.display = 'none';
-  document.getElementById('step-host-final').style.display = 'block';
-  document.getElementById('overlay-status').textContent = 'Paste the answer code from your friend';
+document.getElementById('btn-copy-room').addEventListener('click', () => {
+  const text = document.getElementById('room-id-display').textContent;
+  navigator.clipboard.writeText(text).catch(() => {});
+  document.getElementById('overlay-status').textContent = '✅ Copied! Share this ID with your friend';
 });
 
 document.getElementById('btn-start-game').addEventListener('click', () => {
