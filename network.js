@@ -1,0 +1,91 @@
+/* ============================================================
+   NEON ARENA - ネットワーク管理クラス
+   スター型PeerJSネットワークの接続管理、データ送受信を担当
+   ============================================================ */
+
+class NetworkManager {
+  constructor(game) {
+    this.game = game;
+    this.peer = null;
+    this.connections = [];
+    this.conn = null;
+    this.isHost = false;
+    this.roomId = null;
+    this.myId = null;
+    this.connected = false;
+    this.sendTimer = 0;
+  }
+  async createRoom() {
+    this.isHost = true;
+    const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    this.roomId = 'NEON-' + suffix;
+    return new Promise((resolve, reject) => {
+      this.peer = new Peer(this.roomId, { debug: 0 });
+      this.peer.on('open', () => { this.myId = this.roomId; resolve(this.roomId); });
+      this.peer.on('connection', (conn) => {
+        this.connections.push(conn);
+        this._setupConn(conn);
+      });
+      this.peer.on('error', (err) => reject(err));
+    });
+  }
+  async joinRoom(roomId, playerName) {
+    this.isHost = false;
+    this.roomId = roomId;
+    return new Promise((resolve, reject) => {
+      this.peer = new Peer(undefined, { debug: 0 });
+      this.peer.on('open', (id) => {
+        this.myId = id;
+        const conn = this.peer.connect(roomId, { reliable: true });
+        this.conn = conn;
+        this._setupConn(conn);
+        conn.on('open', () => {
+          conn.send({ type: 'join', name: playerName || 'Player' });
+          resolve();
+        });
+      });
+      this.peer.on('error', (err) => reject(err));
+    });
+  }
+  _setupConn(conn) {
+    conn.on('data', (data) => this.game.handleMessage(data, conn));
+    conn.on('close', () => {
+      if (this.isHost) {
+        const idx = this.connections.indexOf(conn);
+        if (idx >= 0) this.connections.splice(idx, 1);
+        this.game.onPlayerLeft(conn.peer);
+      } else {
+        this.connected = false;
+        this.game.onDisconnected();
+      }
+    });
+    if (!this.isHost) {
+      conn.on('open', () => { this.connected = true; });
+    }
+  }
+  send(data) { if (this.conn && this.conn.open) this.conn.send(data); }
+  broadcast(data, exclude) { this.connections.forEach(c => { if (c !== exclude && c.open) c.send(data); }); }
+  sendState(dt) {
+    if (!this.connected && !this.isHost) return;
+    this.sendTimer += dt;
+    if (this.sendTimer < CONFIG.stateSendRate) return;
+    this.sendTimer = 0;
+    const p = this.game.localPlayer;
+    if (!p || !p.scene) return;
+    const data = {
+      type: 'state',
+      id: this.myId,
+      pos: { x: p.position.x, y: p.position.y, z: p.position.z },
+      rot: p.rotation, health: p.health, alive: p.alive,
+    };
+    if (this.isHost) this.broadcast(data);
+    else this.send(data);
+  }
+  close() {
+    this.connections.forEach(c => c.close());
+    if (this.conn) this.conn.close();
+    if (this.peer) this.peer.destroy();
+    this.connections = [];
+    this.connected = false;
+  }
+}

@@ -1,592 +1,24 @@
 /* ============================================================
-   NEON ARENA - メインゲームスクリプト
-   三人称視点のオンラインFPSゲーム
-   Three.js r128 + PeerJS を使用
+   NEON ARENA - メインゲームクラス
+   ゲームの状態管理、プレイヤー操作、当たり判定、ネットワーク通信を統括
    ============================================================ */
-
-const THREE = window.THREE;
-
-/* === ゲーム設定 === */
-const CONFIG = {
-  playerSize: 1.0,       // プレイヤーの当たり判定サイズ
-  playerHeight: 1.4,     // プレイヤーの高さ
-  playerSpeed: 12,       // 移動速度
-  projectileRadius: 0.2, // 弾の半径（デフォルト）
-  projectileSpeed: 45,   // 弾の速度（デフォルト）
-  projectileLifetime: 2.0, // 弾の生存時間（デフォルト）
-  maxHealth: 100,        // 最大HP
-  respawnDelay: 3,       // リスポーン遅延時間（秒）
-  stateSendRate: 0.05,   // 状態同期の送信間隔（秒）
-  gameTimeLimit: 180,    // ゲーム制限時間（秒）
-  killCamDuration: 2,    // キルカメラの持続時間（秒）
-  dashSpeed: 35,         // ダッシュ時の速度
-  dashDuration: 0.12,    // ダッシュの持続時間（秒）
-  dashCooldown: 0.8,     // ダッシュのクールダウン（秒）
-  invincibleTime: 3,     // リスポーン後の無敵時間（秒）
-  colors: { projectile: 0xffee00 },
-};
-
-/* === 武器設定 ===
-   各武器のダメージ、連射速度、弾の速度、拡散、弾薬などを定義 */
-const WEAPONS = {
-  pistol: {
-    name: 'PISTOL', damage: 20, fireRate: 0.25,
-    projSpeed: 50, projLifetime: 1.5, projRadius: 0.2,
-    spread: 0, color: 0xffee00, hitRadius: 0.8,
-    maxAmmo: 10, reloadTime: 3,
-  },
-  assault: {
-    name: 'ASSAULT', damage: 15, fireRate: 0.08,
-    projSpeed: 55, projLifetime: 1.5, projRadius: 0.15,
-    spread: 0.06, color: 0xff6600, hitRadius: 0.7,
-    maxAmmo: 30, reloadTime: 3,
-  },
-  sniper: {
-    name: 'SNIPER', damage: 40, fireRate: 1.0,
-    projSpeed: 90, projLifetime: 2.0, projRadius: 0.3,
-    spread: 0, color: 0x00ffff, hitRadius: 0.9,
-    maxAmmo: 5, reloadTime: 3,
-  },
-  rpg: {
-    name: 'RPG', damage: 60, fireRate: 1.2,
-    projSpeed: 18, projLifetime: 3.0, projRadius: 0.4,
-    spread: 0, color: 0xff2200, hitRadius: 2.5,
-    explosive: true, // 爆発属性：範囲ダメージ
-    maxAmmo: 1, reloadTime: 3,
-  },
-  shotgun: {
-    name: 'SHOTGUN', damage: 4, fireRate: 0.6,
-    projSpeed: 50, projLifetime: 0.8, projRadius: 0.12,
-    spread: 0.18, color: 0xff6600, hitRadius: 0.3,
-    maxAmmo: 8, reloadTime: 2,
-    pellets: 6, // 同時発射数
-  },
-};
-
-/* === プレイヤーカラー === */
-const PLAYER_COLORS = [
-  0x00f0ff, 0xff0055, 0x00ff88, 0xffaa00,
-  0xaa00ff, 0x00ccff, 0xff6600, 0xff44aa,
-];
-
-/* === マップ定義 ===
-   各マップのサイズ、壁の配置、カラーテーマを定義 */
-const MAPS = {
-  grid: {
-    name: 'NEON GRID', desc: 'Standard open arena',
-    size: 40, wallHeight: 3, wallThick: 0.5,
-    bg: 0x0a0a12, fogNear: 30, fogFar: 60,
-    wallColor: 0x1a1a2e, floorColor: 0x0d0d1a,
-    edgeColors: [0x00f0ff, 0xff00ff],
-    gridColor: 0x00f0ff,
-    ambientColor: 0x111122, ambientIntensity: 0.5,
-    dirColor: 0x8844ff, dirIntensity: 1.0,
-    rimColors: [0x00f0ff, 0xff00ff, 0x00f0ff, 0xff00ff],
-    walls: [],
-    pads: [{ p: [0,0,0], s: [4,0.1,4], speed: 2.0 }], // 中央スピードパッド
-  },
-  maze: {
-    name: 'MAZE', desc: 'Navigate corridors',
-    size: 50, wallHeight: 4, wallThick: 0.5,
-    bg: 0x0a0018, fogNear: 20, fogFar: 40,
-    wallColor: 0x1a0030, floorColor: 0x080010,
-    edgeColors: [0xaa00ff, 0xff00aa],
-    gridColor: 0xaa00ff,
-    ambientColor: 0x110022, ambientIntensity: 0.4,
-    dirColor: 0x8844ff, dirIntensity: 0.8,
-    rimColors: [0xaa00ff, 0xff00aa, 0xaa00ff, 0xff00aa],
-    walls: [
-      { p: [-10,2,0], s: [0.5,4,18] }, { p: [10,2,0], s: [0.5,4,18] },
-      { p: [0,2,-10], s: [18,4,0.5] }, { p: [0,2,10], s: [18,4,0.5] },
-      { p: [-6,2,-5], s: [0.5,4,8] }, { p: [6,2,5], s: [0.5,4,8] },
-      { p: [-14,2,-14], s: [8,4,0.5] }, { p: [14,2,14], s: [8,4,0.5] },
-      { p: [-18,2,8], s: [0.5,4,9] }, { p: [18,2,-8], s: [0.5,4,9] },
-    ],
-    pads: [],
-  },
-  colloseum: {
-    name: 'COLLOSEUM', desc: 'Compact with pillars',
-    size: 35, wallHeight: 3, wallThick: 0.5,
-    bg: 0x120a00, fogNear: 22, fogFar: 45,
-    wallColor: 0x2e1a0a, floorColor: 0x1a0a00,
-    edgeColors: [0xff8800, 0xff4400],
-    gridColor: 0xff6600,
-    ambientColor: 0x221100, ambientIntensity: 0.4,
-    dirColor: 0xff6600, dirIntensity: 0.8,
-    rimColors: [0xff8800, 0xff4400, 0xff8800, 0xff4400],
-    walls: [
-      { p: [-8,2,-8], s: [1.5,4,1.5] }, { p: [8,2,-8], s: [1.5,4,1.5] },
-      { p: [-8,2,8], s: [1.5,4,1.5] }, { p: [8,2,8], s: [1.5,4,1.5] },
-      { p: [0,2,-12], s: [1.5,4,1.5] }, { p: [0,2,12], s: [1.5,4,1.5] },
-      { p: [-12,2,0], s: [1.5,4,1.5] }, { p: [12,2,0], s: [1.5,4,1.5] },
-    ],
-    pads: [],
-  },
-  abyss: {
-    name: 'ABYSS', desc: 'Deadly central vortex',
-    size: 45, wallHeight: 3.5, wallThick: 0.5,
-    bg: 0x000a12, fogNear: 25, fogFar: 50,
-    wallColor: 0x0a1a2e, floorColor: 0x050a12,
-    edgeColors: [0x00ffff, 0x0088ff],
-    gridColor: 0x00aaff,
-    ambientColor: 0x001122, ambientIntensity: 0.4,
-    dirColor: 0x4488ff, dirIntensity: 0.8,
-    rimColors: [0x00ffff, 0x0088ff, 0x00ffff, 0x0088ff],
-    walls: [
-      { p: [-7,2,-7], s: [2,4,2] }, { p: [7,2,-7], s: [2,4,2] },
-      { p: [-7,2,7], s: [2,4,2] }, { p: [7,2,7], s: [2,4,2] },
-      { p: [0,2,-14], s: [1,4,2] }, { p: [0,2,14], s: [1,4,2] },
-      { p: [-14,2,0], s: [2,4,1] }, { p: [14,2,0], s: [2,4,1] },
-    ],
-    pads: [],
-  },
-  fort: {
-    name: 'FORT', desc: 'Fortified stronghold',
-    size: 48, wallHeight: 4, wallThick: 0.5,
-    bg: 0x0a1208, fogNear: 22, fogFar: 44,
-    wallColor: 0x0a1a0a, floorColor: 0x080a05,
-    edgeColors: [0x00ff88, 0x00cc66],
-    gridColor: 0x00ff66,
-    ambientColor: 0x002211, ambientIntensity: 0.4,
-    dirColor: 0x44ff88, dirIntensity: 0.8,
-    rimColors: [0x00ff88, 0x00cc66, 0x00ff88, 0x00cc66],
-    walls: [
-      { p: [-13,2,-13], s: [7,4,0.5] }, { p: [13,2,13], s: [7,4,0.5] },
-      { p: [-13,2,13], s: [7,4,0.5] }, { p: [13,2,-13], s: [7,4,0.5] },
-      { p: [-6,2,0], s: [0.5,4,12] }, { p: [6,2,0], s: [0.5,4,12] },
-      { p: [0,2,-6], s: [12,4,0.5] }, { p: [0,2,6], s: [12,4,0.5] },
-    ],
-    pads: [],
-  },
-  chaos: {
-    name: 'CHAOS', desc: 'Dense obstacle field',
-    size: 40, wallHeight: 2.5, wallThick: 0.4,
-    bg: 0x120008, fogNear: 18, fogFar: 38,
-    wallColor: 0x2e0a1a, floorColor: 0x1a0008,
-    edgeColors: [0xff0055, 0xff44aa],
-    gridColor: 0xff0088,
-    ambientColor: 0x220011, ambientIntensity: 0.4,
-    dirColor: 0xff4488, dirIntensity: 0.8,
-    rimColors: [0xff0055, 0xff44aa, 0xff0055, 0xff44aa],
-    walls: [
-      { p: [-14,1.5,-14], s: [1,3,1] }, { p: [-14,1.5,-7], s: [1,3,1] }, { p: [-14,1.5,0], s: [1,3,1] }, { p: [-14,1.5,7], s: [1,3,1] }, { p: [-14,1.5,14], s: [1,3,1] },
-      { p: [-7,1.5,-14], s: [1,3,1] }, { p: [-7,1.5,-7], s: [1,3,1] }, { p: [-7,1.5,0], s: [1,3,1] }, { p: [-7,1.5,7], s: [1,3,1] }, { p: [-7,1.5,14], s: [1,3,1] },
-      { p: [0,1.5,-14], s: [1,3,1] }, { p: [0,1.5,0], s: [1,3,1] }, { p: [0,1.5,14], s: [1,3,1] },
-      { p: [7,1.5,-14], s: [1,3,1] }, { p: [7,1.5,-7], s: [1,3,1] }, { p: [7,1.5,0], s: [1,3,1] }, { p: [7,1.5,7], s: [1,3,1] }, { p: [7,1.5,14], s: [1,3,1] },
-      { p: [14,1.5,-14], s: [1,3,1] }, { p: [14,1.5,-7], s: [1,3,1] }, { p: [14,1.5,0], s: [1,3,1] }, { p: [14,1.5,7], s: [1,3,1] }, { p: [14,1.5,14], s: [1,3,1] },
-    ],
-    pads: [{ p: [0,0,0], s: [2,0.1,2], speed: 1.8 }],
-  },
-  /* --- 追加4マップ --- */
-  reactor: {
-    name: 'REACTOR', desc: 'Glowing core chamber',
-    size: 42, wallHeight: 3.5, wallThick: 0.5,
-    bg: 0x001208, fogNear: 24, fogFar: 48,
-    wallColor: 0x0a1a0a, floorColor: 0x000a05,
-    edgeColors: [0x00ff44, 0x00ff88],
-    gridColor: 0x00ff66,
-    ambientColor: 0x001104, ambientIntensity: 0.4,
-    dirColor: 0x00ff66, dirIntensity: 0.8,
-    rimColors: [0x00ff44, 0x00ff88, 0x00ff44, 0x00ff88],
-    walls: [
-      { p: [-8,2,0], s: [0.5,4,8] }, { p: [8,2,0], s: [0.5,4,8] },
-      { p: [0,2,-8], s: [8,4,0.5] }, { p: [0,2,8], s: [8,4,0.5] },
-      { p: [-12,2,-12], s: [4,4,0.5] }, { p: [12,2,12], s: [4,4,0.5] },
-      { p: [-12,2,12], s: [4,4,0.5] }, { p: [12,2,-12], s: [4,4,0.5] },
-    ],
-    pads: [{ p: [0,0,0], s: [3,0.1,3], speed: 1.5 }],
-  },
-  ice: {
-    name: 'ICE', desc: 'Slippery frozen tundra',
-    size: 38, wallHeight: 2.5, wallThick: 0.5,
-    bg: 0x080c18, fogNear: 28, fogFar: 55,
-    wallColor: 0x1a2236, floorColor: 0x0a0e18,
-    edgeColors: [0x4488ff, 0x88ccff],
-    gridColor: 0x4488ff,
-    ambientColor: 0x081122, ambientIntensity: 0.5,
-    dirColor: 0x88aaff, dirIntensity: 1.0,
-    rimColors: [0x4488ff, 0x88ccff, 0x4488ff, 0x88ccff],
-    walls: [
-      { p: [-4,1.5,-4], s: [1.5,3,1.5] }, { p: [4,1.5,-4], s: [1.5,3,1.5] },
-      { p: [-4,1.5,4], s: [1.5,3,1.5] }, { p: [4,1.5,4], s: [1.5,3,1.5] },
-      { p: [-10,1.5,-10], s: [1.5,3,1.5] }, { p: [10,1.5,10], s: [1.5,3,1.5] },
-      { p: [-10,1.5,10], s: [1.5,3,1.5] }, { p: [10,1.5,-10], s: [1.5,3,1.5] },
-    ],
-    pads: [{ p: [0,0,0], s: [5,0.1,5], speed: 0 }], // speed=0 → テレポート
-    teleport: { x: 14, z: 14 }, // 中央のパッドに乗ると(14,14)にワープ
-  },
-  dojo: {
-    name: 'DOJO', desc: 'Symmetrical battle arena',
-    size: 36, wallHeight: 3, wallThick: 0.5,
-    bg: 0x0a0806, fogNear: 20, fogFar: 40,
-    wallColor: 0x1a1210, floorColor: 0x0d0a08,
-    edgeColors: [0xff4444, 0xff8888],
-    gridColor: 0xff4444,
-    ambientColor: 0x110808, ambientIntensity: 0.4,
-    dirColor: 0xff6644, dirIntensity: 0.8,
-    rimColors: [0xff4444, 0xff8888, 0xff4444, 0xff8888],
-    walls: [
-      { p: [-5,1.5,-5], s: [2,3,2] }, { p: [5,1.5,-5], s: [2,3,2] },
-      { p: [-5,1.5,5], s: [2,3,2] }, { p: [5,1.5,5], s: [2,3,2] },
-      { p: [-10,2,0], s: [0.5,4,0.5] }, { p: [10,2,0], s: [0.5,4,0.5] },
-      { p: [0,2,-10], s: [0.5,4,0.5] }, { p: [0,2,10], s: [0.5,4,0.5] },
-      { p: [-14,1.5,-6], s: [1,3,1] }, { p: [14,1.5,6], s: [1,3,1] },
-      { p: [6,1.5,-14], s: [1,3,1] }, { p: [-6,1.5,14], s: [1,3,1] },
-    ],
-    pads: [
-      { p: [-8,0,0], s: [1.5,0.1,1.5], speed: 2.2 },
-      { p: [8,0,0], s: [1.5,0.1,1.5], speed: 2.2 },
-    ],
-  },
-  twilight: {
-    name: 'TWILIGHT', desc: 'Low visibility neon haze',
-    size: 44, wallHeight: 3, wallThick: 0.5,
-    bg: 0x06000a, fogNear: 12, fogFar: 28, // 濃いフォグで視界不良
-    wallColor: 0x160020, floorColor: 0x08000a,
-    edgeColors: [0xff00ff, 0x8800ff],
-    gridColor: 0xcc00ff,
-    ambientColor: 0x110022, ambientIntensity: 0.3,
-    dirColor: 0xaa44ff, dirIntensity: 0.6,
-    rimColors: [0xff00ff, 0x8800ff, 0xff00ff, 0x8800ff],
-    walls: [
-      { p: [-9,1.5,-9], s: [2,3,2] }, { p: [9,1.5,-9], s: [2,3,2] },
-      { p: [-9,1.5,9], s: [2,3,2] }, { p: [9,1.5,9], s: [2,3,2] },
-      { p: [-3,1.5,-3], s: [1.5,3,1.5] }, { p: [3,1.5,3], s: [1.5,3,1.5] },
-      { p: [-3,1.5,3], s: [1.5,3,1.5] }, { p: [3,1.5,-3], s: [1.5,3,1.5] },
-    ],
-    pads: [],
-  },
-};
-
-/* ベクトル演算用の再利用可能なオブジェクト */
-const _v3 = new THREE.Vector3();
-const _v3b = new THREE.Vector3();
-
-// ===== Projectile（弾丸クラス） =====
-
-class Projectile {
-  constructor(scene, origin, dir, ownerId, id, color, weapon) {
-    this.scene = scene;
-    this.ownerId = ownerId;
-    this.id = id;
-    this.weapon = weapon || 'pistol';
-    this.wp = WEAPONS[this.weapon] || WEAPONS.pistol; // 武器データを参照
-    this.alive = true;
-    this.age = 0;
-    this.color = this.wp.color;
-    const r = this.wp.projRadius;
-    // 弾のメッシュを作成
-    const geo = new THREE.SphereGeometry(r * 1.5, 8, 8);
-    const mat = new THREE.MeshBasicMaterial({ color: this.color });
-    this.mesh = new THREE.Mesh(geo, mat);
-    this.mesh.position.copy(origin);
-    this.mesh.position.y += CONFIG.playerHeight * 0.6;
-    this.scene.add(this.mesh);
-    // 進行方向に速度を設定
-    this.velocity = dir.clone().multiplyScalar(this.wp.projSpeed);
-    this.velocity.y = 0;
-    // グローエフェクト（発光）
-    const ggeo = new THREE.SphereGeometry(r * 3, 8, 8);
-    const gmat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.25 });
-    this.glow = new THREE.Mesh(ggeo, gmat);
-    this.glow.position.copy(this.mesh.position);
-    this.scene.add(this.glow);
-    this.trail = [];
-    this.trailTimer = 0;
-    this.exploded = false;
-    this.hitPlayers = new Set(); // 命中済みプレイヤーID（連続ヒット防止）
-  }
-  // 毎フレームの更新処理
-  update(dt) {
-    if (!this.alive) return;
-    this.age += dt;
-    if (this.age > this.wp.projLifetime) { this.destroy(); return; }
-    this.mesh.position.x += this.velocity.x * dt;
-    this.mesh.position.z += this.velocity.z * dt;
-    const half = 30;
-    if (Math.abs(this.mesh.position.x) > half || Math.abs(this.mesh.position.z) > half) { this.destroy(); return; }
-    this.glow.position.copy(this.mesh.position);
-    const pulse = 1 + 0.3 * Math.sin(this.age * 20);
-    this.glow.scale.setScalar(pulse);
-    this.trailTimer += dt;
-    if (this.trailTimer > 0.03) { this.trailTimer = 0; this._spawnTrail(); }
-    this.trail = this.trail.filter(t => {
-      t.life += dt;
-      if (t.life > 0.4) { this.scene.remove(t.mesh); return false; }
-      const s = 1 - t.life / 0.4;
-      t.mesh.scale.setScalar(s * 2);
-      t.mesh.material.opacity = s * 0.4;
-      return true;
-    });
-  }
-  // 軌跡（トレイル）を生成
-  _spawnTrail() {
-    const r = this.wp.projRadius;
-    const geo = new THREE.SphereGeometry(r, 4, 4);
-    const mat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.4 });
-    const m = new THREE.Mesh(geo, mat);
-    m.position.copy(this.mesh.position);
-    this.scene.add(m);
-    this.trail.push({ mesh: m, life: 0 });
-  }
-  // 爆発エフェクト
-  explosionFX() {
-    if (this.exploded) return;
-    this.exploded = true;
-    const r = this.wp.projRadius * 8;
-    const geo = new THREE.SphereGeometry(r, 12, 12);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xff4400, transparent: true, opacity: 0.6,
-    });
-    const boom = new THREE.Mesh(geo, mat);
-    boom.position.copy(this.mesh.position);
-    this.scene.add(boom);
-    const start = performance.now();
-    const anim = () => {
-      const t = (performance.now() - start) / 400;
-      if (t >= 1) { this.scene.remove(boom); boom.geometry.dispose(); boom.material.dispose(); return; }
-      const s = 1 + t * 3;
-      boom.scale.setScalar(s);
-      boom.material.opacity = 0.6 * (1 - t);
-      requestAnimationFrame(anim);
-    };
-    anim();
-  }
-  // 弾を破棄
-  destroy() {
-    if (!this.alive) return;
-    if (this.wp.explosive) this.explosionFX();
-    this.alive = false;
-    this.scene.remove(this.mesh); this.scene.remove(this.glow);
-    this.mesh.geometry.dispose(); this.mesh.material.dispose();
-    this.glow.geometry.dispose(); this.glow.material.dispose();
-    this.trail.forEach(t => { this.scene.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); });
-    this.trail = [];
-  }
-}
-
-// ===== Player（プレイヤークラス） =====
-
-class Player {
-  constructor(scene, id, color) {
-    this.scene = scene;
-    this.id = id;
-    this.color = color;
-    this.health = CONFIG.maxHealth;
-    this.maxHealth = CONFIG.maxHealth;
-    this.alive = true;
-    this.name = '';
-    this.kills = 0;
-    this.deaths = 0;
-    this.weapon = 'pistol';
-    this.lastFireTime = 0;
-    this.ammo = 0;
-    this.maxAmmo = 0;
-    this.reloading = false;
-    this.reloadTimer = 0;
-    // プレイヤーメッシュ（直方体）
-    const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
-    const mat = new THREE.MeshStandardMaterial({
-      color, emissive: color, emissiveIntensity: 0.3, metalness: 0.1, roughness: 0.4,
-    });
-    this.mesh = new THREE.Mesh(geo, mat);
-    this.scene.add(this.mesh);
-    // 足元の発光リング
-    const ggeo = new THREE.BoxGeometry(CONFIG.playerSize * 1.6, CONFIG.playerHeight * 0.2, CONFIG.playerSize * 1.6);
-    const gmat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.1 });
-    this.glowRing = new THREE.Mesh(ggeo, gmat);
-    this.glowRing.position.y = 0.05;
-    this.scene.add(this.glowRing);
-    // エッジライン（輪郭線）
-    this.edgeGeo = new THREE.EdgesGeometry(geo);
-    this.edgeMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 });
-    this.edgeLine = new THREE.LineSegments(this.edgeGeo, this.edgeMat);
-    this.scene.add(this.edgeLine);
-    // 位置と回転
-    this.position = new THREE.Vector3();
-    this.rotation = 0;
-    this.targetPosition = new THREE.Vector3();
-    this.targetRotation = 0;
-    this.spawn();
-  }
-  // 初期スポーン位置を設定
-  spawn() {
-    const half = 20;
-    this.position.set((Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2);
-    this.targetPosition.copy(this.position);
-    this.health = CONFIG.maxHealth;
-    this.alive = true;
-    this.refillAmmo();
-    this.updateMesh();
-  }
-  refillAmmo() {
-    const wp = WEAPONS[this.weapon] || WEAPONS.pistol;
-    this.maxAmmo = wp.maxAmmo;
-    this.ammo = wp.maxAmmo;
-    this.reloading = false;
-    this.reloadTimer = 0;
-  }
-  // ダメージを受ける。戻り値: 死亡したかどうか
-  takeDamage(amount) {
-    this.health = Math.max(0, this.health - amount);
-    if (this.health <= 0 && this.alive) { this.alive = false; this.deaths++; }
-    return !this.alive;
-  }
-  // メッシュの位置・回転を更新
-  updateMesh() {
-    this.mesh.position.set(this.position.x, CONFIG.playerHeight / 2, this.position.z);
-    this.mesh.rotation.y = this.rotation;
-    this.glowRing.position.set(this.position.x, 0.05, this.position.z);
-    this.edgeLine.position.copy(this.mesh.position);
-    this.edgeLine.rotation.y = this.rotation;
-  }
-  setPosition(pos) { this.position.copy(pos); this.targetPosition.copy(pos); }
-  setRotation(rot) { this.rotation = rot; this.targetRotation = rot; }
-  // 位置を補間（他のプレイヤーのスムーズ表示用）
-  lerpToTarget(dt) {
-    this.position.lerp(this.targetPosition, 1 - Math.exp(-10 * dt));
-    const diff = this.targetRotation - this.rotation;
-    this.rotation += diff * Math.min(1, 10 * dt);
-  }
-  // 毎フレーム更新（死亡時は非表示）
-  update(dt) {
-    if (!this.alive) {
-      this.mesh.visible = false; this.edgeLine.visible = false; this.glowRing.visible = false;
-      return;
-    }
-    this.mesh.visible = true; this.edgeLine.visible = true; this.glowRing.visible = true;
-    if (this.reloading) {
-      this.reloadTimer -= dt;
-      if (this.reloadTimer <= 0) {
-        this.ammo = this.maxAmmo;
-        this.reloading = false;
-        this.reloadTimer = 0;
-      }
-    }
-    this.updateMesh();
-  }
-  // プレイヤーを破棄
-  destroy() {
-    [this.mesh, this.glowRing, this.edgeLine].forEach(o => { this.scene.remove(o); });
-    this.mesh.geometry.dispose(); this.mesh.material.dispose();
-    this.glowRing.geometry.dispose(); this.glowRing.material.dispose();
-    this.edgeGeo.dispose(); this.edgeMat.dispose();
-  }
-}
-
-// ===== NetworkManager（スター型ネットワーク管理） =====
-
-class NetworkManager {
-  constructor(game) {
-    this.game = game;
-    this.peer = null;
-    this.connections = [];
-    this.conn = null;
-    this.isHost = false;
-    this.roomId = null;
-    this.myId = null;
-    this.connected = false;
-    this.sendTimer = 0;
-  }
-  // ホストとしてルームを作成
-  async createRoom() {
-    this.isHost = true;
-    const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-    this.roomId = 'NEON-' + suffix;
-    return new Promise((resolve, reject) => {
-      this.peer = new Peer(this.roomId, { debug: 0 });
-      this.peer.on('open', () => { this.myId = this.roomId; resolve(this.roomId); });
-      this.peer.on('connection', (conn) => {
-        this.connections.push(conn);
-        this._setupConn(conn);
-      });
-      this.peer.on('error', (err) => reject(err));
-    });
-  }
-  // ゲストとしてルームに参加
-  async joinRoom(roomId, playerName) {
-    this.isHost = false;
-    this.roomId = roomId;
-    return new Promise((resolve, reject) => {
-      this.peer = new Peer(undefined, { debug: 0 });
-      this.peer.on('open', (id) => {
-        this.myId = id;
-        const conn = this.peer.connect(roomId, { reliable: true });
-        this.conn = conn;
-        this._setupConn(conn);
-        conn.on('open', () => {
-          conn.send({ type: 'join', name: playerName || 'Player' });
-          resolve();
-        });
-      });
-      this.peer.on('error', (err) => reject(err));
-    });
-  }
-  // 接続のセットアップ（共通処理）
-  _setupConn(conn) {
-    conn.on('data', (data) => this.game.handleMessage(data, conn));
-    conn.on('close', () => {
-      if (this.isHost) {
-        const idx = this.connections.indexOf(conn);
-        if (idx >= 0) this.connections.splice(idx, 1);
-        this.game.onPlayerLeft(conn.peer);
-      } else {
-        this.connected = false;
-        this.game.onDisconnected();
-      }
-    });
-    if (!this.isHost) {
-      conn.on('open', () => { this.connected = true; });
-    }
-  }
-  // データ送信
-  send(data) { if (this.conn && this.conn.open) this.conn.send(data); }
-  broadcast(data, exclude) { this.connections.forEach(c => { if (c !== exclude && c.open) c.send(data); }); }
-  // プレイヤー状態を定期的に送信
-  sendState(dt) {
-    if (!this.connected && !this.isHost) return;
-    this.sendTimer += dt;
-    if (this.sendTimer < CONFIG.stateSendRate) return;
-    this.sendTimer = 0;
-    const p = this.game.localPlayer;
-    if (!p || !p.scene) return;
-    const data = {
-      type: 'state',
-      id: this.myId,
-      pos: { x: p.position.x, y: p.position.y, z: p.position.z },
-      rot: p.rotation, health: p.health, alive: p.alive,
-    };
-    if (this.isHost) this.broadcast(data);
-    else this.send(data);
-  }
-  // 接続を閉じる
-  close() {
-    this.connections.forEach(c => c.close());
-    if (this.conn) this.conn.close();
-    if (this.peer) this.peer.destroy();
-    this.connections = [];
-    this.connected = false;
-  }
-}
-
-// ===== Game（メインゲームクラス） =====
 
 class Game {
   constructor() {
-    this.players = new Map();          // 全プレイヤー（id -> Player）
-    this.localId = null;               // ローカルプレイヤーのID
-    this.projectiles = [];             // アクティブな弾丸リスト
+    this.players = new Map();
+    this.localId = null;
+    this.projectiles = [];
     this.projIdCounter = 0;
     this.remoteProjIdCounter = 0;
-    this.keys = {};                    // キー入力状態
-    this.mouseDelta = 0;               // マウス移動量
+    this.keys = {};
+    this.mouseDelta = 0;
     this.network = new NetworkManager(this);
     this.gameStarted = false;
     this.gameOver = false;
     this.connectionHandled = false;
     this.kills = 0;
     this.deaths = 0;
-    this.respawnTimer = 0;             // リスポーンまでのカウントダウン
+    this.respawnTimer = 0;
     this.gameTimer = CONFIG.gameTimeLimit;
     this.selectedMap = 'grid';
     this.pointerLocked = false;
@@ -597,19 +29,17 @@ class Game {
     this.arenaObjects = [];
     this.rimLights = [];
     this.scoreboard = new Map();
-    this.killCamKillerId = null;       // キルカメラで映す殺したプレイヤーのID
-    this.invincibleTimer = 0;          // リスポーン後の無敵時間カウントダウン
-    this.teleportCooldown = 0;         // テレポート再使用までの待機時間
-    this.loadoutWeapon = 'pistol';     // タイトル画面で選択した武器
+    this.killCamKillerId = null;
+    this.invincibleTimer = 0;
+    this.teleportCooldown = 0;
+    this.loadoutWeapon = 'pistol';
     this.mouseDown = false;
     this.dashTimer = 0;
     this.dashCooldown = 0;
   }
 
-  // ローカルプレイヤーへのショートカット
   get localPlayer() { return this.players.get(this.localId); }
 
-  // ゲームの初期化（シーン、カメラ、レンダラーのセットアップ）
   init() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a0a12);
@@ -621,13 +51,11 @@ class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     document.getElementById('game-container').appendChild(this.renderer.domElement);
-    // ウィンドウリサイズ対応
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
-    // ポインターロック（マウスキャプチャ）の状態変更
     document.addEventListener('pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === this.renderer.domElement;
       document.getElementById('instructions').classList.toggle('hidden', !this.pointerLocked || this.respawnTimer > 0);
@@ -652,7 +80,6 @@ class Game {
     this.animate();
   }
 
-  // 照明のセットアップ
   _setupLights() {
     this.ambientLight = new THREE.AmbientLight(0x111122, 0.5);
     this.scene.add(this.ambientLight);
@@ -673,7 +100,6 @@ class Game {
     });
   }
 
-  // アリーナをクリア
   _clearArena() {
     this.arenaObjects.forEach(o => { this.scene.remove(o); if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
     this.arenaObjects = [];
@@ -681,7 +107,6 @@ class Game {
     this.rimLights = [];
   }
 
-  // マップに基づいてアリーナ（壁・床・装飾）を生成
   _createArena(mapKey) {
     this._clearArena();
     const map = MAPS[mapKey] || MAPS.grid;
@@ -707,7 +132,6 @@ class Game {
       el.position.copy(mesh.position);
       this.scene.add(el); this.arenaObjects.push(el);
     };
-    // 外周の壁を生成
     const wallData = [
       { p: [0, map.wallHeight/2, -half], s: [map.size, map.wallHeight, map.wallThick] },
       { p: [0, map.wallHeight/2, half], s: [map.size, map.wallHeight, map.wallThick] },
@@ -715,16 +139,13 @@ class Game {
       { p: [half, map.wallHeight/2, 0], s: [map.wallThick, map.wallHeight, map.size] },
     ];
     wallData.forEach((d, i) => addWall(d.p, d.s, i));
-    // 内部の壁を生成
     map.walls.forEach((w, i) => addWall(w.p, w.s, i + 4));
-    // 床
     const fgeo = new THREE.PlaneGeometry(map.size - 1, map.size - 1);
     const fmat = new THREE.MeshStandardMaterial({ color: map.floorColor, metalness: 0.3, roughness: 0.7 });
     const floor = new THREE.Mesh(fgeo, fmat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = 0;
     this.scene.add(floor); this.arenaObjects.push(floor);
-    // グリッド線
     const gh1 = new THREE.GridHelper(map.size - 2, 20, map.gridColor, 0x222255);
     gh1.material.transparent = true; gh1.material.opacity = 0.15;
     gh1.position.y = 0.02;
@@ -734,8 +155,6 @@ class Game {
     gh2.position.y = 0.01;
     this.scene.add(gh2); this.arenaObjects.push(gh2);
     this.arenaMap = map;
-
-    // === スピードパッド/テレポートパッドの描画 ===
     if (map.pads) {
       const padMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
       map.pads.forEach((pad, i) => {
@@ -747,7 +166,6 @@ class Game {
         m.rotation.x = -Math.PI / 2;
         this.scene.add(m);
         this.arenaObjects.push(m);
-        // エッジグロー
         const eg = new THREE.EdgesGeometry(g);
         const em = new THREE.LineBasicMaterial({ color: m.material.color, transparent: true, opacity: 0.3 });
         const el = new THREE.LineSegments(eg, em);
@@ -759,7 +177,6 @@ class Game {
     }
   }
 
-  // プレイヤーを追加
   addPlayer(id, color, name) {
     if (this.players.has(id)) return this.players.get(id);
     const p = new Player(this.scene, id, color);
@@ -768,13 +185,11 @@ class Game {
     return p;
   }
 
-  // プレイヤーを削除
   removePlayer(id) {
     const p = this.players.get(id);
     if (p) { p.destroy(); this.players.delete(id); }
   }
 
-  // 接続確立時のコールバック
   onConnected() {
     if (this.connectionHandled) return;
     this.connectionHandled = true;
@@ -782,14 +197,12 @@ class Game {
     document.getElementById('conn-status').classList.add('connected');
   }
 
-  // プレイヤー切断時の処理
   onPlayerLeft(peerId) {
     this.removePlayer(peerId);
     this.updatePlayerListUI();
     this.addKillFeed('👋 A player disconnected');
   }
 
-  // 待機室（ロビー）を表示
   showWaitingRoom() {
     document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
     document.getElementById('waiting-room').style.display = 'block';
@@ -815,7 +228,6 @@ class Game {
     this.updatePlayerListUI();
   }
 
-  // マップ選択UIをセットアップ（左右ボタン方式）
   _setupMapSelector() {
     const container = document.getElementById('map-selector');
     container.innerHTML = '';
@@ -847,18 +259,15 @@ class Game {
     this._updateMapUI();
   }
 
-  // マップUIの表示を更新（マップ名＋プレビュー）
   _updateMapUI() {
     const map = MAPS[this.selectedMap] || MAPS.grid;
     const nameEl = document.getElementById('map-nav-name');
     if (nameEl) nameEl.textContent = `${map.name} — ${map.desc}`;
     this._drawMapPreview(this.selectedMap);
-    /* ゲストにもマップ情報を送信 */
     document.getElementById('guest-map-name').textContent = `${map.name} — ${map.desc}`;
     this._drawGuestMapPreview(this.selectedMap);
   }
 
-  // マップの俯瞰図（上から見た図）をCanvasに描画
   _drawMapPreview(mapKey) {
     const canvas = document.getElementById('map-preview-canvas');
     if (!canvas) return;
@@ -866,28 +275,23 @@ class Game {
     const map = MAPS[mapKey] || MAPS.grid;
     const W = canvas.width;
     const H = canvas.height;
-    const pad = 10; // 余白
+    const pad = 10;
     const drawSize = W - pad * 2;
     const scale = drawSize / map.size;
     ctx.clearRect(0, 0, W, H);
-    // 背景（濃い色）
     ctx.fillStyle = '#0a0a18';
     ctx.fillRect(0, 0, W, H);
-    // アリーナの床エリア
     const arenaX = pad + (W - drawSize) / 2;
     const arenaY = pad + (H - drawSize) / 2;
     ctx.fillStyle = '#0d0d1a';
     ctx.fillRect(arenaX, arenaY, drawSize, drawSize);
-    // 外周の壁
     ctx.strokeStyle = '#00f0ff';
     ctx.lineWidth = 2;
     ctx.strokeRect(arenaX, arenaY, drawSize, drawSize);
-    // 内部の壁を描画（上から見た四角形）
     ctx.fillStyle = 'rgba(0, 240, 255, 0.3)';
     ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
     ctx.lineWidth = 1;
     const halfMap = map.size / 2;
-    // 壁の中心座標をキャンバス座標に変換する関数
     const toCanvas = (x, z) => ({
       cx: arenaX + (x + halfMap) * scale,
       cy: arenaY + (z + halfMap) * scale,
@@ -899,14 +303,12 @@ class Game {
       ctx.fillRect(cx - wScaleX / 2, cy - wScaleZ / 2, wScaleX, wScaleZ);
       ctx.strokeRect(cx - wScaleX / 2, cy - wScaleZ / 2, wScaleX, wScaleZ);
     });
-    // マップ名を表示
     ctx.fillStyle = 'rgba(0, 240, 255, 0.4)';
     ctx.font = '10px Orbitron, monospace';
     ctx.textAlign = 'center';
     ctx.fillText(map.name, W / 2, H - 4);
   }
 
-  // ゲスト向けマッププレビューを描画
   _drawGuestMapPreview(mapKey) {
     const canvas = document.getElementById('guest-map-preview-canvas');
     if (!canvas) return;
@@ -948,7 +350,6 @@ class Game {
     ctx.fillText(map.name, W / 2, H - 3);
   }
 
-  // プレイヤーリストUIの更新
   updatePlayerListUI() {
     const list = document.getElementById('player-list');
     list.innerHTML = '';
@@ -973,7 +374,6 @@ class Game {
     });
   }
 
-  // ゲーム開始処理
   startGame() {
     this.gameStarted = true;
     this.gameOver = false;
@@ -991,11 +391,9 @@ class Game {
     document.getElementById('death-screen').classList.remove('show');
     document.getElementById('overlay').classList.add('hidden');
     document.getElementById('instructions').classList.remove('hidden');
-    document.getElementById('match-btn').style.display = 'none'; /* 試合中は非表示 */
-    /* スコア表示をリセット */
+    document.getElementById('match-btn').style.display = 'none';
     document.getElementById('kill-count').textContent = '0';
     document.getElementById('death-count').textContent = '0';
-    /* ローカルプレイヤーの弾薬を初期化 */
     const lp = this.localPlayer;
     if (lp) { lp.refillAmmo(); this.updateAmmoUI(); }
     this.addKillFeed('⚔ GAME START!');
@@ -1003,14 +401,12 @@ class Game {
     if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
   }
 
-  // 切断時の処理
   onDisconnected() {
     document.getElementById('conn-status').textContent = '● DISCONNECTED';
     document.getElementById('conn-status').classList.remove('connected');
     this.addKillFeed('⚠ Connection lost');
   }
 
-  // キルフィードにメッセージを追加
   addKillFeed(msg) {
     const feed = document.getElementById('kill-feed');
     const el = document.createElement('div');
@@ -1020,14 +416,11 @@ class Game {
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
   }
 
-  // 弾を発射
   shoot() {
     const lp = this.localPlayer;
     if (!lp || !lp.alive) return;
-    if (lp.reloading) return; /* リロード中は発射不可 */
-    if (lp.ammo <= 0) { /* 弾切れ → 自動リロード */
-      this.reload(); return;
-    }
+    if (lp.reloading) return;
+    if (lp.ammo <= 0) { this.reload(); return; }
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
     const pellets = wp.pellets || 1;
     let dirs = [];
@@ -1056,11 +449,10 @@ class Game {
     else this.network.send(msg);
   }
 
-  // リロード処理
   reload() {
     const lp = this.localPlayer;
     if (!lp || !lp.alive || lp.reloading) return;
-    if (lp.ammo >= lp.maxAmmo) return; /* 満タンなら不要 */
+    if (lp.ammo >= lp.maxAmmo) return;
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
     lp.reloading = true;
     lp.reloadTimer = wp.reloadTime;
@@ -1068,7 +460,6 @@ class Game {
     this.updateAmmoUI();
   }
 
-  // 弾薬UIの更新
   updateAmmoUI() {
     const lp = this.localPlayer;
     if (!lp) { document.getElementById('ammo-display').textContent = '--/--'; return; }
@@ -1081,7 +472,6 @@ class Game {
     }
   }
 
-  // 受信メッセージの振り分け
   handleMessage(data, conn) {
     if (!data || !data.type) return;
     switch (data.type) {
@@ -1099,7 +489,6 @@ class Game {
     }
   }
 
-  // 参加要求の処理（ホスト側）
   _handleJoin(data, conn) {
     const peerId = conn.peer;
     const colorIdx = this.players.size % PLAYER_COLORS.length;
@@ -1137,7 +526,6 @@ class Game {
     this.addKillFeed(`⚡ ${name} joined`);
   }
 
-  // ウェルカムメッセージの処理（ゲスト側）
   _handleWelcome(data) {
     this.connectionHandled = true;
     this.onConnected();
@@ -1174,14 +562,12 @@ class Game {
     }
   }
 
-  // プレイヤー参加通知の処理
   _handlePlayerJoined(data) {
     this.addPlayer(data.id, data.color, data.name);
     this.updatePlayerListUI();
     this.addKillFeed(`⚡ ${data.name} joined`);
   }
 
-  // 状態同期の処理
   _handleState(data) {
     const p = this.players.get(data.id);
     if (!p) return;
@@ -1194,12 +580,10 @@ class Game {
     }
   }
 
-  // コネクションをIDから検索
   _findConn(playerId) {
     return this.network.connections.find(c => c.peer === playerId);
   }
 
-  // リモートの射撃処理
   _handleRemoteShoot(data) {
     const origin = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
     const pellets = data.pellets || 1;
@@ -1214,10 +598,8 @@ class Game {
     if (this.network.isHost) this.network.broadcast(data, this._findConn(data.ownerId));
   }
 
-  // 被弾処理
   _handleHit(data) {
     if (data.targetId === this.network.myId) {
-      // 無敵中ならダメージを受けない
       if (this.invincibleTimer > 0) return;
       const killed = this.localPlayer.takeDamage(data.damage || 1);
       this.updateHealthUI();
@@ -1228,7 +610,6 @@ class Game {
         this.killCamKillerId = data.shooterId;
         document.getElementById('death-screen').classList.add('show');
         document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
-        /* キルカメラ中はマウスを自由に */
         if (document.pointerLockElement) document.exitPointerLock();
         const wpName = data.weapon ? WEAPONS[data.weapon]?.name || data.weapon : '';
         this.addKillFeed(`☠ Eliminated by ${data.shooterName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
@@ -1245,7 +626,6 @@ class Game {
     if (this.network.isHost) this.network.broadcast(data, this._findConn(data.shooterId));
   }
 
-  // リモートのリスポーン処理
   _handleRemoteRespawn(data) {
     const p = this.players.get(data.id);
     if (p) {
@@ -1258,14 +638,12 @@ class Game {
     if (this.network.isHost) this.network.broadcast(data, this._findConn(data.id));
   }
 
-  // ゲーム開始メッセージの処理
   _handleGameStart(data) {
     this.selectedMap = data.map;
     this._createArena(data.map);
     this.startGame();
   }
 
-  // マップ選択メッセージの処理
   _handleMapSelect(data) {
     if (!this.network.isHost) {
       this.selectedMap = data.map;
@@ -1275,7 +653,6 @@ class Game {
     }
   }
 
-  // ゲームオーバーメッセージの処理
   _handleGameOver(data) {
     if (data.scoreboard) {
       this.players.forEach((p, id) => {
@@ -1287,7 +664,6 @@ class Game {
     this.showResultScreen();
   }
 
-  // ヘルスバーUIの更新
   updateHealthUI() {
     const lp = this.localPlayer;
     if (!lp) return;
@@ -1297,12 +673,10 @@ class Game {
     bar.classList.toggle('low', pct <= 30);
   }
 
-  // メイン更新ループ
   update(dt) {
     if (!this.gameStarted || this.gameOver) return;
     const lp = this.localPlayer;
 
-    // === プレイヤー操作処理 ===
     if (lp && lp.alive) {
       let mx = 0, mz = 0;
       if (this.keys['w']) mz -= 1;
@@ -1332,7 +706,6 @@ class Game {
           this.dashTimer -= dt;
           if (this.dashTimer <= 0) this.dashTimer = 0;
         }
-        /* スピードパッド/テレポートチェック（移動前に適用） */
         if (this.arenaMap && this.arenaMap.pads) {
           const pHalf = CONFIG.playerSize * 0.3;
           for (const pad of this.arenaMap.pads) {
@@ -1340,12 +713,11 @@ class Game {
             const hx = pad.s[0] / 2 + pHalf, hz = pad.s[2] / 2 + pHalf;
             if (Math.abs(lp.position.x - px) < hx && Math.abs(lp.position.z - pz) < hz) {
               if (pad.speed > 0 && pad.speed !== 1) {
-                speed *= pad.speed; /* 加速パッド */
+                speed *= pad.speed;
               }
               if (pad.speed === 0 && this.arenaMap.teleport && this.teleportCooldown <= 0) {
-                /* テレポートパッド（即時ワープ） */
                 lp.position.set(this.arenaMap.teleport.x, 0, this.arenaMap.teleport.z);
-                this.teleportCooldown = 1.5; /* 再使用までのクールダウン */
+                this.teleportCooldown = 1.5;
                 this.addKillFeed('🌀 Teleported!');
               }
             }
@@ -1378,7 +750,6 @@ class Game {
       }
     }
 
-    // === 無敵タイマーの更新と点滅エフェクト ===
     if (this.invincibleTimer > 0) {
       this.invincibleTimer -= dt;
       if (lp && lp.alive) {
@@ -1394,16 +765,12 @@ class Game {
       }
     }
 
-    // === リロード中はUIを更新 ===
     if (lp && lp.reloading) this.updateAmmoUI();
 
-    // === テレポートクールダウン ===
     if (this.teleportCooldown > 0) this.teleportCooldown -= dt;
 
-    // === 他プレイヤーの補間 ===
     this.players.forEach(p => { if (p.id !== this.network.myId) p.lerpToTarget(dt); p.update(dt); });
 
-    // === 弾丸更新 ===
     this.projectiles = this.projectiles.filter(p => p.alive);
     this.projectiles.forEach(p => {
       if (p.alive && p.wp.explosive && p.age + dt * 1.1 >= p.wp.projLifetime && p.ownerId === this.network.myId) {
@@ -1414,7 +781,6 @@ class Game {
     this._checkProjectileWalls();
     this._checkProjectileHits();
 
-    // === リスポーンタイマー ===
     if (this.respawnTimer > 0) {
       this.respawnTimer -= dt;
       const remaining = Math.ceil(Math.max(0, this.respawnTimer));
@@ -1433,7 +799,6 @@ class Game {
       }
     }
 
-    // === ゲームタイマー ===
     this.gameTimer -= dt;
     this.updateTimerUI();
     if (this.gameTimer <= 0) {
@@ -1445,7 +810,6 @@ class Game {
     this._updateCamera(dt);
   }
 
-  // 弾の当たり判定
   _checkProjectileHits() {
     const lp = this.localPlayer;
     if (!lp) return;
@@ -1478,7 +842,7 @@ class Game {
                 this.addKillFeed(`🎯 Eliminated ${other.name} [${wp.name}]`);
                 this._trackKill(this.network.myId, id);
               }
-              p.destroy(); /* 命中後は弾を即座に破棄（連続ヒット防止） */
+              p.destroy();
             }
           }
         });
@@ -1510,7 +874,6 @@ class Game {
     }
   }
 
-  // ローカルプレイヤーのリスポーン
   _respawnLocal() {
     const lp = this.localPlayer;
     if (!lp) return;
@@ -1520,7 +883,7 @@ class Game {
     lp.health = CONFIG.maxHealth;
     lp.alive = true;
     this.mouseDown = false;
-    this.invincibleTimer = CONFIG.invincibleTime; // 無敵時間を設定
+    this.invincibleTimer = CONFIG.invincibleTime;
     lp.refillAmmo();
     this.updateAmmoUI();
     this.updateHealthUI();
@@ -1530,7 +893,6 @@ class Game {
     else this.network.send(msg);
   }
 
-  // カメラ制御（キルカメラ → 三人称視点）
   _updateCamera(dt) {
     if (this.respawnTimer > CONFIG.respawnDelay && this.killCamKillerId) {
       const killer = this.players.get(this.killCamKillerId);
@@ -1552,7 +914,6 @@ class Game {
     this.camera.lookAt(p.x, 0.5, p.z);
   }
 
-  // キル/デスのトラッキング（スコアボード用）
   _trackKill(shooterId, targetId) {
     if (!this.scoreboard.has(shooterId)) {
       const p = this.players.get(shooterId);
@@ -1570,7 +931,6 @@ class Game {
     if (target) target.deaths++;
   }
 
-  // 壁との衝突判定（プレイヤー用）
   _checkWallCollision(pos) {
     const map = this.arenaMap;
     if (!map || !map.walls || map.walls.length === 0) return;
@@ -1593,7 +953,6 @@ class Game {
     }
   }
 
-  // 弾と壁の衝突判定
   _checkProjectileWalls() {
     const map = this.arenaMap;
     if (!map) return;
@@ -1629,7 +988,6 @@ class Game {
     }
   }
 
-  // RPGの爆発処理（範囲ダメージ）
   _rpgExplosion(proj) {
     const lp = this.localPlayer;
     if (!lp) return;
@@ -1659,7 +1017,6 @@ class Game {
     });
   }
 
-  // タイマーUIの更新
   updateTimerUI() {
     const remaining = Math.max(0, Math.ceil(this.gameTimer));
     const mins = Math.floor(remaining / 60);
@@ -1669,7 +1026,6 @@ class Game {
     el.classList.toggle('urgent', remaining <= 10);
   }
 
-  // リザルト画面の表示
   showResultScreen() {
     this.gameOver = true;
     document.getElementById('timer-display').textContent = '--:--';
@@ -1699,8 +1055,7 @@ class Game {
       div.className = 'result-entry' + (i === 0 && entry.kills > 0 ? ' winner' : '');
       const rank = document.createElement('span');
       rank.className = 'r-rank';
-      if (i === 0) rank.textContent = '#' + (i + 1);
-      else rank.textContent = '#' + (i + 1);
+      rank.textContent = '#' + (i + 1);
       const dot = document.createElement('span');
       dot.className = 'r-dot';
       dot.style.background = '#' + entry.color.toString(16).padStart(6, '0');
@@ -1722,7 +1077,6 @@ class Game {
     });
   }
 
-  // ゲーム終了処理
   endGame() {
     if (this.gameOver) return;
     this.gameOver = true;
@@ -1737,7 +1091,6 @@ class Game {
     this.showResultScreen();
   }
 
-  // アニメーションループ
   animate() {
     requestAnimationFrame(() => this.animate());
     const dt = Math.min(this.clock.getDelta(), 0.05);
@@ -1745,185 +1098,3 @@ class Game {
     this.renderer.render(this.scene, this.camera);
   }
 }
-
-// ===== UIイベント設定 =====
-
-const game = new Game();
-game.init();
-
-/* ホストゲームボタン */
-document.getElementById('btn-host').addEventListener('click', async () => {
-  document.getElementById('step-1').style.display = 'none';
-  document.getElementById('step-host').style.display = 'block';
-  document.getElementById('overlay-status').textContent = '⏳ Creating room...';
-  try {
-    const roomId = await game.network.createRoom();
-    game.localId = roomId;
-    const hostName = document.getElementById('host-name-input').value.trim() || 'Host';
-    game.addPlayer(roomId, PLAYER_COLORS[0], hostName);
-    const me = game.players.get(roomId);
-    if (me) { me.weapon = game.loadoutWeapon; me.lastFireTime = 0; }
-    document.getElementById('room-id-display').textContent = roomId;
-    document.getElementById('overlay-status').textContent = 'Share this room ID with friends';
-    document.getElementById('step-host-status').textContent = 'Waiting for players to join...';
-  } catch (err) {
-    document.getElementById('overlay-status').textContent = '❌ Error: ' + err.message;
-  }
-});
-
-/* ホスト戻るボタン */
-document.getElementById('btn-host-back').addEventListener('click', () => {
-  game.network.close();
-  game.connectionHandled = false;
-  game.players.forEach((p, id) => { if (id !== game.localId) game.removePlayer(id); });
-  document.getElementById('step-host').style.display = 'none';
-  document.getElementById('step-1').style.display = 'block';
-  document.getElementById('overlay-status').textContent = 'Click a button to start';
-});
-
-/* 参加画面へボタン */
-document.getElementById('btn-join').addEventListener('click', () => {
-  document.getElementById('step-1').style.display = 'none';
-  document.getElementById('step-join').style.display = 'block';
-  document.getElementById('overlay-status').textContent = 'Enter the host\'s room ID';
-});
-
-/* タイトル画面の武器ボタンの初期アクティブ状態 */
-document.querySelector('#title-weapon-btns .map-btn')?.classList.add('active');
-
-/* 参加戻るボタン */
-document.getElementById('btn-join-back').addEventListener('click', () => {
-  document.getElementById('step-join').style.display = 'none';
-  document.getElementById('step-1').style.display = 'block';
-  document.getElementById('overlay-status').textContent = 'Click a button to start';
-});
-
-/* ルーム参加ボタン */
-document.getElementById('btn-join-room').addEventListener('click', async () => {
-  let roomId = document.getElementById('room-id-input').value.trim().toUpperCase();
-  if (!roomId.startsWith('NEON-')) roomId = 'NEON-' + roomId;
-  if (roomId === 'NEON-') return;
-  const playerName = document.getElementById('player-name-input').value.trim() || 'Player';
-  document.getElementById('overlay-status').textContent = '⏳ Joining room...';
-  try {
-    await game.network.joinRoom(roomId, playerName);
-    document.getElementById('overlay-status').textContent = '🔗 Connecting...';
-  } catch (err) {
-    document.getElementById('overlay-status').textContent = '❌ Error: ' + err.message;
-  }
-});
-
-/* タイトル画面の武器選択 */
-document.getElementById('title-weapon-btns').addEventListener('click', (e) => {
-  const btn = e.target.closest('.map-btn');
-  if (!btn) return;
-  const wp = btn.dataset.weapon;
-  game.loadoutWeapon = wp;
-  if (game.localPlayer) game.localPlayer.weapon = wp;
-  document.querySelectorAll('#title-weapon-btns .map-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-});
-
-/* ルームIDコピーボタン */
-document.getElementById('btn-copy-room').addEventListener('click', () => {
-  const text = document.getElementById('room-id-display').textContent;
-  navigator.clipboard.writeText(text).catch(() => {});
-  document.getElementById('overlay-status').textContent = '✅ Copied! Share this ID with friends';
-});
-
-/* ゲーム開始ボタン（ホスト用） */
-document.getElementById('btn-start-game').addEventListener('click', () => {
-  game._createArena(game.selectedMap);
-  game.network.broadcast({ type: 'game_start', map: game.selectedMap });
-  game.startGame();
-});
-
-/* ホスト名入力 */
-document.getElementById('host-name-input').addEventListener('input', () => {
-  const p = game.players.get(game.localId);
-  if (p) {
-    p.name = document.getElementById('host-name-input').value.trim() || 'Host';
-    game.updatePlayerListUI();
-  }
-});
-
-/* ロビーに戻るボタン */
-document.getElementById('btn-back-lobby').addEventListener('click', () => {
-  document.getElementById('result-screen').classList.remove('show');
-  game.gameStarted = false;
-  game.gameOver = false;
-  game.mouseDown = false;
-  game.dashTimer = 0;
-  game.dashCooldown = 0;
-  game.invincibleTimer = 0;
-  game.players.forEach(p => { p.alive = true; p.health = CONFIG.maxHealth; p.updateMesh(); });
-  game.projectiles.forEach(p => p.destroy());
-  game.projectiles = [];
-  document.getElementById('overlay').classList.remove('hidden');
-  document.getElementById('instructions').classList.add('hidden');
-  document.getElementById('death-screen').classList.remove('show');
-  document.getElementById('timer-display').textContent = '--:--';
-  document.getElementById('ammo-display').textContent = '--/--';
-  document.getElementById('match-btn').style.display = ''; /* 再表示 */
-  game.updatePlayerListUI();
-  if (game.network.isHost) {
-    const name = document.getElementById('host-name-input').value.trim() || 'Host';
-    const me = game.players.get(game.localId);
-    if (me) me.name = name;
-    document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
-    document.getElementById('waiting-room').style.display = 'block';
-    document.getElementById('overlay-status').textContent = 'Select map and press START';
-    game.updatePlayerListUI();
-  } else {
-    document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
-    document.getElementById('waiting-room').style.display = 'block';
-    document.getElementById('overlay-status').textContent = 'Waiting for host...';
-  }
-});
-
-/* マッチボタン（クイック参加） */
-document.getElementById('match-btn').addEventListener('click', () => {
-  document.getElementById('player-name-input').value = 'Player' + Math.floor(Math.random() * 9000 + 1000);
-  document.querySelector('#title-weapon-btns .map-btn.active')?.click() ||
-    document.querySelector('#title-weapon-btns .map-btn')?.click();
-  document.getElementById('btn-join-room')?.click();
-});
-
-/* デス画面の武器選択 */
-document.getElementById('death-weapon-btns').addEventListener('click', (e) => {
-  const btn = e.target.closest('.map-btn');
-  if (!btn) return;
-  const wp = btn.dataset.weapon;
-  if (game.localPlayer) {
-    game.localPlayer.weapon = wp;
-    game.localPlayer.lastFireTime = 0;
-  }
-  document.querySelectorAll('#death-weapon-btns .map-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-});
-
-/* 待機室退出ボタン */
-document.getElementById('btn-leave-lobby').addEventListener('click', () => {
-  game.network.close();
-  game.connectionHandled = false;
-  game.players.forEach((p, id) => game.removePlayer(id));
-  game.projectiles.forEach(p => p.destroy());
-  game.projectiles = [];
-  game.gameStarted = false;
-  game.gameOver = false;
-  document.getElementById('result-screen').classList.remove('show');
-  document.getElementById('death-screen').classList.remove('show');
-  document.getElementById('overlay').classList.remove('hidden');
-  document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
-  document.getElementById('waiting-room').style.display = 'none';
-  document.getElementById('step-1').style.display = 'block';
-  document.getElementById('overlay-status').textContent = 'Click a button to start';
-  document.getElementById('match-btn').style.display = '';
-});
-
-/* ブラウザリロード/タブ閉じ時のクリーンアップ */
-window.addEventListener('beforeunload', () => {
-  game.network.close();
-});
-
-console.log('🚀 NEON ARENA loaded. Click "Host Game" or "Join Game" to begin.');
