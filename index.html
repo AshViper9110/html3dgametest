@@ -458,6 +458,119 @@ textarea:focus {
       color: #666688;
       margin-top: 2px;
     }
+
+    #timer-display {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      font-family: 'Orbitron', monospace;
+      font-size: 1.6em;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #00f0ff;
+      text-shadow: 0 0 20px rgba(0,240,255,0.3);
+      pointer-events: none;
+    }
+    #timer-display.urgent {
+      color: #ff0044;
+      text-shadow: 0 0 30px rgba(255,0,68,0.5);
+      animation: pulse 0.5s ease infinite alternate;
+    }
+    @keyframes pulse { from { opacity: 0.6; } to { opacity: 1; } }
+
+    #result-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5,5,15,0.92);
+      backdrop-filter: blur(8px);
+    }
+    #result-screen.show { display: flex; }
+    #result-inner {
+      background: rgba(20,20,40,0.95);
+      border: 1px solid rgba(0,240,255,0.2);
+      border-radius: 12px;
+      padding: 36px 44px;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 0 80px rgba(0,240,255,0.1);
+    }
+    #result-inner h2 {
+      font-family: 'Orbitron', monospace;
+      font-size: 2.2em;
+      letter-spacing: 8px;
+      color: #00f0ff;
+      text-shadow: 0 0 30px rgba(0,240,255,0.4);
+      margin-bottom: 8px;
+    }
+    #result-winner {
+      font-family: 'Orbitron', monospace;
+      font-size: 1em;
+      letter-spacing: 3px;
+      color: #ffd700;
+      text-shadow: 0 0 20px rgba(255,215,0,0.4);
+      margin-bottom: 20px;
+      padding: 8px;
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 6px;
+      background: rgba(255,215,0,0.05);
+    }
+    #result-list {
+      text-align: left;
+      margin: 12px 0 20px 0;
+    }
+    .result-entry {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      margin: 4px 0;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.2);
+      font-size: 0.9em;
+      letter-spacing: 1px;
+    }
+    .result-entry .r-rank {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.8em;
+      color: #6666aa;
+      min-width: 24px;
+      text-align: center;
+    }
+    .result-entry .r-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .result-entry .r-name {
+      flex: 1;
+      color: #ccccee;
+    }
+    .result-entry .r-kills {
+      font-family: 'Orbitron', monospace;
+      color: #00f0ff;
+      font-size: 1.1em;
+    }
+    .result-entry .r-deaths {
+      font-family: 'Orbitron', monospace;
+      color: #ff4444;
+      font-size: 0.85em;
+      margin-left: 10px;
+    }
+    .result-entry.winner {
+      border-color: rgba(255,215,0,0.3);
+      background: rgba(255,215,0,0.06);
+    }
+    .result-entry.winner .r-rank { color: #ffd700; }
+    .result-entry.winner .r-kills { color: #ffd700; }
 </style>
 </head>
 <body>
@@ -465,6 +578,8 @@ textarea:focus {
 <div id="game-container"></div>
 
 <div id="crosshair"><div id="crosshair-dot"></div></div>
+
+<div id="timer-display">--:--</div>
 
 <div id="hud">
   <div id="health-container">
@@ -494,6 +609,15 @@ textarea:focus {
   <div style="text-align:center;">
     <h2>ELIMINATED</h2>
     <div class="respawn-text" id="respawn-timer">RESPAWN IN 3</div>
+  </div>
+</div>
+
+<div id="result-screen">
+  <div id="result-inner">
+    <h2>GAME OVER</h2>
+    <div id="result-winner">🏆 WINNER</div>
+    <div id="result-list"></div>
+    <button class="btn btn-primary" id="btn-back-lobby">← BACK TO LOBBY</button>
   </div>
 </div>
 
@@ -561,6 +685,7 @@ const CONFIG = {
   playerSize: 1.0, playerHeight: 1.4, playerSpeed: 12,
   projectileRadius: 0.2, projectileSpeed: 45, projectileLifetime: 2.0,
   maxHealth: 5, respawnDelay: 3, stateSendRate: 0.05,
+  gameTimeLimit: 180, killCamDuration: 2,
   colors: { projectile: 0xffee00 },
 };
 
@@ -617,6 +742,61 @@ const MAPS = {
       { p: [-12,2,0], s: [1.5,4,1.5] }, { p: [12,2,0], s: [1.5,4,1.5] },
     ],
   },
+  abyss: {
+    name: 'ABYSS', desc: 'Deadly central vortex',
+    size: 45, wallHeight: 3.5, wallThick: 0.5,
+    bg: 0x000a12, fogNear: 25, fogFar: 50,
+    wallColor: 0x0a1a2e, floorColor: 0x050a12,
+    edgeColors: [0x00ffff, 0x0088ff],
+    gridColor: 0x00aaff,
+    ambientColor: 0x001122, ambientIntensity: 0.4,
+    dirColor: 0x4488ff, dirIntensity: 0.8,
+    rimColors: [0x00ffff, 0x0088ff, 0x00ffff, 0x0088ff],
+    walls: [
+      { p: [-6,2,-6], s: [2,4,2] }, { p: [6,2,-6], s: [2,4,2] },
+      { p: [-6,2,6], s: [2,4,2] }, { p: [6,2,6], s: [2,4,2] },
+      { p: [0,2,-12], s: [1,4,2] }, { p: [0,2,12], s: [1,4,2] },
+      { p: [-12,2,0], s: [2,4,1] }, { p: [12,2,0], s: [2,4,1] },
+      { p: [-10,2,-10], s: [6,4,0.5] }, { p: [10,2,10], s: [6,4,0.5] },
+    ],
+  },
+  fort: {
+    name: 'FORT', desc: 'Fortified stronghold',
+    size: 48, wallHeight: 4, wallThick: 0.5,
+    bg: 0x0a1208, fogNear: 22, fogFar: 44,
+    wallColor: 0x0a1a0a, floorColor: 0x080a05,
+    edgeColors: [0x00ff88, 0x00cc66],
+    gridColor: 0x00ff66,
+    ambientColor: 0x002211, ambientIntensity: 0.4,
+    dirColor: 0x44ff88, dirIntensity: 0.8,
+    rimColors: [0x00ff88, 0x00cc66, 0x00ff88, 0x00cc66],
+    walls: [
+      { p: [-12,2,-12], s: [8,4,0.5] }, { p: [12,2,12], s: [8,4,0.5] },
+      { p: [-12,2,12], s: [8,4,0.5] }, { p: [12,2,-12], s: [8,4,0.5] },
+      { p: [-6,2,0], s: [0.5,4,12] }, { p: [6,2,0], s: [0.5,4,12] },
+      { p: [0,2,-6], s: [12,4,0.5] }, { p: [0,2,6], s: [12,4,0.5] },
+      { p: [-16,2,-16], s: [6,4,0.5] }, { p: [16,2,16], s: [6,4,0.5] },
+      { p: [-16,2,16], s: [6,4,0.5] }, { p: [16,2,-16], s: [6,4,0.5] },
+    ],
+  },
+  chaos: {
+    name: 'CHAOS', desc: 'Dense obstacle field',
+    size: 40, wallHeight: 2.5, wallThick: 0.4,
+    bg: 0x120008, fogNear: 18, fogFar: 38,
+    wallColor: 0x2e0a1a, floorColor: 0x1a0008,
+    edgeColors: [0xff0055, 0xff44aa],
+    gridColor: 0xff0088,
+    ambientColor: 0x220011, ambientIntensity: 0.4,
+    dirColor: 0xff4488, dirIntensity: 0.8,
+    rimColors: [0xff0055, 0xff44aa, 0xff0055, 0xff44aa],
+    walls: [
+      { p: [-16,1.5,-16], s: [1,3,1] }, { p: [-16,1.5,-8], s: [1,3,1] }, { p: [-16,1.5,0], s: [1,3,1] }, { p: [-16,1.5,8], s: [1,3,1] }, { p: [-16,1.5,16], s: [1,3,1] },
+      { p: [-8,1.5,-16], s: [1,3,1] }, { p: [-8,1.5,-8], s: [1,3,1] }, { p: [-8,1.5,0], s: [1,3,1] }, { p: [-8,1.5,8], s: [1,3,1] }, { p: [-8,1.5,16], s: [1,3,1] },
+      { p: [0,1.5,-16], s: [1,3,1] }, { p: [0,1.5,-8], s: [1,3,1] }, { p: [0,1.5,8], s: [1,3,1] }, { p: [0,1.5,16], s: [1,3,1] },
+      { p: [8,1.5,-16], s: [1,3,1] }, { p: [8,1.5,-8], s: [1,3,1] }, { p: [8,1.5,0], s: [1,3,1] }, { p: [8,1.5,8], s: [1,3,1] }, { p: [8,1.5,16], s: [1,3,1] },
+      { p: [16,1.5,-16], s: [1,3,1] }, { p: [16,1.5,-8], s: [1,3,1] }, { p: [16,1.5,0], s: [1,3,1] }, { p: [16,1.5,8], s: [1,3,1] }, { p: [16,1.5,16], s: [1,3,1] },
+    ],
+  },
 };
 
 const _v3 = new THREE.Vector3();
@@ -649,7 +829,7 @@ class Projectile {
     if (this.age > CONFIG.projectileLifetime) { this.destroy(); return; }
     this.mesh.position.x += this.velocity.x * dt;
     this.mesh.position.z += this.velocity.z * dt;
-    const half = 25 - 1;
+    const half = 30;
     if (Math.abs(this.mesh.position.x) > half || Math.abs(this.mesh.position.z) > half) { this.destroy(); return; }
     this.glow.position.copy(this.mesh.position);
     const pulse = 1 + 0.3 * Math.sin(this.age * 20);
@@ -866,10 +1046,12 @@ class Game {
     this.mouseDelta = 0;
     this.network = new NetworkManager(this);
     this.gameStarted = false;
+    this.gameOver = false;
     this.connectionHandled = false;
     this.kills = 0;
     this.deaths = 0;
     this.respawnTimer = 0;
+    this.gameTimer = CONFIG.gameTimeLimit;
     this.selectedMap = 'grid';
     this.pointerLocked = false;
     this.clock = new THREE.Clock();
@@ -878,6 +1060,9 @@ class Game {
     this.renderer = null;
     this.arenaObjects = [];
     this.rimLights = [];
+    this.scoreboard = new Map();
+    this.killCamTimer = 0;
+    this.killCamKillerId = null;
   }
 
   get localPlayer() { return this.players.get(this.localId); }
@@ -1090,10 +1275,20 @@ class Game {
 
   startGame() {
     this.gameStarted = true;
+    this.gameOver = false;
+    this.gameTimer = CONFIG.gameTimeLimit;
+    this.kills = 0;
+    this.deaths = 0;
+    this.scoreboard.clear();
+    this.killCamTimer = 0;
+    this.killCamKillerId = null;
     this.network.sendTimer = CONFIG.stateSendRate;
+    document.getElementById('result-screen').classList.remove('show');
+    document.getElementById('death-screen').classList.remove('show');
     document.getElementById('overlay').classList.add('hidden');
     document.getElementById('instructions').classList.remove('hidden');
     this.addKillFeed('⚔ GAME START!');
+    this.updateTimerUI();
     if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
   }
 
@@ -1158,6 +1353,9 @@ class Game {
         break;
       case 'start':
         this.startGame();
+        break;
+      case 'game_over':
+        this._handleGameOver(data);
         break;
     }
   }
@@ -1237,14 +1435,16 @@ class Game {
       if (killed) {
         this.deaths++;
         document.getElementById('death-count').textContent = this.deaths;
-        this.respawnTimer = CONFIG.respawnDelay;
-        document.getElementById('death-screen').classList.add('show');
-        document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
+        this.killCamTimer = CONFIG.killCamDuration;
+        this.killCamKillerId = data.shooterId;
         this.addKillFeed(`☠ Eliminated by ${data.shooterName || 'opponent'}`);
       }
     }
+    if (data.lethal) {
+      this._trackKill(data.shooterId, data.targetId);
+    }
     const shooter = this.players.get(data.shooterId);
-    if (shooter && data.targetId !== this.network.myId) {
+    if (data.lethal && data.targetId !== this.network.myId) {
       this.addKillFeed(`🎯 ${data.shooterName || 'Someone'} eliminated ${data.targetName || 'opponent'}`);
     }
     if (this.network.isHost) this.network.broadcast(data, this._findConn(data.shooterId));
@@ -1275,6 +1475,17 @@ class Game {
     }
   }
 
+  _handleGameOver(data) {
+    if (data.scoreboard) {
+      this.players.forEach((p, id) => {
+        const entry = data.scoreboard.find(s => s.id === id);
+        if (entry) { p.kills = entry.kills; p.deaths = entry.deaths; }
+      });
+    }
+    this.gameStarted = false;
+    this.showResultScreen();
+  }
+
   updateHealthUI() {
     const lp = this.localPlayer;
     if (!lp) return;
@@ -1285,7 +1496,7 @@ class Game {
   }
 
   update(dt) {
-    if (!this.gameStarted) return;
+    if (!this.gameStarted || this.gameOver) return;
     const lp = this.localPlayer;
 
     if (lp && lp.alive) {
@@ -1308,6 +1519,7 @@ class Game {
         const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 0.8;
         lp.position.x = Math.max(-half, Math.min(half, lp.position.x));
         lp.position.z = Math.max(-half, Math.min(half, lp.position.z));
+        this._checkWallCollision(lp.position);
         lp.targetPosition.copy(lp.position);
       }
 
@@ -1322,8 +1534,20 @@ class Game {
 
     this.projectiles = this.projectiles.filter(p => p.alive);
     this.projectiles.forEach(p => p.update(dt));
+    this._checkProjectileWalls();
 
     this._checkProjectileHits();
+
+    if (this.killCamTimer > 0) {
+      this.killCamTimer -= dt;
+      if (this.killCamTimer <= 0) {
+        this.killCamTimer = 0;
+        this.killCamKillerId = null;
+        this.respawnTimer = CONFIG.respawnDelay;
+        document.getElementById('death-screen').classList.add('show');
+        document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
+      }
+    }
 
     if (this.respawnTimer > 0) {
       this.respawnTimer -= dt;
@@ -1333,6 +1557,13 @@ class Game {
         document.getElementById('death-screen').classList.remove('show');
         this._respawnLocal();
       }
+    }
+
+    this.gameTimer -= dt;
+    this.updateTimerUI();
+    if (this.gameTimer <= 0) {
+      this.gameTimer = 0;
+      this.endGame();
     }
 
     this.network.sendState(dt);
@@ -1350,20 +1581,22 @@ class Game {
           const dist = p.mesh.position.distanceTo(new THREE.Vector3(other.position.x, CONFIG.playerHeight / 2, other.position.z));
           if (dist < CONFIG.playerSize * 0.8) {
             p.destroy();
-            other.takeDamage(1);
+            const killed = other.takeDamage(1);
             const hitMsg = {
               type: 'hit', shooterId: this.network.myId, targetId: id,
               damage: 1, shooterName: lp.name, targetName: other.name,
+              lethal: killed,
             };
             if (this.network.isHost) {
               this.network.broadcast(hitMsg);
             } else {
               this.network.send(hitMsg);
             }
-            if (!other.alive) {
+            if (killed) {
               this.kills++;
               document.getElementById('kill-count').textContent = this.kills;
               this.addKillFeed(`🎯 Eliminated ${other.name}`);
+              this._trackKill(this.network.myId, id);
             }
           }
         });
@@ -1392,6 +1625,17 @@ class Game {
   }
 
   _updateCamera(dt) {
+    if (this.killCamTimer > 0 && this.killCamKillerId) {
+      const killer = this.players.get(this.killCamKillerId);
+      if (killer && killer.alive) {
+        const p = killer.position;
+        const dist = 12, height = 10;
+        const target = new THREE.Vector3(p.x + 8, p.y + height, p.z + 8);
+        this.camera.position.lerp(target, 1 - Math.exp(-6 * dt));
+        this.camera.lookAt(p.x, 0.5, p.z);
+        return;
+      }
+    }
     const lp = this.localPlayer;
     if (!lp) return;
     const p = lp.position;
@@ -1399,6 +1643,150 @@ class Game {
     const target = new THREE.Vector3(p.x + Math.sin(angle) * dist, p.y + height, p.z + Math.cos(angle) * dist);
     this.camera.position.lerp(target, 1 - Math.exp(-8 * dt));
     this.camera.lookAt(p.x, 0.5, p.z);
+  }
+
+  _trackKill(shooterId, targetId) {
+    if (!this.scoreboard.has(shooterId)) {
+      const p = this.players.get(shooterId);
+      this.scoreboard.set(shooterId, { kills: 0, deaths: 0, name: p ? p.name : '?', color: p ? p.color : 0xffffff });
+    }
+    if (!this.scoreboard.has(targetId)) {
+      const p = this.players.get(targetId);
+      this.scoreboard.set(targetId, { kills: 0, deaths: 0, name: p ? p.name : '?', color: p ? p.color : 0xffffff });
+    }
+    this.scoreboard.get(shooterId).kills++;
+    this.scoreboard.get(targetId).deaths++;
+    const shooter = this.players.get(shooterId);
+    if (shooter) shooter.kills++;
+    const target = this.players.get(targetId);
+    if (target) target.deaths++;
+  }
+
+  _checkWallCollision(pos) {
+    const map = this.arenaMap;
+    if (!map || !map.walls || map.walls.length === 0) return;
+    const pHalf = CONFIG.playerSize * 0.4;
+    for (const w of map.walls) {
+      const wx = w.p[0], wz = w.p[2];
+      const wHalfX = w.s[0] / 2 + pHalf;
+      const wHalfZ = w.s[2] / 2 + pHalf;
+      const dx = pos.x - wx;
+      const dz = pos.z - wz;
+      const overlapX = wHalfX - Math.abs(dx);
+      const overlapZ = wHalfZ - Math.abs(dz);
+      if (overlapX > 0 && overlapZ > 0) {
+        if (overlapX < overlapZ) {
+          pos.x += dx > 0 ? overlapX : -overlapX;
+        } else {
+          pos.z += dz > 0 ? overlapZ : -overlapZ;
+        }
+      }
+    }
+  }
+
+  _checkProjectileWalls() {
+    const map = this.arenaMap;
+    if (!map) return;
+    const half = map.size / 2;
+    const wt = map.wallThick;
+    const wh = map.wallHeight;
+    const perimeterWalls = [
+      { p: [0, wh/2, -half], s: [map.size, wh, wt] },
+      { p: [0, wh/2, half], s: [map.size, wh, wt] },
+      { p: [-half, wh/2, 0], s: [wt, wh, map.size] },
+      { p: [half, wh/2, 0], s: [wt, wh, map.size] },
+    ];
+    const allWalls = (map.walls || []).concat(perimeterWalls);
+    for (const p of this.projectiles) {
+      if (!p.alive) continue;
+      for (const w of allWalls) {
+        const wx = w.p[0], wz = w.p[2];
+        const wHalfX = w.s[0] / 2 + CONFIG.projectileRadius;
+        const wHalfZ = w.s[2] / 2 + CONFIG.projectileRadius;
+        const dx = p.mesh.position.x - wx;
+        const dz = p.mesh.position.z - wz;
+        if (Math.abs(dx) < wHalfX && Math.abs(dz) < wHalfZ) {
+          p.destroy();
+          break;
+        }
+      }
+    }
+  }
+
+  updateTimerUI() {
+    const remaining = Math.max(0, Math.ceil(this.gameTimer));
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    const el = document.getElementById('timer-display');
+    el.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    el.classList.toggle('urgent', remaining <= 10);
+  }
+
+  showResultScreen() {
+    this.gameOver = true;
+    document.getElementById('timer-display').textContent = '--:--';
+    document.getElementById('death-screen').classList.remove('show');
+    this.respawnTimer = 0;
+    this.killCamTimer = 0;
+    const sb = [];
+    this.players.forEach((p, id) => {
+      sb.push({ id, name: p.name, kills: p.kills, deaths: p.deaths, color: p.color });
+    });
+    if (sb.length === 0) {
+      this.scoreboard.forEach((entry, id) => {
+        sb.push({ id, name: entry.name, kills: entry.kills, deaths: entry.deaths, color: entry.color });
+      });
+    }
+    sb.sort((a, b) => b.kills - a.kills);
+    document.getElementById('result-screen').classList.add('show');
+    const winnerEl = document.getElementById('result-winner');
+    if (sb.length > 0 && sb[0].kills > 0) {
+      winnerEl.textContent = `🏆 WINNER: ${sb[0].name} — ${sb[0].kills} KILLS`;
+    } else {
+      winnerEl.textContent = '💀 NO WINNER';
+    }
+    const list = document.getElementById('result-list');
+    list.innerHTML = '';
+    sb.forEach((entry, i) => {
+      const div = document.createElement('div');
+      div.className = 'result-entry' + (i === 0 && entry.kills > 0 ? ' winner' : '');
+      const rank = document.createElement('span');
+      rank.className = 'r-rank';
+      if (i === 0) rank.textContent = '#' + (i + 1);
+      else rank.textContent = '#' + (i + 1);
+      const dot = document.createElement('span');
+      dot.className = 'r-dot';
+      dot.style.background = '#' + entry.color.toString(16).padStart(6, '0');
+      const name = document.createElement('span');
+      name.className = 'r-name';
+      name.textContent = entry.name + (entry.id === this.network.myId ? ' (YOU)' : '');
+      const kills = document.createElement('span');
+      kills.className = 'r-kills';
+      kills.textContent = entry.kills + ' K';
+      const deaths = document.createElement('span');
+      deaths.className = 'r-deaths';
+      deaths.textContent = entry.deaths + ' D';
+      div.appendChild(rank);
+      div.appendChild(dot);
+      div.appendChild(name);
+      div.appendChild(kills);
+      div.appendChild(deaths);
+      list.appendChild(div);
+    });
+  }
+
+  endGame() {
+    if (this.gameOver) return;
+    this.gameOver = true;
+    this.gameStarted = false;
+    if (this.network.isHost) {
+      const sb = [];
+      this.players.forEach((p, id) => {
+        sb.push({ id, name: p.name, kills: p.kills, deaths: p.deaths, color: p.color });
+      });
+      this.network.broadcast({ type: 'game_over', scoreboard: sb });
+    }
+    this.showResultScreen();
   }
 
   animate() {
@@ -1475,6 +1863,28 @@ document.getElementById('btn-start-game').addEventListener('click', () => {
   game._createArena(game.selectedMap);
   game.network.broadcast({ type: 'game_start', map: game.selectedMap });
   game.startGame();
+});
+
+document.getElementById('btn-back-lobby').addEventListener('click', () => {
+  document.getElementById('result-screen').classList.remove('show');
+  game.gameStarted = false;
+  game.gameOver = false;
+  game.players.forEach(p => { p.alive = true; p.health = CONFIG.maxHealth; p.updateMesh(); });
+  game.projectiles.forEach(p => p.destroy());
+  game.projectiles = [];
+  document.getElementById('overlay').classList.remove('hidden');
+  document.getElementById('instructions').classList.add('hidden');
+  document.getElementById('death-screen').classList.remove('show');
+  document.getElementById('timer-display').textContent = '--:--';
+  if (game.network.isHost) {
+    document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
+    document.getElementById('waiting-room').style.display = 'block';
+    document.getElementById('overlay-status').textContent = 'Select map and press START';
+  } else {
+    document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
+    document.getElementById('waiting-room').style.display = 'block';
+    document.getElementById('overlay-status').textContent = 'Waiting for host...';
+  }
 });
 
 console.log('🚀 NEON ARENA loaded. Click "Host Game" or "Join Game" to begin.');
