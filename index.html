@@ -212,45 +212,28 @@ textarea:focus {
   box-shadow: 0 0 20px rgba(255, 0, 68, 0.5);
 }
 
-#weapon-bar {
+#match-btn {
   position: fixed;
-  bottom: 76px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  display: flex;
-  gap: 6px;
-  pointer-events: none;
-}
-.weapon-slot {
-  padding: 6px 14px;
-  border: 1px solid rgba(0,240,255,0.15);
-  border-radius: 6px;
-  background: rgba(10,10,18,0.85);
-  color: #555577;
+  bottom: 24px;
+  right: 24px;
+  z-index: 90;
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.7em;
-  letter-spacing: 1px;
-  text-align: center;
+  font-weight: 700;
+  font-size: 0.9em;
+  letter-spacing: 2px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #00f0ff, #0088ff);
+  color: #0a0a12;
+  box-shadow: 0 0 20px rgba(0,240,255,0.3);
   transition: all 0.3s;
-  backdrop-filter: blur(4px);
-  min-width: 64px;
 }
-.weapon-slot .w-key {
-  font-family: 'Orbitron', monospace;
-  font-size: 0.65em;
-  color: #444466;
-  display: block;
-  margin-bottom: 1px;
-}
-.weapon-slot.active {
-  border-color: #00f0ff;
-  color: #00f0ff;
-  box-shadow: 0 0 15px rgba(0,240,255,0.2);
-  background: rgba(0,240,255,0.08);
-}
-.weapon-slot.active .w-key {
-  color: #00f0ff;
+#match-btn:hover {
+  box-shadow: 0 0 40px rgba(0,240,255,0.5);
+  transform: translateY(-2px);
 }
 
 #health-hearts {
@@ -633,13 +616,6 @@ textarea:focus {
   </div>
 </div>
 
-<div id="weapon-bar">
-  <div class="weapon-slot active" data-weapon="pistol"><span class="w-key">1</span>PISTOL</div>
-  <div class="weapon-slot" data-weapon="assault"><span class="w-key">2</span>ASSAULT</div>
-  <div class="weapon-slot" data-weapon="sniper"><span class="w-key">3</span>SNIPER</div>
-  <div class="weapon-slot" data-weapon="rpg"><span class="w-key">4</span>RPG</div>
-</div>
-
 <div id="score-display">
   <div class="score-label">KILLS</div>
   <div class="score-val" id="kill-count">0</div>
@@ -669,12 +645,23 @@ textarea:focus {
   </div>
 </div>
 
+<button id="match-btn">⚡ MATCH</button>
+
 <div id="overlay">
   <div id="overlay-inner">
     <h1>NEON ARENA</h1>
     <div class="subtitle">Real-Time PvP</div>
 
     <div id="step-1" class="step-section">
+      <div id="title-weapon-select" style="margin:0 0 14px 0;">
+        <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">▼ LOADOUT</div>
+        <div class="map-selector" id="title-weapon-btns">
+          <button class="map-btn active" data-weapon="pistol">PISTOL <span class="map-desc">Balanced</span></button>
+          <button class="map-btn" data-weapon="assault">ASSAULT <span class="map-desc">Full-auto</span></button>
+          <button class="map-btn" data-weapon="sniper">SNIPER <span class="map-desc">Precise</span></button>
+          <button class="map-btn" data-weapon="rpg">RPG <span class="map-desc">Explosive</span></button>
+        </div>
+      </div>
       <div class="btn-group">
         <button class="btn btn-primary" id="btn-host">🚀 Host Game</button>
         <button class="btn btn-secondary" id="btn-join">⚡ Join Game</button>
@@ -1192,10 +1179,7 @@ class Game {
       document.getElementById('instructions').classList.toggle('hidden', !this.pointerLocked);
     });
     document.addEventListener('mousemove', (e) => { if (this.pointerLocked) this.mouseDelta += e.movementX; });
-    document.addEventListener('keydown', (e) => {
-      this.keys[e.key.toLowerCase()] = true;
-      this._handleWeaponKey(e.key);
-    });
+    document.addEventListener('keydown', (e) => { this.keys[e.key.toLowerCase()] = true; });
     document.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
     this.renderer.domElement.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.mouseDown = true;
@@ -1402,7 +1386,6 @@ class Game {
     document.getElementById('instructions').classList.remove('hidden');
     this.addKillFeed('⚔ GAME START!');
     this.updateTimerUI();
-    this.updateWeaponUI();
     if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
   }
 
@@ -1525,6 +1508,10 @@ class Game {
     });
     this.localId = data.yourId;
     this.selectedMap = data.map || 'grid';
+    if (this.localPlayer) {
+      this.localPlayer.weapon = this.loadoutWeapon;
+      this.localPlayer.lastFireTime = 0;
+    }
     if (data.gameStarted) {
       this._createArena(this.selectedMap);
       this.gameStarted = true;
@@ -1536,7 +1523,6 @@ class Game {
       document.getElementById('result-screen').classList.remove('show');
       document.getElementById('death-screen').classList.remove('show');
       this.updateTimerUI();
-      this.updateWeaponUI();
       this.addKillFeed('⚔ Joined game in progress');
       if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
     } else {
@@ -1647,24 +1633,6 @@ class Game {
     bar.classList.toggle('low', pct <= 30);
   }
 
-  _handleWeaponKey(key) {
-    const map = { '1': 'pistol', '2': 'assault', '3': 'sniper', '4': 'rpg' };
-    const wp = map[key];
-    if (!wp || !this.localPlayer) return;
-    if (this.localPlayer.weapon === wp) return;
-    if (this.gameStarted && this.localPlayer.alive && !this.gameOver) return;
-    this.localPlayer.weapon = wp;
-    this.localPlayer.lastFireTime = 0;
-    this.updateWeaponUI();
-  }
-
-  updateWeaponUI() {
-    const wp = this.localPlayer ? this.localPlayer.weapon : 'pistol';
-    document.querySelectorAll('.weapon-slot').forEach(el => {
-      el.classList.toggle('active', el.dataset.weapon === wp);
-    });
-  }
-
   update(dt) {
     if (!this.gameStarted || this.gameOver) return;
     const lp = this.localPlayer;
@@ -1741,8 +1709,12 @@ class Game {
     if (this.killCamTimer > 0) {
       this.killCamTimer -= dt;
       if (this.killCamTimer <= 0) {
-        this.killCamTimer = 0;
-        this.killCamKillerId = null;
+    this.killCamTimer = 0;
+    this.killCamKillerId = null;
+    this.mouseDown = false;
+    this.dashTimer = 0;
+    this.dashCooldown = 0;
+    this.loadoutWeapon = 'pistol';
     this.mouseDown = false;
     this.dashTimer = 0;
     this.dashCooldown = 0;
@@ -2070,6 +2042,8 @@ document.getElementById('btn-host').addEventListener('click', async () => {
     game.localId = roomId;
     const hostName = document.getElementById('host-name-input').value.trim() || 'Host';
     game.addPlayer(roomId, PLAYER_COLORS[0], hostName);
+    const me = game.players.get(roomId);
+    if (me) { me.weapon = game.loadoutWeapon; me.lastFireTime = 0; }
     document.getElementById('room-id-display').textContent = roomId;
     document.getElementById('overlay-status').textContent = 'Share this room ID with friends';
     document.getElementById('step-host-status').textContent = 'Waiting for players to join...';
@@ -2093,6 +2067,8 @@ document.getElementById('btn-join').addEventListener('click', () => {
   document.getElementById('overlay-status').textContent = 'Enter the host\'s room ID';
 });
 
+document.querySelector('#title-weapon-btns .map-btn')?.classList.add('active');
+
 document.getElementById('btn-join-back').addEventListener('click', () => {
   document.getElementById('step-join').style.display = 'none';
   document.getElementById('step-1').style.display = 'block';
@@ -2111,6 +2087,16 @@ document.getElementById('btn-join-room').addEventListener('click', async () => {
   } catch (err) {
     document.getElementById('overlay-status').textContent = '❌ Error: ' + err.message;
   }
+});
+
+document.getElementById('title-weapon-btns').addEventListener('click', (e) => {
+  const btn = e.target.closest('.map-btn');
+  if (!btn) return;
+  const wp = btn.dataset.weapon;
+  game.loadoutWeapon = wp;
+  if (game.localPlayer) game.localPlayer.weapon = wp;
+  document.querySelectorAll('#title-weapon-btns .map-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 });
 
 document.getElementById('btn-copy-room').addEventListener('click', () => {
@@ -2161,6 +2147,13 @@ document.getElementById('btn-back-lobby').addEventListener('click', () => {
     document.getElementById('waiting-room').style.display = 'block';
     document.getElementById('overlay-status').textContent = 'Waiting for host...';
   }
+});
+
+document.getElementById('match-btn').addEventListener('click', () => {
+  document.getElementById('player-name-input').value = 'Player' + Math.floor(Math.random() * 9000 + 1000);
+  document.querySelector('#title-weapon-btns .map-btn.active')?.click() ||
+    document.querySelector('#title-weapon-btns .map-btn')?.click();
+  document.getElementById('btn-join-room')?.click();
 });
 
 console.log('🚀 NEON ARENA loaded. Click "Host Game" or "Join Game" to begin.');
