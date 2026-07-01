@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON ARENA</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+
+body {
+  background: #0a0a12;
+  overflow: hidden;
+  font-family: 'Rajdhani', sans-serif;
+  color: #fff;
+  user-select: none;
+}
+
+#game-container {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+}
+
+#game-container canvas {
+  display: block;
+}
+
+/* Connection Overlay */
+#overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(10, 10, 18, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+#overlay.hidden {
+  display: none;
+}
+
+#overlay-inner {
+  background: rgba(20, 20, 35, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 520px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(0, 240, 255, 0.1), inset 0 0 60px rgba(0, 240, 255, 0.03);
+}
+
+#overlay-inner h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: 2.4em;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #00f0ff;
+  text-shadow: 0 0 20px rgba(0, 240, 255, 0.5), 0 0 60px rgba(0, 240, 255, 0.2);
+  margin-bottom: 4px;
+}
+
+#overlay-inner .subtitle {
+  color: #8888aa;
+  font-size: 0.9em;
+  letter-spacing: 4px;
+  margin-bottom: 30px;
+  text-transform: uppercase;
+}
+
+.btn {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1.1em;
+  letter-spacing: 2px;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-transform: uppercase;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #00f0ff, #0088ff);
+  color: #0a0a12;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 40px rgba(0, 240, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #ff00ff, #8800ff);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+}
+
+.btn-secondary:hover {
+  box-shadow: 0 0 40px rgba(255, 0, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-small {
+  padding: 8px 16px;
+  font-size: 0.85em;
+}
+
+.btn-group {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+textarea {
+  width: 100%;
+  height: 90px;
+  background: rgba(10, 10, 18, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 6px;
+  color: #00f0ff;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75em;
+  padding: 10px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+textarea:focus {
+  border-color: rgba(0, 240, 255, 0.6);
+}
+
+.step-label {
+  color: #6666aa;
+  font-size: 0.8em;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.step-section {
+  margin-bottom: 16px;
+}
+
+.status-text {
+  color: #8888aa;
+  font-size: 0.9em;
+  margin-top: 12px;
+  letter-spacing: 1px;
+}
+
+.status-text.active {
+  color: #00f0ff;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+/* HUD */
+#hud {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+#health-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#health-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.8em;
+  letter-spacing: 3px;
+  color: #6666aa;
+}
+
+#health-bar-bg {
+  width: 240px;
+  height: 8px;
+  background: rgba(20, 20, 35, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#health-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff0044, #ff4400, #00f0ff);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+}
+
+#health-bar.low {
+  box-shadow: 0 0 20px rgba(255, 0, 68, 0.5);
+}
+
+#health-hearts {
+  display: flex;
+  gap: 4px;
+  font-size: 1.4em;
+}
+
+.heart {
+  color: #222244;
+  transition: all 0.3s;
+}
+
+.heart.active {
+  color: #ff0044;
+  text-shadow: 0 0 12px rgba(255, 0, 68, 0.6);
+}
+
+#status-info {
+  display: flex;
+  gap: 20px;
+  font-size: 0.8em;
+  letter-spacing: 1px;
+  color: #444466;
+  font-family: 'Orbitron', monospace;
+}
+
+#status-info .connected {
+  color: #00f0ff;
+}
+
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+#crosshair::before, #crosshair::after {
+  content: '';
+  position: absolute;
+  background: #00f0ff;
+}
+
+#crosshair::before {
+  width: 2px;
+  height: 20px;
+  top: -10px;
+  left: -1px;
+  box-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+}
+
+#crosshair::after {
+  width: 20px;
+  height: 2px;
+  top: -1px;
+  left: -10px;
+  box-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+}
+
+#crosshair-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #00f0ff;
+  border-radius: 50%;
+  top: -2px;
+  left: -2px;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
+}
+
+#kill-feed {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.kill-msg {
+  background: rgba(10, 10, 18, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 0.8em;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: #aaaacc;
+  animation: fadeIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+  backdrop-filter: blur(4px);
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+#instructions {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  font-size: 0.75em;
+  letter-spacing: 2px;
+  color: rgba(100, 100, 170, 0.5);
+  text-align: center;
+  pointer-events: none;
+  font-family: 'Rajdhani', sans-serif;
+}
+
+#instructions.hidden {
+  display: none;
+}
+
+#death-screen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 18, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+#death-screen.show {
+  display: flex;
+}
+
+#death-screen h2 {
+  font-family: 'Orbitron', monospace;
+  font-size: 3em;
+  color: #ff0044;
+  text-shadow: 0 0 40px rgba(255, 0, 68, 0.5);
+  letter-spacing: 8px;
+}
+
+#death-screen .respawn-text {
+  color: #6666aa;
+  font-size: 1em;
+  letter-spacing: 3px;
+  margin-top: 10px;
+}
+
+#score-display {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 50;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.85em;
+  letter-spacing: 2px;
+  color: #6666aa;
+  text-align: right;
+  pointer-events: none;
+}
+
+#score-display .score-val {
+  color: #00f0ff;
+  font-size: 1.4em;
+}
+
+#score-display .score-label {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  color: #444466;
+}
+</style>
+</head>
+<body>
+
+<div id="game-container"></div>
+
+<div id="crosshair"><div id="crosshair-dot"></div></div>
+
+<div id="hud">
+  <div id="health-container">
+    <span id="health-label">HP</span>
+    <div id="health-bar-bg"><div id="health-bar"></div></div>
+  </div>
+  <div id="status-info">
+    <span id="conn-status">—</span>
+    <span id="ping-display">—</span>
+  </div>
+</div>
+
+<div id="score-display">
+  <div class="score-label">KILLS</div>
+  <div class="score-val" id="kill-count">0</div>
+  <div class="score-label" style="margin-top:8px;">DEATHS</div>
+  <div class="score-val" id="death-count" style="color:#ff4444;">0</div>
+</div>
+
+<div id="kill-feed"></div>
+
+<div id="instructions" class="hidden">
+  WASD: MOVE &nbsp;·&nbsp; MOUSE: AIM &nbsp;·&nbsp; LEFT CLICK: SHOOT
+</div>
+
+<div id="death-screen">
+  <div style="text-align:center;">
+    <h2>ELIMINATED</h2>
+    <div class="respawn-text" id="respawn-timer">RESPAWN IN 3</div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div id="overlay-inner">
+    <h1>NEON ARENA</h1>
+    <div class="subtitle">Real-Time PvP</div>
+
+    <div id="step-1" class="step-section">
+      <span class="step-label">▼ Step 1: Host or Join</span>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-host">🚀 Host Game</button>
+        <button class="btn btn-secondary" id="btn-join">⚡ Join Game</button>
+      </div>
+    </div>
+
+    <div id="step-2" class="step-section" style="display:none;">
+      <span class="step-label" id="step-2-label">▼ Copy this invite code &amp; send to friend</span>
+      <textarea id="signaling-output" readonly></textarea>
+      <div style="margin-top:8px;">
+        <button class="btn btn-primary btn-small" id="btn-copy">📋 Copy</button>
+      </div>
+      <div class="status-text" id="step-2-status">Waiting for peer to connect...</div>
+    </div>
+
+    <div id="step-join" class="step-section" style="display:none;">
+      <span class="step-label">▼ Paste invite code from host</span>
+      <textarea id="signaling-input" placeholder="Paste invite code here..."></textarea>
+      <div style="margin-top:8px;">
+        <button class="btn btn-secondary btn-small" id="btn-submit-offer">Join Arena</button>
+      </div>
+    </div>
+
+    <div id="step-3" class="step-section" style="display:none;">
+      <span class="step-label">▼ Send this answer code back to the host</span>
+      <textarea id="signaling-answer" readonly></textarea>
+      <div style="margin-top:8px;">
+        <button class="btn btn-secondary btn-small" id="btn-copy-answer">📋 Copy</button>
+      </div>
+      <div class="status-text" id="step-3-status">Waiting for host to complete connection...</div>
+    </div>
+
+    <div id="step-host-final" class="step-section" style="display:none;">
+      <span class="step-label">▼ Paste the answer code from your friend</span>
+      <textarea id="signaling-answer-input" placeholder="Paste answer code here..."></textarea>
+      <div style="margin-top:8px;">
+        <button class="btn btn-primary btn-small" id="btn-finalize">🔗 Connect</button>
+      </div>
+    </div>
+
+    <div class="status-text" id="overlay-status">Launching... click a button to start</div>
+
+    <div id="waiting-room" style="display:none; text-align:center;">
+      <div style="border-top:1px solid rgba(0,240,255,0.1); margin:20px 0 16px 0;"></div>
+      <div style="font-family:'Orbitron',monospace; font-size:1.3em; letter-spacing:4px; color:#00f0ff; text-shadow:0 0 20px rgba(0,240,255,0.3); margin-bottom:12px;">CONNECTED</div>
+      <div id="waiting-room-status" style="color:#8888aa; font-size:0.95em; letter-spacing:2px; margin-bottom:20px;"></div>
+      <button class="btn btn-primary" id="btn-start-game" style="display:none;">▶ START GAME</button>
+      <div style="margin-top:12px; display:flex; justify-content:center; gap:4px;" id="waiting-players">
+        <span style="color:#00f0ff; font-family:'Orbitron',monospace; font-size:0.8em; letter-spacing:2px; border:1px solid rgba(0,240,255,0.2); padding:4px 12px; border-radius:4px;">● HOST</span>
+        <span style="color:#ff0055; font-family:'Orbitron',monospace; font-size:0.8em; letter-spacing:2px; border:1px solid rgba(255,0,85,0.2); padding:4px 12px; border-radius:4px;">● GUEST</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+const THREE = window.THREE;
+
+const CONFIG = {
+  arenaSize: 40,
+  wallHeight: 3,
+  wallThick: 0.5,
+  playerSize: 1.0,
+  playerHeight: 1.4,
+  playerSpeed: 12,
+  projectileRadius: 0.2,
+  projectileSpeed: 45,
+  projectileLifetime: 2.0,
+  maxHealth: 5,
+  respawnDelay: 3,
+  stateSendRate: 0.05,
+  colors: {
+    localPlayer: 0x00f0ff,
+    remotePlayer: 0xff0055,
+    projectile: 0xffee00,
+    wall: 0x222244,
+    wallGlow: 0x00f0ff,
+    floor: 0x0d0d1a,
+  }
+};
+
+const _v3 = new THREE.Vector3();
+const _v3b = new THREE.Vector3();
+
+class Projectile {
+  constructor(scene, origin, direction, ownerId, id) {
+    this.scene = scene;
+    this.ownerId = ownerId;
+    this.id = id;
+    this.alive = true;
+    this.age = 0;
+
+    const geo = new THREE.SphereGeometry(CONFIG.projectileRadius * 1.5, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ color: CONFIG.colors.projectile });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.position.copy(origin);
+    this.mesh.position.y += CONFIG.playerHeight * 0.6;
+    this.scene.add(this.mesh);
+
+    this.velocity = direction.clone().multiplyScalar(CONFIG.projectileSpeed);
+    this.velocity.y = 0;
+
+    const glowGeo = new THREE.SphereGeometry(CONFIG.projectileRadius * 3, 8, 8);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: CONFIG.colors.projectile,
+      transparent: true,
+      opacity: 0.25,
+    });
+    this.glow = new THREE.Mesh(glowGeo, glowMat);
+    this.glow.position.copy(this.mesh.position);
+    this.scene.add(this.glow);
+
+    this.trail = [];
+    this.trailTimer = 0;
+  }
+
+  update(dt) {
+    if (!this.alive) return;
+    this.age += dt;
+    if (this.age > CONFIG.projectileLifetime) {
+      this.destroy();
+      return;
+    }
+
+    this.mesh.position.x += this.velocity.x * dt;
+    this.mesh.position.z += this.velocity.z * dt;
+
+    const halfArena = CONFIG.arenaSize / 2 - 1;
+    if (Math.abs(this.mesh.position.x) > halfArena || Math.abs(this.mesh.position.z) > halfArena) {
+      this.destroy();
+      return;
+    }
+
+    this.glow.position.copy(this.mesh.position);
+
+    const pulse = 1 + 0.3 * Math.sin(this.age * 20);
+    this.glow.scale.setScalar(pulse);
+
+    this.trailTimer += dt;
+    if (this.trailTimer > 0.03) {
+      this.trailTimer = 0;
+      this.spawnTrail();
+    }
+
+    this.trail = this.trail.filter(t => {
+      t.life += dt;
+      if (t.life > 0.4) { this.scene.remove(t.mesh); return false; }
+      const s = 1 - t.life / 0.4;
+      t.mesh.scale.setScalar(s * 2);
+      t.mesh.material.opacity = s * 0.4;
+      return true;
+    });
+  }
+
+  spawnTrail() {
+    const geo = new THREE.SphereGeometry(CONFIG.projectileRadius, 4, 4);
+    const mat = new THREE.MeshBasicMaterial({
+      color: CONFIG.colors.projectile,
+      transparent: true,
+      opacity: 0.4,
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.copy(this.mesh.position);
+    this.scene.add(m);
+    this.trail.push({ mesh: m, life: 0 });
+  }
+
+  destroy() {
+    this.alive = false;
+    this.scene.remove(this.mesh);
+    this.scene.remove(this.glow);
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+    this.glow.geometry.dispose();
+    this.glow.material.dispose();
+    this.trail.forEach(t => { this.scene.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); });
+    this.trail = [];
+  }
+}
+
+class Player {
+  constructor(scene, id, color, isLocal) {
+    this.scene = scene;
+    this.id = id;
+    this.color = color;
+    this.isLocal = isLocal;
+    this.health = CONFIG.maxHealth;
+    this.maxHealth = CONFIG.maxHealth;
+    this.alive = true;
+    this.kills = 0;
+    this.deaths = 0;
+
+    const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
+    const mat = new THREE.MeshStandardMaterial({
+      color: color,
+      emissive: color,
+      emissiveIntensity: 0.3,
+      metalness: 0.1,
+      roughness: 0.4,
+    });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.castShadow = false;
+    this.scene.add(this.mesh);
+
+    const glowGeo = new THREE.BoxGeometry(CONFIG.playerSize * 1.6, CONFIG.playerHeight * 0.2, CONFIG.playerSize * 1.6);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.1,
+    });
+    this.glowRing = new THREE.Mesh(glowGeo, glowMat);
+    this.glowRing.position.y = 0.05;
+    this.scene.add(this.glowRing);
+
+    this.edgeGeo = new THREE.EdgesGeometry(geo);
+    this.edgeMat = new THREE.LineBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.4,
+    });
+    this.edgeLine = new THREE.LineSegments(this.edgeGeo, this.edgeMat);
+    this.edgeLine.position.copy(this.mesh.position);
+    this.scene.add(this.edgeLine);
+
+    this.position = new THREE.Vector3();
+    this.rotation = 0;
+    this.targetPosition = new THREE.Vector3();
+    this.targetRotation = 0;
+
+    this.spawn();
+  }
+
+  spawn() {
+    const half = CONFIG.arenaSize / 2 - 3;
+    this.position.set(
+      (Math.random() - 0.5) * half * 2,
+      0,
+      (Math.random() - 0.5) * half * 2
+    );
+    this.targetPosition.copy(this.position);
+    this.health = CONFIG.maxHealth;
+    this.alive = true;
+    this.updateMesh();
+  }
+
+  takeDamage(amount) {
+    this.health = Math.max(0, this.health - amount);
+    if (this.health <= 0 && this.alive) {
+      this.alive = false;
+      this.deaths++;
+    }
+    return !this.alive;
+  }
+
+  updateMesh() {
+    this.mesh.position.set(this.position.x, CONFIG.playerHeight / 2, this.position.z);
+    this.mesh.rotation.y = this.rotation;
+    this.glowRing.position.set(this.position.x, 0.05, this.position.z);
+    this.edgeLine.position.copy(this.mesh.position);
+    this.edgeLine.rotation.y = this.rotation;
+  }
+
+  setPosition(pos) {
+    this.position.copy(pos);
+    this.targetPosition.copy(pos);
+  }
+
+  setRotation(rot) {
+    this.rotation = rot;
+    this.targetRotation = rot;
+  }
+
+  lerpToTarget(dt) {
+    this.position.lerp(this.targetPosition, 1 - Math.exp(-10 * dt));
+    const diff = this.targetRotation - this.rotation;
+    this.rotation += diff * Math.min(1, 10 * dt);
+  }
+
+  update(dt) {
+    if (!this.alive) {
+      this.mesh.visible = false;
+      this.edgeLine.visible = false;
+      this.glowRing.visible = false;
+      return;
+    }
+    this.mesh.visible = true;
+    this.edgeLine.visible = true;
+    this.glowRing.visible = true;
+    this.updateMesh();
+  }
+
+  destroy() {
+    this.scene.remove(this.mesh);
+    this.scene.remove(this.glowRing);
+    this.scene.remove(this.edgeLine);
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+    this.glowRing.geometry.dispose();
+    this.glowRing.material.dispose();
+    this.edgeGeo.dispose();
+    this.edgeMat.dispose();
+  }
+}
+
+class NetworkManager {
+  constructor(game) {
+    this.game = game;
+    this.pc = null;
+    this.dc = null;
+    this.connected = false;
+    this.remotePlayer = null;
+    this.messageQueue = [];
+    this.pendingCandidates = [];
+    this.connectionType = null;
+    this.onStateChange = null;
+    this.pingStart = 0;
+    this.latency = 0;
+    this.sendTimer = 0;
+    this.peerConnected = false;
+  }
+
+  async createOffer() {
+    this.connectionType = 'host';
+    this.pc = this._createPC();
+    this.dc = this.pc.createDataChannel('game', { ordered: true });
+    this._setupDataChannel();
+
+    const offer = await this.pc.createOffer();
+    await this.pc.setLocalDescription(offer);
+    await this._waitForIceGathering();
+
+    this.game.setState('waiting_peer');
+    return btoa(JSON.stringify(this.pc.localDescription));
+  }
+
+  async createAnswer(offerB64) {
+    this.connectionType = 'join';
+    const offerDesc = JSON.parse(atob(offerB64));
+    this.pc = this._createPC();
+    this.pc.ondatachannel = (e) => {
+      this.dc = e.channel;
+      this._setupDataChannel();
+    };
+
+    await this.pc.setRemoteDescription(new RTCSessionDescription(offerDesc));
+    const answer = await this.pc.createAnswer();
+    await this.pc.setLocalDescription(answer);
+    await this._waitForIceGathering();
+
+    this.game.setState('waiting_finalize');
+    return btoa(JSON.stringify(this.pc.localDescription));
+  }
+
+  async setRemoteAnswer(answerB64) {
+    const answerDesc = JSON.parse(atob(answerB64));
+    await this.pc.setRemoteDescription(new RTCSessionDescription(answerDesc));
+  }
+
+  _createPC() {
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ],
+    };
+    const pc = new RTCPeerConnection(config);
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        this.pendingCandidates.push(e.candidate);
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        this.connected = true;
+        this.peerConnected = true;
+        this.game.onConnected();
+      } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+        this.connected = false;
+        this.peerConnected = false;
+        this.game.onDisconnected();
+      }
+    };
+
+    return pc;
+  }
+
+  async _waitForIceGathering() {
+    if (this.pc.iceGatheringState === 'complete') return;
+    return new Promise(resolve => {
+      const handler = () => {
+        if (this.pc.iceGatheringState === 'complete') {
+          this.pc.removeEventListener('icegatheringstatechange', handler);
+          resolve();
+        }
+      };
+      this.pc.addEventListener('icegatheringstatechange', handler);
+      if (this.pc.iceGatheringState === 'complete') {
+        this.pc.removeEventListener('icegatheringstatechange', handler);
+        resolve();
+      }
+    });
+  }
+
+  _setupDataChannel() {
+    if (!this.dc) return;
+    this.dc.onopen = () => {
+      this.connected = true;
+      this.peerConnected = true;
+      this.game.onConnected();
+    };
+    this.dc.onclose = () => {
+      this.connected = false;
+      this.peerConnected = false;
+      this.game.onDisconnected();
+    };
+    this.dc.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        this.game.handleMessage(msg);
+      } catch (err) {
+        console.error('msg parse error:', err);
+      }
+    };
+  }
+
+  send(data) {
+    if (this.dc && this.dc.readyState === 'open') {
+      try {
+        this.dc.send(JSON.stringify(data));
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
+  sendState(dt) {
+    if (!this.peerConnected) return;
+    this.sendTimer += dt;
+    if (this.sendTimer < CONFIG.stateSendRate) return;
+    this.sendTimer = 0;
+
+    const p = this.game.localPlayer;
+    if (!p) return;
+    this.send({
+      type: 'state',
+      pos: { x: p.position.x, y: p.position.y, z: p.position.z },
+      rot: p.rotation,
+      health: p.health,
+      alive: p.alive,
+      ts: Date.now(),
+    });
+  }
+
+  close() {
+    if (this.dc) { try { this.dc.close(); } catch(e) {} }
+    if (this.pc) { try { this.pc.close(); } catch(e) {} }
+    this.connected = false;
+    this.peerConnected = false;
+  }
+}
+
+class Game {
+  constructor() {
+    this.scene = null;
+    this.camera = null;
+    this.renderer = null;
+    this.localPlayer = null;
+    this.remotePlayer = null;
+    this.remotePlayerObj = null;
+    this.projectiles = [];
+    this.projectileIdCounter = 0;
+    this.keys = {};
+    this.mouseDelta = 0;
+    this.network = new NetworkManager(this);
+    this.state = 'init';
+    this.gameStarted = false;
+    this.connectionHandled = false;
+    this.kills = 0;
+    this.deaths = 0;
+    this.respawnTimer = 0;
+    this.pointerLocked = false;
+    this.clock = new THREE.Clock();
+
+    this.wallMeshes = [];
+    this.floorGrid = null;
+    this.ambientLight = null;
+    this.dirLight = null;
+    this.rimLights = [];
+  }
+
+  init() {
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x0a0a12);
+    this.scene.fog = new THREE.Fog(0x0a0a12, 30, 60);
+
+    this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+    });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const container = document.getElementById('game-container');
+    container.appendChild(this.renderer.domElement);
+
+    window.addEventListener('resize', () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      this.pointerLocked = document.pointerLockElement === this.renderer.domElement;
+      document.getElementById('instructions').classList.toggle('hidden', !this.pointerLocked);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (this.pointerLocked) {
+        this.mouseDelta += e.movementX;
+      }
+    });
+
+    document.addEventListener('keydown', (e) => { this.keys[e.key.toLowerCase()] = true; });
+    document.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
+
+    this.renderer.domElement.addEventListener('click', () => {
+      if (this.network.peerConnected && !this.pointerLocked) {
+        this.renderer.domElement.requestPointerLock();
+      }
+    });
+
+    this.renderer.domElement.addEventListener('mousedown', (e) => {
+      if (e.button === 0 && this.pointerLocked && this.localPlayer && this.localPlayer.alive) {
+        this.shoot();
+      }
+    });
+
+    this._setupLights();
+    this._createArena();
+
+    this.animate();
+  }
+
+  _setupLights() {
+    this.ambientLight = new THREE.AmbientLight(0x111122, 0.5);
+    this.scene.add(this.ambientLight);
+
+    this.dirLight = new THREE.DirectionalLight(0x8844ff, 1.0);
+    this.dirLight.position.set(10, 20, 10);
+    this.scene.add(this.dirLight);
+
+    const rimPositions = [
+      [-20, 8, -20], [20, 8, -20], [-20, 8, 20], [20, 8, 20],
+    ];
+    const rimColors = [0x00f0ff, 0xff00ff, 0x00f0ff, 0xff00ff];
+    rimPositions.forEach((pos, i) => {
+      const light = new THREE.PointLight(rimColors[i], 0.6, 30);
+      light.position.set(pos[0], pos[1], pos[2]);
+      this.scene.add(light);
+      this.rimLights.push(light);
+
+      const helper = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 8, 8),
+        new THREE.MeshBasicMaterial({ color: rimColors[i] })
+      );
+      helper.position.copy(light.position);
+      this.scene.add(helper);
+    });
+  }
+
+  _createArena() {
+    const half = CONFIG.arenaSize / 2;
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1a2e,
+      metalness: 0.2,
+      roughness: 0.6,
+    });
+
+    const wallData = [
+      { pos: [0, CONFIG.wallHeight/2, -half], size: [CONFIG.arenaSize, CONFIG.wallHeight, CONFIG.wallThick] },
+      { pos: [0, CONFIG.wallHeight/2, half], size: [CONFIG.arenaSize, CONFIG.wallHeight, CONFIG.wallThick] },
+      { pos: [-half, CONFIG.wallHeight/2, 0], size: [CONFIG.wallThick, CONFIG.wallHeight, CONFIG.arenaSize] },
+      { pos: [half, CONFIG.wallHeight/2, 0], size: [CONFIG.wallThick, CONFIG.wallHeight, CONFIG.arenaSize] },
+    ];
+
+    wallData.forEach((d, idx) => {
+      const geo = new THREE.BoxGeometry(...d.size);
+      const mesh = new THREE.Mesh(geo, wallMat);
+      mesh.position.set(d.pos[0], d.pos[1], d.pos[2]);
+      mesh.receiveShadow = true;
+      this.scene.add(mesh);
+      this.wallMeshes.push(mesh);
+
+      const edgeGeo = new THREE.EdgesGeometry(geo);
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: idx % 2 === 0 ? 0x00f0ff : 0xff00ff,
+        transparent: true,
+        opacity: 0.25,
+      });
+      const edgeLine = new THREE.LineSegments(edgeGeo, edgeMat);
+      edgeLine.position.copy(mesh.position);
+      this.scene.add(edgeLine);
+    });
+
+    const floorGeo = new THREE.PlaneGeometry(CONFIG.arenaSize - 1, CONFIG.arenaSize - 1);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x0d0d1a,
+      metalness: 0.3,
+      roughness: 0.7,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0;
+    floor.receiveShadow = true;
+    this.scene.add(floor);
+
+    const gridHelper = new THREE.GridHelper(CONFIG.arenaSize - 2, 20, 0x00f0ff, 0x222255);
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.15;
+    gridHelper.position.y = 0.02;
+    this.scene.add(gridHelper);
+
+    const gridHelper2 = new THREE.GridHelper(CONFIG.arenaSize - 2, 40, 0x4444aa, 0x222255);
+    gridHelper2.material.transparent = true;
+    gridHelper2.material.opacity = 0.08;
+    gridHelper2.position.y = 0.01;
+    this.scene.add(gridHelper2);
+  }
+
+  setState(s) {
+    this.state = s;
+  }
+
+  onConnected() {
+    if (this.connectionHandled) return;
+    this.connectionHandled = true;
+    document.getElementById('conn-status').textContent = '● CONNECTED';
+    document.getElementById('conn-status').classList.add('connected');
+    this.showWaitingRoom();
+  }
+
+  showWaitingRoom() {
+    document.querySelectorAll('.step-section').forEach(el => el.style.display = 'none');
+    document.getElementById('waiting-room').style.display = 'block';
+
+    if (this.network.connectionType === 'host') {
+      document.getElementById('waiting-room-status').textContent = 'Waiting for opponent to ready up...';
+      document.getElementById('btn-start-game').style.display = 'inline-block';
+      document.getElementById('overlay-status').textContent = 'Press START when both are ready';
+    } else {
+      document.getElementById('waiting-room-status').textContent = 'Waiting for host to start the game...';
+      document.getElementById('btn-start-game').style.display = 'none';
+      document.getElementById('overlay-status').textContent = 'Waiting for host...';
+    }
+  }
+
+  startGame() {
+    this.gameStarted = true;
+    this.network.sendTimer = CONFIG.stateSendRate;
+    document.getElementById('overlay').classList.add('hidden');
+    document.getElementById('instructions').classList.remove('hidden');
+    if (this.network.connectionType === 'host') {
+      this.addKillFeed('⚔ Game started by host');
+    } else {
+      this.addKillFeed('⚔ Game started!');
+    }
+    if (!this.pointerLocked) {
+      setTimeout(() => { this.renderer.domElement.requestPointerLock(); }, 300);
+    }
+  }
+
+  onDisconnected() {
+    document.getElementById('conn-status').textContent = '● DISCONNECTED';
+    document.getElementById('conn-status').classList.remove('connected');
+    this.addKillFeed('⚠ Connection lost');
+  }
+
+  addKillFeed(msg) {
+    const feed = document.getElementById('kill-feed');
+    const el = document.createElement('div');
+    el.className = 'kill-msg';
+    el.textContent = msg;
+    feed.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
+  }
+
+  spawnLocalPlayer() {
+    this.localPlayer = new Player(
+      this.scene,
+      'local',
+      CONFIG.colors.localPlayer,
+      true
+    );
+    this.localPlayer.spawn();
+    this.updateHealthUI();
+  }
+
+  createRemotePlayer() {
+    if (this.remotePlayerObj) {
+      this.remotePlayerObj.destroy();
+    }
+    this.remotePlayerObj = new Player(
+      this.scene,
+      'remote',
+      CONFIG.colors.remotePlayer,
+      false
+    );
+  }
+
+  shoot() {
+    if (!this.localPlayer || !this.localPlayer.alive) return;
+    const dir = new THREE.Vector3(0, 0, -1);
+    dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.localPlayer.rotation);
+    dir.y = 0;
+    dir.normalize();
+
+    const id = this.localPlayer.id + '_' + (this.projectileIdCounter++);
+    const proj = new Projectile(this.scene, this.localPlayer.position, dir, this.localPlayer.id, id);
+    this.projectiles.push(proj);
+
+    this.network.send({
+      type: 'shoot',
+      pos: { x: this.localPlayer.position.x, y: 0, z: this.localPlayer.position.z },
+      dir: { x: dir.x, y: 0, z: dir.z },
+      id: id,
+    });
+  }
+
+  handleMessage(msg) {
+    switch (msg.type) {
+      case 'state':
+        this.handleRemoteState(msg);
+        break;
+      case 'shoot':
+        this.handleRemoteShoot(msg);
+        break;
+      case 'hit':
+        this.handleRemoteHit(msg);
+        break;
+      case 'respawn':
+        this.handleRemoteRespawn(msg);
+        break;
+      case 'start':
+        this.startGame();
+        break;
+    }
+  }
+
+  handleRemoteState(msg) {
+    if (!this.remotePlayerObj) {
+      this.createRemotePlayer();
+    }
+    const rp = this.remotePlayerObj;
+    rp.targetPosition.set(msg.pos.x, msg.pos.y, msg.pos.z);
+    rp.targetRotation = msg.rot;
+    if (msg.alive !== undefined) rp.alive = msg.alive;
+  }
+
+  handleRemoteShoot(msg) {
+    if (!this.remotePlayerObj) return;
+    const origin = new THREE.Vector3(msg.pos.x, msg.pos.y, msg.pos.z);
+    const dir = new THREE.Vector3(msg.dir.x, msg.dir.y, msg.dir.z);
+    const proj = new Projectile(this.scene, origin, dir, 'remote', msg.id);
+    proj.isRemote = true;
+    this.projectiles.push(proj);
+  }
+
+  handleRemoteHit(msg) {
+    if (!this.localPlayer) return;
+    const killed = this.localPlayer.takeDamage(msg.damage || 1);
+    this.updateHealthUI();
+    if (killed) {
+      this.deaths++;
+      document.getElementById('death-count').textContent = this.deaths;
+      this.respawnTimer = CONFIG.respawnDelay;
+      document.getElementById('death-screen').classList.add('show');
+      document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
+      this.addKillFeed('☠ You were eliminated');
+    }
+  }
+
+  handleRemoteRespawn(msg) {
+    if (this.remotePlayerObj) {
+      this.remotePlayerObj.health = CONFIG.maxHealth;
+      this.remotePlayerObj.alive = true;
+      if (msg.pos) {
+        this.remotePlayerObj.position.set(msg.pos.x, msg.pos.y, msg.pos.z);
+        this.remotePlayerObj.targetPosition.copy(this.remotePlayerObj.position);
+      } else {
+        this.remotePlayerObj.spawn();
+      }
+      this.remotePlayerObj.updateMesh();
+    }
+  }
+
+  updateHealthUI() {
+    if (!this.localPlayer) return;
+    const hp = this.localPlayer.health;
+    const max = this.localPlayer.maxHealth;
+    const pct = (hp / max) * 100;
+    const bar = document.getElementById('health-bar');
+    bar.style.width = pct + '%';
+    bar.classList.toggle('low', pct <= 30);
+  }
+
+  update(dt) {
+    if (!this.gameStarted) return;
+    if (this.localPlayer && this.localPlayer.alive) {
+      let moveX = 0, moveZ = 0;
+      if (this.keys['w']) moveZ -= 1;
+      if (this.keys['s']) moveZ += 1;
+      if (this.keys['a']) moveX -= 1;
+      if (this.keys['d']) moveX += 1;
+
+      if (moveX !== 0 || moveZ !== 0) {
+        const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+        moveX /= len;
+        moveZ /= len;
+
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.localPlayer.rotation);
+        const right = new THREE.Vector3(1, 0, 0);
+        right.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.localPlayer.rotation);
+
+        _v3.copy(forward).multiplyScalar(-moveZ);
+        _v3b.copy(right).multiplyScalar(moveX);
+        _v3.add(_v3b);
+        _v3.normalize();
+        _v3.multiplyScalar(CONFIG.playerSpeed * dt);
+
+        this.localPlayer.position.x += _v3.x;
+        this.localPlayer.position.z += _v3.z;
+
+        const half = CONFIG.arenaSize / 2 - 0.8;
+        this.localPlayer.position.x = Math.max(-half, Math.min(half, this.localPlayer.position.x));
+        this.localPlayer.position.z = Math.max(-half, Math.min(half, this.localPlayer.position.z));
+        this.localPlayer.targetPosition.copy(this.localPlayer.position);
+      }
+
+      if (this.mouseDelta !== 0) {
+        this.localPlayer.rotation -= this.mouseDelta * 0.003;
+        this.localPlayer.targetRotation = this.localPlayer.rotation;
+        this.mouseDelta = 0;
+      }
+    }
+
+    if (this.remotePlayerObj) {
+      this.remotePlayerObj.lerpToTarget(dt);
+      this.remotePlayerObj.update(dt);
+    }
+
+    if (this.localPlayer) {
+      this.localPlayer.update(dt);
+    }
+
+    this.projectiles = this.projectiles.filter(p => p.alive);
+    this.projectiles.forEach(p => p.update(dt));
+
+    this.checkProjectileHits();
+
+    if (this.respawnTimer > 0) {
+      this.respawnTimer -= dt;
+      document.getElementById('respawn-timer').textContent =
+        `RESPAWN IN ${Math.ceil(Math.max(0, this.respawnTimer))}`;
+      if (this.respawnTimer <= 0) {
+        this.respawnTimer = 0;
+        document.getElementById('death-screen').classList.remove('show');
+        this.respawnLocalPlayer();
+      }
+    }
+
+    if (this.gameStarted) {
+      this.network.sendState(dt);
+    }
+
+    this._updateCamera(dt);
+  }
+
+  checkProjectileHits() {
+    if (!this.localPlayer) return;
+    for (const p of this.projectiles) {
+      if (!p.alive) continue;
+
+      if (p.ownerId === this.localPlayer.id) {
+        if (this.remotePlayerObj && this.remotePlayerObj.alive) {
+          const dist = p.mesh.position.distanceTo(
+            new THREE.Vector3(
+              this.remotePlayerObj.position.x,
+              CONFIG.playerHeight / 2,
+              this.remotePlayerObj.position.z
+            )
+          );
+          if (dist < CONFIG.playerSize * 0.8) {
+            p.destroy();
+            this.network.send({
+              type: 'hit',
+              damage: 1,
+            });
+            this.remotePlayerObj.takeDamage(1);
+            if (!this.remotePlayerObj.alive) {
+              this.kills++;
+              document.getElementById('kill-count').textContent = this.kills;
+              this.addKillFeed('🎯 Eliminated opponent');
+            }
+          }
+        }
+      } else if (p.ownerId === 'remote') {
+        if (this.localPlayer && this.localPlayer.alive) {
+          const dist = p.mesh.position.distanceTo(
+            new THREE.Vector3(
+              this.localPlayer.position.x,
+              CONFIG.playerHeight / 2,
+              this.localPlayer.position.z
+            )
+          );
+          if (dist < CONFIG.playerSize * 0.8) {
+            p.destroy();
+          }
+        }
+      }
+    }
+  }
+
+  respawnLocalPlayer() {
+    if (!this.localPlayer) return;
+    const half = CONFIG.arenaSize / 2 - 3;
+    this.localPlayer.position.set(
+      (Math.random() - 0.5) * half * 2,
+      0,
+      (Math.random() - 0.5) * half * 2
+    );
+    this.localPlayer.targetPosition.copy(this.localPlayer.position);
+    this.localPlayer.health = CONFIG.maxHealth;
+    this.localPlayer.alive = true;
+    this.updateHealthUI();
+    this.addKillFeed('🔄 Respawned');
+    this.network.send({
+      type: 'respawn',
+      pos: { x: this.localPlayer.position.x, y: 0, z: this.localPlayer.position.z },
+    });
+  }
+
+  _updateCamera(dt) {
+    if (!this.localPlayer) return;
+    const p = this.localPlayer.position;
+    const dist = 18;
+    const height = 14;
+    const angle = this.localPlayer.rotation;
+
+    const targetX = p.x + Math.sin(angle) * dist;
+    const targetZ = p.z + Math.cos(angle) * dist;
+    const targetY = p.y + height;
+
+    this.camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 1 - Math.exp(-8 * dt));
+    this.camera.lookAt(p.x, 0.5, p.z);
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    const dt = Math.min(this.clock.getDelta(), 0.05);
+    this.update(dt);
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+// ---- UI Setup ----
+const game = new Game();
+game.init();
+
+document.getElementById('btn-host').addEventListener('click', async () => {
+  document.getElementById('step-1').style.display = 'none';
+  document.getElementById('step-2').style.display = 'block';
+  document.getElementById('overlay-status').textContent = '⏳ Creating room...';
+
+  try {
+    game.spawnLocalPlayer();
+    const offer = await game.network.createOffer();
+    document.getElementById('signaling-output').value = offer;
+    document.getElementById('overlay-status').textContent = '📋 Copy the code above and send it to your friend';
+    document.getElementById('step-2-label').textContent = '▼ Copy this invite code & send to friend';
+    document.getElementById('step-2-status').textContent = 'Waiting for peer to submit answer...';
+  } catch (err) {
+    console.error(err);
+    document.getElementById('overlay-status').textContent = '❌ Error creating room: ' + err.message;
+  }
+});
+
+document.getElementById('btn-join').addEventListener('click', () => {
+  document.getElementById('step-1').style.display = 'none';
+  document.getElementById('step-join').style.display = 'block';
+  document.getElementById('overlay-status').textContent = '📝 Paste the invite code from the host';
+});
+
+document.getElementById('btn-submit-offer').addEventListener('click', async () => {
+  const offer = document.getElementById('signaling-input').value.trim();
+  if (!offer) return;
+
+  document.getElementById('overlay-status').textContent = '⏳ Joining room...';
+
+  try {
+    game.spawnLocalPlayer();
+    const answer = await game.network.createAnswer(offer);
+    document.getElementById('step-join').style.display = 'none';
+    document.getElementById('step-3').style.display = 'block';
+    document.getElementById('signaling-answer').value = answer;
+    document.getElementById('overlay-status').textContent = '📋 Copy the answer code and send it back to the host';
+    document.getElementById('step-3-status').textContent = 'Waiting for host to finalize...';
+  } catch (err) {
+    console.error(err);
+    document.getElementById('overlay-status').textContent = '❌ Error joining: ' + err.message;
+  }
+});
+
+document.getElementById('btn-copy').addEventListener('click', () => {
+  const ta = document.getElementById('signaling-output');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).catch(() => {});
+  document.getElementById('overlay-status').textContent = '✅ Copied! Send this code to your friend';
+});
+
+document.getElementById('btn-copy-answer').addEventListener('click', () => {
+  const ta = document.getElementById('signaling-answer');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).catch(() => {});
+  document.getElementById('overlay-status').textContent = '✅ Copied! Send this back to the host';
+});
+
+document.getElementById('btn-finalize').addEventListener('click', async () => {
+  document.getElementById('step-host-final').style.display = 'none';
+  const answer = document.getElementById('signaling-answer-input').value.trim();
+  if (!answer) return;
+
+  document.getElementById('overlay-status').textContent = '⏳ Connecting...';
+
+  try {
+    await game.network.setRemoteAnswer(answer);
+    document.getElementById('overlay-status').textContent = '🔗 Connected!';
+  } catch (err) {
+    console.error(err);
+    document.getElementById('overlay-status').textContent = '❌ Connection error: ' + err.message;
+  }
+});
+
+document.getElementById('signaling-output').addEventListener('click', function() { this.select(); });
+
+// Show host final step after host creates offer - need a way to trigger step-host-final visibility
+// We'll add a button or auto-show it
+// Actually let's add a "I have the answer code" button after step 2
+document.getElementById('step-2').insertAdjacentHTML('beforeend', `
+  <div style="margin-top:12px; border-top:1px solid rgba(0,240,255,0.1); padding-top:12px;">
+    <button class="btn btn-primary btn-small" id="btn-have-answer">🔑 I have the answer code</button>
+  </div>
+`);
+
+document.getElementById('btn-have-answer').addEventListener('click', () => {
+  document.getElementById('step-2').style.display = 'none';
+  document.getElementById('step-host-final').style.display = 'block';
+  document.getElementById('overlay-status').textContent = 'Paste the answer code from your friend';
+});
+
+document.getElementById('btn-start-game').addEventListener('click', () => {
+  game.startGame();
+  game.network.send({ type: 'start' });
+});
+
+console.log('🚀 NEON ARENA loaded. Click "Host Game" or "Join Game" to begin.');
+</script>
+</body>
+</html>
