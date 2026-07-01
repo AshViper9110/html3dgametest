@@ -19,6 +19,7 @@
     <span id="health-label">HP</span>
     <div id="health-bar-bg"><div id="health-bar"></div></div>
   </div>
+  <div id="ammo-display">--/--</div>
   <div id="status-info">
     <span id="conn-status">—</span>
     <span id="ping-display">—</span>
@@ -121,14 +122,21 @@
           <div id="player-list"></div>
           <div id="map-select-host" style="display:none;">
             <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">▼ SELECT MAP</div>
-            <div class="map-selector" id="map-selector"></div>
+            <div class="map-nav" id="map-selector"></div>
           </div>
         </div>
       </div>
 
       <div id="map-info-guest" style="display:none;">
-        <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">MAP</div>
-        <div id="guest-map-name" style="color:#8888aa; font-size:0.9em; letter-spacing:2px;"></div>
+        <div style="display:flex; gap:12px; align-items:center; justify-content:center;">
+          <div id="guest-map-preview-container" style="display:none;">
+            <canvas id="guest-map-preview-canvas" width="160" height="160" style="border:1px solid rgba(0,240,255,0.15); border-radius:4px; background:rgba(0,0,0,0.3);"></canvas>
+          </div>
+          <div>
+            <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">MAP</div>
+            <div id="guest-map-name" style="color:#8888aa; font-size:0.9em; letter-spacing:2px;"></div>
+          </div>
+        </div>
       </div>
 
       <button class="btn btn-primary" id="btn-start-game" style="display:none; margin-top:8px;">▶ START GAME</button>

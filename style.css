@@ -264,6 +264,45 @@ textarea:focus {
   color: #00f0ff;
 }
 
+#ammo-display {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.9em;
+  letter-spacing: 2px;
+  color: #ffaa00;
+  text-shadow: 0 0 10px rgba(255,170,0,0.3);
+}
+
+.map-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px 0;
+}
+.map-nav-btn {
+  font-family: 'Orbitron', monospace;
+  font-size: 1em;
+  padding: 8px 14px;
+  border: 1px solid rgba(0,240,255,0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(0,0,0,0.3);
+  color: #00f0ff;
+}
+.map-nav-btn:hover {
+  background: rgba(0,240,255,0.1);
+  box-shadow: 0 0 15px rgba(0,240,255,0.2);
+}
+.map-nav-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.85em;
+  color: #ccccee;
+  letter-spacing: 1px;
+  min-width: 180px;
+  text-align: center;
+}
+
 /* === クロスヘア === */
 #crosshair {
   position: fixed;
