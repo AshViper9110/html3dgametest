@@ -163,116 +163,7 @@ textarea:focus {
 }
 
 /* === HUD（ヘルスバーなど） === */
-#hud {
-  position: fixed;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  pointer-events: none;
-}
-
-#health-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-#health-label {
-  font-family: 'Orbitron', monospace;
-  font-size: 0.8em;
-  letter-spacing: 3px;
-  color: #6666aa;
-}
-
-#health-bar-bg {
-  width: 240px;
-  height: 8px;
-  background: rgba(20, 20, 35, 0.9);
-  border: 1px solid rgba(0, 240, 255, 0.15);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-#health-bar {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #ff0044, #ff4400, #00f0ff);
-  border-radius: 4px;
-  transition: width 0.3s ease;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
-}
-
-#health-bar.low {
-  box-shadow: 0 0 20px rgba(255, 0, 68, 0.5);
-}
-
-#match-btn {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 90;
-  font-family: 'Rajdhani', sans-serif;
-  font-weight: 700;
-  font-size: 0.9em;
-  letter-spacing: 2px;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  text-transform: uppercase;
-  background: linear-gradient(135deg, #00f0ff, #0088ff);
-  color: #0a0a12;
-  box-shadow: 0 0 20px rgba(0,240,255,0.3);
-  transition: all 0.3s;
-}
-#match-btn:hover {
-  box-shadow: 0 0 40px rgba(0,240,255,0.5);
-  transform: translateY(-2px);
-}
-
-#health-hearts {
-  display: flex;
-  gap: 4px;
-  font-size: 1.4em;
-}
-
-.heart {
-  color: #222244;
-  transition: all 0.3s;
-}
-
-.heart.active {
-  color: #ff0044;
-  text-shadow: 0 0 12px rgba(255, 0, 68, 0.6);
-}
-
-#status-info {
-  display: flex;
-  gap: 20px;
-  font-size: 0.8em;
-  letter-spacing: 1px;
-  color: #444466;
-  font-family: 'Orbitron', monospace;
-}
-
-#status-info .connected {
-  color: #00f0ff;
-}
-
-#ammo-display {
-  font-family: 'Orbitron', monospace;
-  font-size: 0.9em;
-  letter-spacing: 2px;
-  color: #ffaa00;
-  text-shadow: 0 0 10px rgba(255,170,0,0.3);
-}
-
-.map-nav {
+/* 注: HUDの完全な定義は「=== 試合HUD ===」セクションにあります */
   display: flex;
   align-items: center;
   gap: 8px;
@@ -436,224 +327,7 @@ textarea:focus {
   font-size: 0.65em;
 }
 
-#score-display {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 50;
-  font-family: 'Orbitron', monospace;
-  font-size: 0.85em;
-  letter-spacing: 2px;
-  color: #6666aa;
-  text-align: right;
-  pointer-events: none;
-}
-
-#score-display .score-val {
-  color: #00f0ff;
-  font-size: 1.4em;
-}
-
-/* === プレイヤーリスト === */
-    #player-list {
-      margin: 12px 0;
-      text-align: left;
-    }
-    #player-list .pl-entry {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      margin: 4px 0;
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 6px;
-      background: rgba(0,0,0,0.2);
-      font-size: 0.9em;
-      letter-spacing: 1px;
-    }
-    #player-list .pl-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      box-shadow: 0 0 8px currentColor;
-    }
-    #player-list .pl-name {
-      flex: 1;
-      color: #ccccee;
-    }
-    #player-list .pl-tag {
-      font-size: 0.7em;
-      font-family: 'Orbitron', monospace;
-      letter-spacing: 2px;
-      padding: 2px 8px;
-      border-radius: 4px;
-    }
-    #player-list .pl-tag.host {
-      border: 1px solid rgba(0,240,255,0.3);
-      color: #00f0ff;
-    }
-    #player-list .pl-tag.you {
-      border: 1px solid rgba(255,255,255,0.15);
-      color: #888;
-    }
-
-/* === マップセレクタ === */
-    .map-selector {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin: 10px 0;
-    }
-    .map-btn {
-      font-family: 'Rajdhani', sans-serif;
-      font-weight: 700;
-      font-size: 0.8em;
-      letter-spacing: 1px;
-      padding: 10px 16px;
-      border: 1px solid rgba(0,240,255,0.2);
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.3s;
-      background: rgba(0,0,0,0.3);
-      color: #8888aa;
-      text-transform: uppercase;
-    }
-    .map-btn:hover {
-      border-color: rgba(0,240,255,0.4);
-      color: #ccccee;
-    }
-    .map-btn.active {
-      border-color: #00f0ff;
-      color: #00f0ff;
-      background: rgba(0,240,255,0.1);
-      box-shadow: 0 0 15px rgba(0,240,255,0.2);
-    }
-    .map-btn .map-desc {
-      display: block;
-      font-weight: 300;
-      font-size: 0.75em;
-      color: #666688;
-      margin-top: 2px;
-    }
-
-/* === タイマー === */
-    #timer-display {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 50;
-      font-family: 'Orbitron', monospace;
-      font-size: 1.6em;
-      font-weight: 700;
-      letter-spacing: 4px;
-      color: #00f0ff;
-      text-shadow: 0 0 20px rgba(0,240,255,0.3);
-      pointer-events: none;
-    }
-    #timer-display.urgent {
-      color: #ff0044;
-      text-shadow: 0 0 30px rgba(255,0,68,0.5);
-      animation: pulse 0.5s ease infinite alternate;
-    }
-    @keyframes pulse { from { opacity: 0.6; } to { opacity: 1; } }
-
-/* === リザルト画面 === */
-    #result-screen {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      z-index: 200;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(5,5,15,0.92);
-      backdrop-filter: blur(8px);
-    }
-    #result-screen.show { display: flex; }
-    #result-inner {
-      background: rgba(20,20,40,0.95);
-      border: 1px solid rgba(0,240,255,0.2);
-      border-radius: 12px;
-      padding: 36px 44px;
-      max-width: 480px;
-      width: 90%;
-      text-align: center;
-      box-shadow: 0 0 80px rgba(0,240,255,0.1);
-    }
-    #result-inner h2 {
-      font-family: 'Orbitron', monospace;
-      font-size: 2.2em;
-      letter-spacing: 8px;
-      color: #00f0ff;
-      text-shadow: 0 0 30px rgba(0,240,255,0.4);
-      margin-bottom: 8px;
-    }
-    #result-winner {
-      font-family: 'Orbitron', monospace;
-      font-size: 1em;
-      letter-spacing: 3px;
-      color: #ffd700;
-      text-shadow: 0 0 20px rgba(255,215,0,0.4);
-      margin-bottom: 20px;
-      padding: 8px;
-      border: 1px solid rgba(255,215,0,0.2);
-      border-radius: 6px;
-      background: rgba(255,215,0,0.05);
-    }
-    #result-list {
-      text-align: left;
-      margin: 12px 0 20px 0;
-    }
-    .result-entry {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      margin: 4px 0;
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 6px;
-      background: rgba(0,0,0,0.2);
-      font-size: 0.9em;
-      letter-spacing: 1px;
-    }
-    .result-entry .r-rank {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.8em;
-      color: #6666aa;
-      min-width: 24px;
-      text-align: center;
-    }
-    .result-entry .r-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .result-entry .r-name {
-      flex: 1;
-      color: #ccccee;
-    }
-    .result-entry .r-kills {
-      font-family: 'Orbitron', monospace;
-      color: #00f0ff;
-      font-size: 1.1em;
-    }
-    .result-entry .r-deaths {
-      font-family: 'Orbitron', monospace;
-      color: #ff4444;
-      font-size: 0.85em;
-      margin-left: 10px;
-    }
-    .result-entry.winner {
-      border-color: rgba(255,215,0,0.3);
-      background: rgba(255,215,0,0.06);
-    }
-    .result-entry.winner .r-rank { color: #ffd700; }
-    .result-entry.winner .r-kills { color: #ffd700; }
-
-/* === 画面共通 === */
-.screen {
+/* === 試合HUD === */
   position: fixed;
   top: 0; left: 0;
   width: 100vw; height: 100vh;
@@ -779,6 +453,35 @@ textarea:focus {
   margin: 12px 0;
   text-align: center;
 }
+
+/* === マッププレビュー（ロビー） === */
+#map-preview-container {
+  margin: 8px auto;
+  text-align: center;
+}
+#map-preview-canvas {
+  border: 1px solid rgba(0,240,255,0.15);
+  border-radius: 6px;
+  background: #0a0a18;
+  max-width: 100%;
+}
+#guest-map-preview-container {
+  margin: 8px auto;
+  text-align: center;
+}
+#guest-map-preview-canvas {
+  border: 1px solid rgba(0,240,255,0.12);
+  border-radius: 4px;
+  background: #0a0a18;
+  max-width: 100%;
+}
+.guest-map-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.7em;
+  letter-spacing: 2px;
+  color: #8888aa;
+  margin-bottom: 4px;
+}
 #lobby-inner {
   background: rgba(20,20,35,0.9);
   border: 1px solid rgba(0,240,255,0.3);
@@ -786,6 +489,8 @@ textarea:focus {
   padding: 40px;
   max-width: 520px;
   width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
   text-align: center;
   box-shadow: 0 0 60px rgba(0,240,255,0.1);
 }
@@ -892,6 +597,7 @@ textarea:focus {
   justify-content: center;
   z-index: 80;
   pointer-events: none;
+  background: rgba(5,5,15,0.3);
 }
 #countdown-text {
   font-family: 'Orbitron', monospace;
@@ -1041,6 +747,13 @@ textarea:focus {
 #death-screen.show { display: flex; }
 #death-inner {
   text-align: center;
+  background: rgba(10,10,20,0.9);
+  border: 1px solid rgba(255,0,68,0.2);
+  border-radius: 12px;
+  padding: 30px 40px;
+  box-shadow: 0 0 60px rgba(255,0,68,0.1);
+  max-width: 400px;
+  width: 90%;
 }
 #death-inner h2 {
   font-family: 'Orbitron', monospace;
@@ -1160,9 +873,16 @@ textarea:focus {
 }
 #result-screen.show { display: flex; }
 #result-inner {
-  text-align: center;
+  background: rgba(20,20,40,0.95);
+  border: 1px solid rgba(0,240,255,0.2);
+  border-radius: 12px;
+  padding: 36px 44px;
   max-width: 500px;
   width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  text-align: center;
+  box-shadow: 0 0 80px rgba(0,240,255,0.1);
 }
 #result-winner-section {
   margin-bottom: 30px;

@@ -658,7 +658,7 @@ class Game {
   _handleGameStart(data) {
     this.selectedMap = data.map;
     this._createArena(data.map);
-    this._startCountdown();
+    this.setState(GameState.COUNTDOWN);
   }
 
   _handleMapSelect(data) {
@@ -773,7 +773,8 @@ class Game {
     const mapNameEl = document.createElement('span');
     mapNameEl.className = 'map-nav-name';
     mapNameEl.id = 'map-nav-name';
-    mapNameEl.textContent = MAPS[this.selectedMap] ? MAPS[this.selectedMap].name : this.selectedMap;
+    const mapObj = MAPS[this.selectedMap];
+    mapNameEl.textContent = mapObj ? `${mapObj.name} — ${mapObj.desc}` : this.selectedMap;
     const nextBtn = document.createElement('button');
     nextBtn.className = 'map-nav-btn';
     nextBtn.textContent = '▶';
@@ -814,6 +815,94 @@ class Game {
     this._renderPlayerList();
     this._updateStartButton();
     this._updateLobbyWeaponHighlight();
+    this._drawMapPreviews();
+  }
+
+  _drawMapPreviews() {
+    this._drawMapPreview(this.selectedMap);
+    this._drawGuestMapPreview(this.selectedMap);
+  }
+
+  _drawMapPreview(mapKey) {
+    const canvas = document.getElementById('map-preview-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const map = MAPS[mapKey] || MAPS.grid;
+    const W = canvas.width, H = canvas.height;
+    const pad = 10;
+    const drawSize = W - pad * 2;
+    const scale = drawSize / map.size;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0a18';
+    ctx.fillRect(0, 0, W, H);
+    const arenaX = pad + (W - drawSize) / 2;
+    const arenaY = pad + (H - drawSize) / 2;
+    ctx.fillStyle = '#0d0d1a';
+    ctx.fillRect(arenaX, arenaY, drawSize, drawSize);
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(arenaX, arenaY, drawSize, drawSize);
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
+    ctx.lineWidth = 1;
+    const halfMap = map.size / 2;
+    const toCanvas = (x, z) => ({
+      cx: arenaX + (x + halfMap) * scale,
+      cy: arenaY + (z + halfMap) * scale,
+    });
+    map.walls.forEach(w => {
+      const { cx, cy } = toCanvas(w.p[0], w.p[2]);
+      const wScaleX = w.s[0] * scale;
+      const wScaleZ = w.s[2] * scale;
+      ctx.fillRect(cx - wScaleX / 2, cy - wScaleZ / 2, wScaleX, wScaleZ);
+      ctx.strokeRect(cx - wScaleX / 2, cy - wScaleZ / 2, wScaleX, wScaleZ);
+    });
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.4)';
+    ctx.font = '10px Orbitron, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(map.name, W / 2, H - 4);
+  }
+
+  _drawGuestMapPreview(mapKey) {
+    const canvas = document.getElementById('guest-map-preview-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const map = MAPS[mapKey] || MAPS.grid;
+    const W = canvas.width, H = canvas.height;
+    const pad = 6;
+    const drawSize = W - pad * 2;
+    const scale = drawSize / map.size;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0a18';
+    ctx.fillRect(0, 0, W, H);
+    const arenaX = pad + (W - drawSize) / 2;
+    const arenaY = pad + (H - drawSize) / 2;
+    ctx.fillStyle = '#0d0d1a';
+    ctx.fillRect(arenaX, arenaY, drawSize, drawSize);
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(arenaX, arenaY, drawSize, drawSize);
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
+    ctx.lineWidth = 1;
+    const halfMap = map.size / 2;
+    const toCanvas = (x, z) => ({
+      cx: arenaX + (x + halfMap) * scale,
+      cy: arenaY + (z + halfMap) * scale,
+    });
+    map.walls.forEach(w => {
+      const { cx, cy } = toCanvas(w.p[0], w.p[2]);
+      const wScaleX = w.s[0] * scale;
+      const wScaleZ = w.s[2] * scale;
+      ctx.fillRect(cx - wScaleX / 2, cy - wScaleZ / 2, wScaleX, wScaleZ);
+      ctx.strokeRect(cx - wScaleX / 2, cy - wScaleZ / 2, wScaleX, wScaleZ);
+    });
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+    ctx.font = '8px Orbitron, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(map.name, W / 2, H - 3);
+    const nameEl = document.getElementById('guest-map-name');
+    if (nameEl) nameEl.textContent = `${map.name} — ${map.desc}`;
   }
 
   _updateLobbyWeaponHighlight() {
