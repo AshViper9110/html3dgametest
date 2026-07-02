@@ -102,6 +102,12 @@ class HostAuthority {
 
     const killerId = proj.ownerId;
     const killer = this.game.players.get(killerId);
+
+    if (victimId === this.game.network.myId && this.game.invincibleTimer > 0) {
+      proj.destroy();
+      return;
+    }
+
     const killed = victim.takeDamage(wp.damage);
 
     const hitMsg = {
@@ -121,6 +127,11 @@ class HostAuthority {
     if (killed) {
       this._trackKill(killerId, victimId);
     }
+
+    if (victimId === this.game.network.myId) {
+      this.game._applyLocalHitEffects(hitMsg);
+    }
+
     proj.destroy();
   }
 
@@ -133,6 +144,8 @@ class HostAuthority {
       if (hitPlayers.has(id)) return;
       hitPlayers.add(id);
 
+      if (id === this.game.network.myId && this.game.invincibleTimer > 0) return;
+
       const hitDist = CONFIG.playerSize * 0.5 + (wp.hitRadius || 2.5);
       const vPos = new THREE.Vector3(victim.position.x, CONFIG.playerHeight / 2, victim.position.z);
       const dist = pos.distanceTo(vPos);
@@ -141,7 +154,7 @@ class HostAuthority {
         const killer = this.game.players.get(proj.ownerId);
         const killed = victim.takeDamage(wp.damage);
 
-        this.game.network.broadcast({
+        const hitMsg = {
           type: 'hit',
           shooterId: proj.ownerId,
           targetId: id,
@@ -152,10 +165,16 @@ class HostAuthority {
           weapon: proj.weapon,
           pos: { x: pos.x, y: pos.y, z: pos.z },
           explosive: true,
-        });
+        };
+
+        this.game.network.broadcast(hitMsg);
 
         if (killed) {
           this._trackKill(proj.ownerId, id);
+        }
+
+        if (id === this.game.network.myId) {
+          this.game._applyLocalHitEffects(hitMsg);
         }
       }
     });

@@ -782,30 +782,33 @@ class Game {
     }
   }
 
+  _applyLocalHitEffects(data) {
+    if (this.invincibleTimer > 0 || !this.localPlayer) return;
+    this.cameraEffectManager.hitShake(3);
+    this.cameraEffectManager.damageFlash();
+    this.updateHealthUI();
+    if (this.effectManager) {
+      this.effectManager.spawnPlayerDamageFlash(this.localPlayer);
+    }
+    if (data.lethal) {
+      this.deaths++;
+      document.getElementById('death-count').textContent = this.deaths;
+      this.respawnTimer = CONFIG.killCamDuration + CONFIG.respawnDelay;
+      this.killCamKillerId = data.shooterId;
+      document.getElementById('death-screen').classList.add('show');
+      document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
+      if (document.pointerLockElement) document.exitPointerLock();
+      const wpName = data.weapon ? (WEAPONS[data.weapon] ? WEAPONS[data.weapon].name : data.weapon) : '';
+      this.addKillFeed(`Eliminated by ${data.shooterName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
+    }
+  }
+
   _handleHit(data) {
     if (data.targetId === this.network.myId) {
       if (this.invincibleTimer > 0) return;
       const killed = this.localPlayer.takeDamage(data.damage || 1);
-      this.updateHealthUI();
-      this.cameraEffectManager.hitShake(3);
-      this.cameraEffectManager.damageFlash();
-      if (this.effectManager) {
-        const lp = this.localPlayer;
-        if (lp) this.effectManager.spawnPlayerDamageFlash(lp);
-      }
-      if (killed) {
-        this.deaths++;
-        document.getElementById('death-count').textContent = this.deaths;
-        this.respawnTimer = CONFIG.killCamDuration + CONFIG.respawnDelay;
-        this.killCamKillerId = data.shooterId;
-        document.getElementById('death-screen').classList.add('show');
-        document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
-        if (document.pointerLockElement) document.exitPointerLock();
-        const wpName = data.weapon ? (WEAPONS[data.weapon] ? WEAPONS[data.weapon].name : data.weapon) : '';
-        this.addKillFeed(`Eliminated by ${data.shooterName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
-      } else {
-        this.cameraEffectManager.hitShake(2);
-      }
+      data.lethal = killed;
+      this._applyLocalHitEffects(data);
     }
     if (data.lethal) {
       this._trackKill(data.shooterId, data.targetId);
