@@ -10,7 +10,8 @@ class ParticleManager {
     this.scene = scene;
     this.pool = [];
     this.active = [];
-    this.maxParticles = 150;
+    this.maxParticles = 400;
+    this._geoCache = {};
   }
 
   _alloc() {
@@ -31,7 +32,10 @@ class ParticleManager {
     }
     e.vel.set(0, 0, 0);
     e.rotSpeed = null;
-    if (this.active.length < this.maxParticles) this.pool.push(e);
+    e.growSpeed = 0;
+    e.gravity = false;
+    e.type = '';
+    this.pool.push(e);
   }
 
   _createParticle(geo, color, pos, vel, life, type, gravity, growSpeed) {
@@ -40,6 +44,7 @@ class ParticleManager {
     let mat, mesh;
     if (e.mesh) {
       mesh = e.mesh;
+      if (mesh.geometry !== geo) mesh.geometry = geo;
       mesh.position.copy(pos);
       mesh.scale.setScalar(1);
       mesh.rotation.set(0, 0, 0);
@@ -68,8 +73,13 @@ class ParticleManager {
   }
 
   _addParticle(color, pos, vel, life, size) {
-    if (size && size !== 0.1) {
-      const geo = new THREE.SphereGeometry(size, 4, 4);
+    if (size && Math.abs(size - 0.1) > 0.001) {
+      const key = size.toFixed(3);
+      let geo = this._geoCache[key];
+      if (!geo) {
+        geo = new THREE.SphereGeometry(size, 4, 4);
+        this._geoCache[key] = geo;
+      }
       return this._createParticle(geo, color, pos, vel, life, 'particle', true, 0);
     }
     return this._createParticle(PARTICLE_GEO, color, pos, vel, life, 'particle', true, 0);
@@ -279,6 +289,10 @@ class ParticleManager {
     }
     this.active = [];
     this.pool = [];
+    for (const key in this._geoCache) {
+      this._geoCache[key].dispose();
+    }
+    this._geoCache = {};
   }
 
   get count() { return this.active.length; }
