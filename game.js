@@ -742,7 +742,7 @@ class Game {
     if (!this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId)) return;
 
     const inputId = data.inputId;
-    if (inputId !== undefined && this.cheatValidator.isReplayAttack(peerId + '_' + inputId)) return;
+    if (inputId === undefined) return;
 
     this.hostAuthority.handleFireRequest(data, peerId, peerId + '_' + inputId);
   }

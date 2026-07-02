@@ -112,7 +112,7 @@ class NetworkManager {
       health: p.health,
       alive: p.alive,
       weapon: p.weapon,
-      timestamp: performance.now(),
+      timestamp: Date.now(),
     };
     if (this.isHost) {
       this.broadcast(data);
@@ -127,7 +127,7 @@ class NetworkManager {
       weapon,
       position: { x: position.x, y: position.y, z: position.z },
       direction: { x: direction.x, y: direction.y, z: direction.z },
-      timestamp: performance.now(),
+      timestamp: Date.now(),
       inputId,
     });
   }

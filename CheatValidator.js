@@ -28,7 +28,7 @@ class CheatValidator {
   }
 
   validateTimestamp(timestamp, peerId) {
-    const now = performance.now();
+    const now = Date.now();
     if (typeof timestamp !== 'number' || !isFinite(timestamp)) return false;
     if (timestamp > now + 500) return false;
     if (now - timestamp > 3000) return false;

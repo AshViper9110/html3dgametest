@@ -12,8 +12,8 @@ class HostAuthority {
     if (!cv) return;
 
     if (!cv.validateWeapon(data.weapon)) return;
-    if (!cv.validateFireRate(peerId, data.weapon, data.timestamp || performance.now())) return;
-    if (!cv.isReplayAttack(inputId)) return;
+    if (!cv.validateFireRate(peerId, data.weapon, data.timestamp || Date.now())) return;
+    if (cv.isReplayAttack(inputId)) return;
     if (!this._hasAmmo(peerId, data.weapon)) return;
 
     this._consumeAmmo(peerId, data.weapon);
