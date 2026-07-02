@@ -39,6 +39,13 @@
 <!-- ========== ロビー画面 ========== -->
 <div id="lobby-screen" class="screen" style="display:none;">
   <div id="lobby-inner">
+    <div id="lobby-room-id-section">
+      <div id="lobby-room-role" class="lobby-room-role">Host</div>
+      <div class="lobby-room-label">ROOM ID</div>
+      <div id="lobby-room-id">---</div>
+      <button class="btn btn-small" id="lobby-copy-room">📋 Copy</button>
+      <span id="lobby-copy-feedback" style="display:none;color:#00ff88;font-size:0.8em;margin-left:8px;">Copied!</span>
+    </div>
     <h2>LOBBY</h2>
     <div id="player-list"></div>
     <div id="lobby-controls-host" style="display:none;">

@@ -82,6 +82,7 @@ class Game {
         break;
       case GameState.LOBBY:
         document.getElementById('lobby-screen').style.display = '';
+        this._updateLobbyRoomID();
         this._updateLobbyUI();
         break;
       case GameState.COUNTDOWN:
@@ -780,6 +781,21 @@ class Game {
     container.appendChild(prevBtn);
     container.appendChild(mapNameEl);
     container.appendChild(nextBtn);
+  }
+
+  _updateLobbyRoomID() {
+    const roomId = this.network.roomId;
+    const el = document.getElementById('lobby-room-id');
+    const roleEl = document.getElementById('lobby-room-role');
+    if (!el) return;
+    if (roomId) {
+      el.textContent = roomId;
+    } else {
+      el.textContent = this.network.isHost ? 'Creating...' : 'Connecting...';
+    }
+    if (roleEl) {
+      roleEl.textContent = this.network.isHost ? 'Host' : 'Joined Room';
+    }
   }
 
   _updateLobbyUI() {

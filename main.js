@@ -116,11 +116,21 @@ document.getElementById('death-weapon-btns').addEventListener('click', (e) => {
   game.network.sendWeaponChange(wp);
 });
 
-/* ルームIDコピー */
+/* ルームIDコピー（タイトル画面） */
 document.getElementById('btn-copy-room').addEventListener('click', () => {
   const text = document.getElementById('room-id-display').textContent;
   navigator.clipboard.writeText(text).catch(() => {});
   document.getElementById('title-status').textContent = '✅ Copied!';
+});
+
+/* ルームIDコピー（ロビー画面） */
+document.getElementById('lobby-copy-room').addEventListener('click', () => {
+  const text = document.getElementById('lobby-room-id').textContent;
+  if (!text || text === '---') return;
+  navigator.clipboard.writeText(text).catch(() => {});
+  const fb = document.getElementById('lobby-copy-feedback');
+  fb.style.display = 'inline';
+  setTimeout(() => { fb.style.display = 'none'; }, 2000);
 });
 
 /* ロビー退出 */
