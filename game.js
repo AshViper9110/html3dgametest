@@ -22,6 +22,7 @@ class Game {
     this.respawnCountdownValue = 0;
     this.gameTimer = CONFIG.gameTimeLimit;
     this.selectedMap = 'grid';
+    this.mapIndex = 0;
     this.pointerLocked = false;
     this.clock = new THREE.Clock();
     this.scene = null;
@@ -54,6 +55,9 @@ class Game {
     this.clientReady = new Map();
     this.clientWeapons = new Map();
 
+    this._lastPreviewedMap = null;
+    this._spawnIndex = 0;
+
     this.cheatValidator = null;
     this.hostAuthority = null;
     this.hitValidator = null;
@@ -82,6 +86,7 @@ class Game {
         break;
       case GameState.LOBBY:
         document.getElementById('lobby-screen').style.display = '';
+        this._lastPreviewedMap = null;
         this._updateLobbyRoomID();
         this._updateLobbyUI();
         break;
@@ -219,7 +224,7 @@ class Game {
 
   _createArena(mapKey) {
     this._clearArena();
-    const map = MAPS[mapKey] || MAPS.grid;
+    const map = MAP_REGISTRY.get(mapKey) || MAP_REGISTRY.get('grid');
     this.scene.background = new THREE.Color(map.bg);
     this.scene.fog = new THREE.Fog(map.bg, map.fogNear, map.fogFar);
     if (this.ambientLight) {
@@ -449,6 +454,8 @@ class Game {
     });
     this.localId = data.yourId;
     this.selectedMap = data.map || 'grid';
+    this.mapIndex = MAP_REGISTRY.getIndex(this.selectedMap);
+    this._lastPreviewedMap = null;
     if (this.localPlayer) {
       this.localPlayer.weapon = this.loadoutWeapon;
       this.localPlayer.lastFireTime = 0;
@@ -702,12 +709,15 @@ class Game {
 
   _handleGameStart(data) {
     this.selectedMap = data.map;
+    this.mapIndex = MAP_REGISTRY.getIndex(this.selectedMap);
     this._createArena(data.map);
     this.setState(GameState.COUNTDOWN);
   }
 
   _handleMapSelect(data) {
     this.selectedMap = data.map;
+    this.mapIndex = MAP_REGISTRY.getIndex(this.selectedMap);
+    this._lastPreviewedMap = null;
     if (this.gameState === GameState.LOBBY) {
       this._updateLobbyUI();
     }
@@ -761,6 +771,8 @@ class Game {
 
   _handleLobbyState(data) {
     this.selectedMap = data.map;
+    this.mapIndex = MAP_REGISTRY.getIndex(this.selectedMap);
+    this._lastPreviewedMap = null;
     if (data.players) {
       data.players.forEach(p => {
         this.clientReady.set(p.id, p.ready);
@@ -801,38 +813,20 @@ class Game {
   /* ----------------------------------------------------------
      ロビー機能
      ---------------------------------------------------------- */
-  _setupMapSelector() {
-    const container = document.getElementById('map-selector');
-    container.innerHTML = '';
-    const mapKeys = Object.keys(MAPS);
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'map-nav-btn';
-    prevBtn.textContent = '◀';
-    prevBtn.addEventListener('click', () => {
-      const idx = mapKeys.indexOf(this.selectedMap);
-      this.selectedMap = mapKeys[(idx - 1 + mapKeys.length) % mapKeys.length];
-      this._updateLobbyUI();
-      this._syncLobbyState();
-      this.network.broadcast({ type: 'map_select', map: this.selectedMap });
-    });
-    const mapNameEl = document.createElement('span');
-    mapNameEl.className = 'map-nav-name';
-    mapNameEl.id = 'map-nav-name';
-    const mapObj = MAPS[this.selectedMap];
-    mapNameEl.textContent = mapObj ? `${mapObj.name} — ${mapObj.desc}` : this.selectedMap;
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'map-nav-btn';
-    nextBtn.textContent = '▶';
-    nextBtn.addEventListener('click', () => {
-      const idx = mapKeys.indexOf(this.selectedMap);
-      this.selectedMap = mapKeys[(idx + 1) % mapKeys.length];
-      this._updateLobbyUI();
-      this._syncLobbyState();
-      this.network.broadcast({ type: 'map_select', map: this.selectedMap });
-    });
-    container.appendChild(prevBtn);
-    container.appendChild(mapNameEl);
-    container.appendChild(nextBtn);
+  _changeMap(direction) {
+    if (this.gameState !== GameState.LOBBY) return;
+    if (!this.network.isHost) return;
+    const count = MAP_REGISTRY.count();
+    if (direction === 'next') {
+      this.mapIndex = (this.mapIndex + 1) % count;
+    } else {
+      this.mapIndex = (this.mapIndex - 1 + count) % count;
+    }
+    this.selectedMap = MAP_REGISTRY.at(this.mapIndex);
+    this._lastPreviewedMap = null;
+    this._updateLobbyUI();
+    this._syncLobbyState();
+    this.network.broadcast({ type: 'map_select', map: this.selectedMap });
   }
 
   _updateLobbyRoomID() {
@@ -854,24 +848,34 @@ class Game {
     const isHost = this.network.isHost;
     document.getElementById('lobby-controls-host').style.display = isHost ? '' : 'none';
     document.getElementById('lobby-controls-client').style.display = isHost ? 'none' : '';
-    document.getElementById('lobby-map-nav').style.display = isHost ? '' : 'none';
-    if (isHost) {
-      this._setupMapSelector();
+    const mapNav = document.getElementById('lobby-map-selector');
+    if (mapNav) {
+      const prevBtn = mapNav.querySelector('.ms-prev');
+      const nextBtn = mapNav.querySelector('.ms-next');
+      if (prevBtn) prevBtn.style.display = isHost ? '' : 'none';
+      if (nextBtn) nextBtn.style.display = isHost ? '' : 'none';
     }
     this._updateLobbyMapInfo();
     this._renderPlayerList();
     this._updateStartButton();
     this._updateWeaponSelectorUI('lobby');
     this._updateLobbyStatus();
-    this._drawMapPreviews();
+    if (this._lastPreviewedMap !== this.selectedMap) {
+      this._lastPreviewedMap = this.selectedMap;
+      this._drawMapPreviews();
+    }
   }
 
   _updateLobbyMapInfo() {
-    const map = MAPS[this.selectedMap] || MAPS.grid;
+    const map = MAP_REGISTRY.get(this.selectedMap) || MAP_REGISTRY.get('grid');
     const nameEl = document.getElementById('lobby-map-name');
     const descEl = document.getElementById('lobby-map-desc');
+    const recEl = document.getElementById('lobby-map-rec');
+    const diffEl = document.getElementById('lobby-map-diff');
     if (nameEl) nameEl.textContent = map.name;
     if (descEl) descEl.textContent = map.desc;
+    if (recEl) recEl.innerHTML = `Recommended<br>${map.recommendedPlayers} Players`;
+    if (diffEl) diffEl.innerHTML = `Difficulty<br>${'★'.repeat(map.difficulty)}${'☆'.repeat(5 - map.difficulty)}`;
   }
 
   _updateLobbyStatus() {
@@ -904,13 +908,14 @@ class Game {
   _drawMapPreviews() {
     this._drawMapPreview(this.selectedMap);
     this._drawGuestMapPreview(this.selectedMap);
+    this._lastPreviewedMap = this.selectedMap;
   }
 
   _drawMapPreview(mapKey) {
     const canvas = document.getElementById('map-preview-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const map = MAPS[mapKey] || MAPS.grid;
+    const map = MAP_REGISTRY.get(mapKey) || MAP_REGISTRY.get('grid');
     const W = canvas.width, H = canvas.height;
     const pad = 10;
     const drawSize = W - pad * 2;
@@ -950,7 +955,7 @@ class Game {
     const canvas = document.getElementById('guest-map-preview-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const map = MAPS[mapKey] || MAPS.grid;
+    const map = MAP_REGISTRY.get(mapKey) || MAP_REGISTRY.get('grid');
     const W = canvas.width, H = canvas.height;
     const pad = 6;
     const drawSize = W - pad * 2;
@@ -1185,13 +1190,16 @@ class Game {
     document.getElementById('timer-display').textContent = '03:00';
     document.getElementById('timer-display').classList.remove('urgent');
     this.addKillFeed('GAME START!');
+    let spawnIdx = 0;
     this.players.forEach((p) => {
       p.health = CONFIG.maxHealth;
       p.alive = true;
       const weapon = this.clientWeapons.get(p.id) || WEAPON_REGISTRY.getAll()[0];
       p.weapon = weapon;
       p.refillAmmo();
-      p.spawn(this._spawnHalfExtent());
+      const sp = this._getSpawnPosition(spawnIdx++);
+      p.position.copy(sp);
+      p.targetPosition.copy(sp);
       p.updateMesh();
       if (p.id === this.localId) {
         p.onReloadComplete = this._onReloadComplete;
@@ -1578,8 +1586,20 @@ class Game {
      リスポーン
      ---------------------------------------------------------- */
   _spawnHalfExtent() {
-    /* 現在のマップサイズに合わせたスポーン可能範囲（壁の外に出ないようマージンを確保） */
     return this.arenaMap ? Math.max(this.arenaMap.size / 2 - 3, 2) : 17;
+  }
+
+  _getSpawnPosition(playerIndex) {
+    const map = this.arenaMap || MAP_REGISTRY.get(this.selectedMap);
+    if (map && map.spawnPoints && map.spawnPoints.length > 0) {
+      const idx = (playerIndex !== undefined ? playerIndex : this._spawnIndex++) % map.spawnPoints.length;
+      const sp = map.spawnPoints[idx];
+      return new THREE.Vector3(sp.x, 0, sp.z);
+    }
+    const half = this._spawnHalfExtent();
+    return new THREE.Vector3(
+      (Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2
+    );
   }
 
   _respawnLocal() {
@@ -1587,10 +1607,7 @@ class Game {
     if (!lp) return;
     console.log('[Respawn] _respawnLocal isHost=%s alive=%s weapon=%s mouseDown=%s',
       this.network.isHost, lp.alive, this.loadoutWeapon, this.mouseDown);
-    const half = this._spawnHalfExtent();
-    const spawnPos = new THREE.Vector3(
-      (Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2
-    );
+    const spawnPos = this._getSpawnPosition();
     lp.position.copy(spawnPos);
     lp.targetPosition.copy(spawnPos);
     lp.health = CONFIG.maxHealth;
@@ -1870,6 +1887,7 @@ class Game {
     this.scoreboard.clear();
     this.gameTimer = CONFIG.gameTimeLimit;
     this.connectionHandled = false;
+    this._lastPreviewedMap = null;
     this.setState(GameState.LOBBY);
     if (this.network.isHost) this._syncLobbyState();
   }

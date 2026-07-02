@@ -55,17 +55,25 @@
       <!-- Current Map -->
       <div class="lobby-section">
         <div class="lobby-section-title">CURRENT MAP</div>
-        <div id="lobby-map-name" class="lobby-map-name">NEON GRID</div>
+        <div id="lobby-map-selector" class="ms-container">
+          <div class="ms-row">
+            <button class="ms-btn ms-prev" id="map-prev">&#8249;</button>
+            <div class="ms-info">
+              <div id="lobby-map-name" class="ms-name">NEON GRID</div>
+            </div>
+            <button class="ms-btn ms-next" id="map-next">&#8250;</button>
+          </div>
+        </div>
         <div id="map-preview-container">
           <canvas id="map-preview-canvas" width="280" height="200"></canvas>
         </div>
         <div id="guest-map-preview-container" style="display:none;">
           <canvas id="guest-map-preview-canvas" width="280" height="200"></canvas>
         </div>
-        <div id="lobby-map-desc" class="lobby-map-desc"></div>
-        <!-- Map navigation (Host only) -->
-        <div id="lobby-map-nav" style="display:none;">
-          <div class="map-nav" id="map-selector"></div>
+        <div id="lobby-map-meta" class="ms-meta">
+          <div id="lobby-map-desc" class="ms-desc"></div>
+          <div id="lobby-map-rec" class="ms-rec"></div>
+          <div id="lobby-map-diff" class="ms-diff"></div>
         </div>
       </div>
 
@@ -190,6 +198,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="config.js"></script>
+<script src="MapRegistry.js"></script>
 <script src="WeaponRegistry.js"></script>
 <script src="CheatValidator.js"></script>
 <script src="ObjectPool.js"></script>

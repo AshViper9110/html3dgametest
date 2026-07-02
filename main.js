@@ -106,6 +106,14 @@ function setupWeaponNav(containerId) {
 setupWeaponNav('lobby-weapon-selector');
 setupWeaponNav('death-weapon-selector');
 
+/* マップ変更（左右矢印 / Hostのみ） */
+document.getElementById('map-prev').addEventListener('click', () => {
+  if (game.network.isHost) game._changeMap('prev');
+});
+document.getElementById('map-next').addEventListener('click', () => {
+  if (game.network.isHost) game._changeMap('next');
+});
+
 /* ルームIDコピー（タイトル画面） */
 document.getElementById('btn-copy-room').addEventListener('click', () => {
   const text = document.getElementById('room-id-display').textContent;
