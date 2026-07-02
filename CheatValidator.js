@@ -29,11 +29,12 @@ class CheatValidator {
 
   validateTimestamp(timestamp, peerId) {
     const now = Date.now();
-    if (typeof timestamp !== 'number' || !isFinite(timestamp)) return false;
-    if (timestamp > now + 500) return false;
-    if (now - timestamp > 3000) return false;
+    if (typeof timestamp !== 'number' || !isFinite(timestamp)) { console.log('[Cheat] validateTimestamp FAIL: invalid type=%s', typeof timestamp); return false; }
+    const diff = now - timestamp;
+    if (timestamp > now + 500) { console.log('[Cheat] validateTimestamp FAIL: future by %dms (peer=%s)', timestamp - now, peerId); return false; }
+    if (diff > 10000) { console.log('[Cheat] validateTimestamp FAIL: past by %dms (peer=%s) > 10000ms', diff, peerId); return false; }
     const last = this.lastTimestamps.get(peerId) || 0;
-    if (timestamp < last) return false;
+    if (timestamp < last) { console.log('[Cheat] validateTimestamp FAIL: non-monotonic (peer=%s) ts=%d last=%d', peerId, timestamp, last); return false; }
     this.lastTimestamps.set(peerId, timestamp);
     return true;
   }

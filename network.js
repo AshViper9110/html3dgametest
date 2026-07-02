@@ -52,6 +52,7 @@ class NetworkManager {
   }
 
   _setupConn(conn) {
+    console.log('[Network] _setupConn peerId=%s isHost=%s conn.open=%s', conn.peer, this.isHost, conn.open);
     conn.on('data', (data) => {
       if (this.isHost && this.game.cheatValidator) {
         const peerId = conn.peer;
@@ -65,6 +66,7 @@ class NetworkManager {
       this.game.handleMessage(data, conn);
     });
     conn.on('close', () => {
+      console.log('[Network] conn CLOSED peerId=%s isHost=%s', conn.peer, this.isHost);
       if (this.isHost) {
         const idx = this.connections.indexOf(conn);
         if (idx >= 0) this.connections.splice(idx, 1);
@@ -75,7 +77,10 @@ class NetworkManager {
       }
     });
     if (!this.isHost) {
-      conn.on('open', () => { this.connected = true; });
+      conn.on('open', () => {
+        console.log('[Network] conn OPEN peerId=%s → connected=true', conn.peer);
+        this.connected = true;
+      });
     }
   }
 
@@ -87,8 +92,11 @@ class NetworkManager {
   }
 
   send(data) {
-    console.log('[Network] send type=%s conn=%o open=%s', data.type, this.conn, this.conn ? this.conn.open : 'N/A');
-    if (this.conn && this.conn.open) this.conn.send(data);
+    const canSend = this.conn && this.conn.open;
+    console.log('[Network] send type=%s connected=%s conn=%s open=%s canSend=%s',
+      data.type, this.connected, !!this.conn, this.conn ? this.conn.open : 'N/A', canSend);
+    if (canSend) this.conn.send(data);
+    else console.log('[Network] send BLOCKED: %s', !this.conn ? 'no conn' : 'conn not open');
   }
 
   sendTo(peerId, data) {
@@ -98,10 +106,9 @@ class NetworkManager {
   }
 
   broadcast(data, exclude) {
-    if (data.type === 'proj_spawn' || data.type === 'fire_request') {
-      console.log('[Network] broadcast type=%s ownerId=%s to %d connections',
-        data.type, data.ownerId || '?', this.connections.filter(c => c !== exclude && c.open).length);
-    }
+    const targets = this.connections.filter(c => c !== exclude && c.open);
+    console.log('[Network] broadcast type=%s targetConnections=%d (total=%d exclude=%s)',
+      data.type, targets.length, this.connections.length, !!exclude);
     this.connections.forEach(c => {
       if (c !== exclude && c.open) c.send(data);
     });

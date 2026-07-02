@@ -349,6 +349,8 @@ class Game {
     const p = new Player(this.scene, id, color);
     p.name = name || 'Player';
     this.players.set(id, p);
+    console.log('[Player Init] id=%s name=%s weapon=%s ammo=%s/%s alive=%s color=#%s',
+      id, p.name, p.weapon, p.ammo, p.maxAmmo, p.alive, p.color.toString(16).padStart(6,'0'));
     return p;
   }
 
@@ -445,7 +447,12 @@ class Game {
     this.clientReady.set(peerId, false);
     const defaultWeapon = WEAPON_REGISTRY.getAll()[0] || 'pistol';
     this.clientWeapons.set(peerId, defaultWeapon);
+    if (!this.clientWeapons.has(this.network.myId)) {
+      this.clientWeapons.set(this.network.myId, this.loadoutWeapon);
+    }
     this.network.connected = true;
+    console.log('[Player Init] _handleJoin peerId=%s name=%s weapon=%s playerCount=%d',
+      peerId, name, defaultWeapon, this.players.size);
     if (!this.connectionHandled) {
       this.connectionHandled = true;
       this.onConnected();
@@ -472,9 +479,13 @@ class Game {
     data.players.forEach(p => {
       this.addPlayer(p.id, p.color, p.name);
       this.clientWeapons.set(p.id, p.weapon || defaultWeapon);
+      if (p.id === data.yourId) {
+        this.loadoutWeapon = p.weapon || defaultWeapon;
+      }
       this.clientReady.set(p.id, p.ready || false);
     });
     this.localId = data.yourId;
+    this.weaponManager.set(this.loadoutWeapon);
     this.selectedMap = data.map || 'grid';
     this.mapIndex = MAP_REGISTRY.getIndex(this.selectedMap);
     this._lastPreviewedMap = null;
@@ -484,6 +495,9 @@ class Game {
       this.localPlayer.onReloadComplete = this._onReloadComplete;
       this.localPlayer.refillAmmo();
     }
+    console.log('[Player Init] _handleWelcome localId=%s loadoutWeapon=%s alive=%s ammo=%d/%d',
+      this.localId, this.loadoutWeapon, this.localPlayer ? this.localPlayer.alive : '?',
+      this.localPlayer ? this.localPlayer.ammo : '?', this.localPlayer ? this.localPlayer.maxAmmo : '?');
     this._createArena(this.selectedMap);
     this.setState(GameState.LOBBY);
   }
@@ -545,25 +559,27 @@ class Game {
   }
 
   _handleFireRequest(data, conn) {
-    console.log('[Host] _handleFireRequest received weapon=%s peerId=%s inputId=%s',
+    console.log('[Fire Received] weapon=%s peerId=%s inputId=%s',
       data.weapon, conn ? conn.peer : '?', data.inputId);
-    if (!this.hostAuthority) { console.log('[Host] BLOCKED: no hostAuthority'); return; }
-    if (!this.cheatValidator) { console.log('[Host] BLOCKED: no cheatValidator'); return; }
+    if (!this.hostAuthority) { console.log('[Fire Received] BLOCKED: no hostAuthority'); return; }
+    if (!this.cheatValidator) { console.log('[Fire Received] BLOCKED: no cheatValidator'); return; }
     const peerId = conn.peer;
     if (!this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId)) {
-      console.log('[Host] BLOCKED: validateTimestamp failed');
+      console.log('[Fire Received] BLOCKED: validateTimestamp failed');
       return;
     }
+    console.log('[Fire Received] validateTimestamp OK');
     if (data.inputId === undefined) {
-      console.log('[Host] BLOCKED: inputId undefined');
+      console.log('[Fire Received] BLOCKED: inputId undefined');
       return;
     }
-    console.log('[Host] → hostAuthority.handleFireRequest()');
+    console.log('[Fire Received] → hostAuthority.handleFireRequest()');
+    console.log('[Projectile Spawn] enqueue weapon=%s peerId=%s', data.weapon, peerId);
     this.hostAuthority.handleFireRequest(data, peerId, peerId + '_' + data.inputId);
   }
 
   _handleProjSpawn(data) {
-    console.log('[Projectile] received proj_spawn ownerId=%s weapon=%s', data.ownerId, data.weapon);
+    console.log('[Projectile Receive] ownerId=%s pid=%s weapon=%s localId=%s', data.ownerId, data.pid, data.weapon, this.network.myId);
     const origin = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
     const dir = new THREE.Vector3(data.dir.x, data.dir.y, data.dir.z);
     const mapHalf = this.arenaMap ? this.arenaMap.size / 2 : 40;
@@ -718,7 +734,9 @@ class Game {
   }
 
   _handleRemoteRespawn(data) {
-    console.log('[Host] _handleRemoteRespawn id=%s isHost=%s', data.id, this.network.isHost);
+    console.log('[Respawn] _handleRemoteRespawn id=%s isHost=%s exists=%s alive=%s',
+      data.id, this.network.isHost, !!this.players.get(data.id),
+      this.players.get(data.id) ? this.players.get(data.id).alive : '?');
     const p = this.players.get(data.id);
     if (p) {
       p.health = CONFIG.maxHealth;
@@ -817,6 +835,10 @@ class Game {
       data.players.forEach(p => {
         this.clientReady.set(p.id, p.ready);
         this.clientWeapons.set(p.id, p.weapon);
+        if (p.id === this.localId) {
+          this.loadoutWeapon = p.weapon;
+          this.weaponManager.set(p.weapon);
+        }
         const player = this.players.get(p.id);
         if (player && p.name) player.name = p.name;
       });
@@ -1222,6 +1244,7 @@ class Game {
     this.killCamKillerId = null;
     this.invincibleTimer = 0;
     this.mouseDown = false;
+    this.mouseClicked = false;
     this.dashTimer = 0;
     this.dashCooldown = 0;
     this.killStreak = 0;
@@ -1240,6 +1263,7 @@ class Game {
     document.getElementById('timer-display').classList.remove('urgent');
     this.addKillFeed('GAME START!');
     let spawnIdx = 0;
+    console.log('[Weapon Init] _startMatch players=%d clientWeapons=%d', this.players.size, this.clientWeapons.size);
     this.players.forEach((p) => {
       p.health = CONFIG.maxHealth;
       p.alive = true;
@@ -1253,6 +1277,7 @@ class Game {
       if (p.id === this.localId) {
         p.onReloadComplete = this._onReloadComplete;
       }
+      console.log('[Weapon Init] player=%s weapon=%s ammo=%d/%d alive=%s', p.id, weapon, p.ammo, p.maxAmmo, p.alive);
     });
     const lp = this.localPlayer;
     if (lp) {
@@ -1272,10 +1297,11 @@ class Game {
      ---------------------------------------------------------- */
   shoot() {
     const lp = this.localPlayer;
-    if (!lp || !lp.alive) return;
-    if (lp.reloading) return;
-    if (lp.ammo <= 0) { if (AUDIO) AUDIO.play('player_empty', { position: lp.position }); this.reload(); return; }
+    if (!lp || !lp.alive) { console.log('[Fire] shoot BLOCKED: !lp=%s !alive=%s', !lp, lp ? !lp.alive : true); return; }
+    if (lp.reloading) { console.log('[Fire] shoot BLOCKED: reloading'); return; }
+    if (lp.ammo <= 0) { console.log('[Fire] shoot BLOCKED: ammo=0 → reload'); if (AUDIO) AUDIO.play('player_empty', { position: lp.position }); this.reload(); return; }
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
+    console.log('[Fire] shoot weapon=%s ammo=%d/%d fireMode=%s', lp.weapon, lp.ammo, lp.maxAmmo, wp.fireMode);
 
     if (wp.weaponType === 'beam') {
       this._fireBeam(wp, lp);
@@ -1294,6 +1320,7 @@ class Game {
 
     const inputId = this.inputIdCounter++;
     const dirData = { x: baseDir.x, y: 0, z: baseDir.z };
+    console.log('[Fire Request] sending weapon=%s isHost=%s inputId=%s', lp.weapon, this.network.isHost, inputId);
     if (this.network.isHost) {
       if (this.hostAuthority) {
         this.hostAuthority.handleFireRequest({
@@ -1463,14 +1490,19 @@ class Game {
   }
 
   _updatePlaying(dt) {
-    if (!this.gameStarted || this.gameOver) return;
+    if (!this.gameStarted || this.gameOver) {
+      if (!this.gameStarted) console.log('[Update] _updatePlaying: gameStarted=false');
+      if (this.gameOver) console.log('[Update] _updatePlaying: gameOver=true');
+      return;
+    }
     const lp = this.localPlayer;
+    if (!lp) { console.log('[Update] _updatePlaying: localPlayer MISSING (localId=%s)', this.network.myId); return; }
 
-    if (lp && lp.alive) {
+    if (lp.alive) {
       this._handlePlayerInput(lp, dt);
     } else {
-      if (!lp) console.log('[Update] _updatePlaying: no lp');
-      else if (!lp.alive) console.log('[Update] _updatePlaying: lp.alive=false');
+      console.log('[Update] _updatePlaying: lp.alive=false weapon=%s ammo=%d/%d reloading=%s',
+        lp.weapon, lp.ammo, lp.maxAmmo, lp.reloading);
     }
 
     if (this.invincibleTimer > 0) {
@@ -1602,11 +1634,15 @@ class Game {
         }
       }
     }
+    if (!wp) console.log('[Fire] handleInput: weapon=%s NOT FOUND in WEAPONS', lp.weapon);
+    else if (!this.pointerLocked) console.log('[Fire] handleInput: pointerLocked=false');
     if (shouldFire) {
       const now = Date.now();
       if (now - lp.lastFireTime > wp.fireRate * 1000) {
         lp.lastFireTime = now;
         this.shoot();
+      } else {
+        console.log('[Fire] handleInput: fire rate blocked (%dms < %dms)', now - lp.lastFireTime, wp.fireRate * 1000);
       }
     }
   }
@@ -1702,9 +1738,9 @@ class Game {
   _respawnLocal() {
     const lp = this.localPlayer;
     if (AUDIO) AUDIO.play('player_respawn', { position: lp ? lp.position : null });
-    if (!lp) return;
-    console.log('[Respawn] _respawnLocal isHost=%s alive=%s weapon=%s mouseDown=%s',
-      this.network.isHost, lp.alive, this.loadoutWeapon, this.mouseDown);
+    if (!lp) { console.log('[Respawn] BLOCKED: no localPlayer'); return; }
+    console.log('[Respawn] _respawnLocal isHost=%s alive=%s weapon=%s mouseDown=%s mouseClicked=%s',
+      this.network.isHost, lp.alive, this.loadoutWeapon, this.mouseDown, this.mouseClicked);
     const spawnPos = this._getSpawnPosition();
     lp.position.copy(spawnPos);
     lp.targetPosition.copy(spawnPos);
@@ -1716,8 +1752,9 @@ class Game {
     lp.weapon = this.loadoutWeapon;
     lp.refillAmmo();
     this.mouseDown = false;
-    console.log('[Respawn] after reset: mouseDown=%s pointerLocked=%s',
-      this.mouseDown, this.pointerLocked);
+    this.mouseClicked = false;
+    console.log('[Respawn] after reset: mouseDown=%s mouseClicked=%s pointerLocked=%s',
+      this.mouseDown, this.mouseClicked, this.pointerLocked);
     this.invincibleTimer = CONFIG.invincibleTime;
     lp.onReloadComplete = this._onReloadComplete;
     this.updateAmmoUI();
