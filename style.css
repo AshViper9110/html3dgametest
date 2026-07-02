@@ -418,13 +418,9 @@ textarea:focus {
   background: rgba(0,0,0,0.3);
 }
 
-/* === ロビー === */
+/* === ロビー（2カラム） === */
 #lobby-room-id-section {
-  margin-bottom: 16px;
-  padding: 8px;
-  border: 1px solid rgba(0,240,255,0.15);
-  border-radius: 6px;
-  background: rgba(0,0,0,0.15);
+  margin-bottom: 8px;
 }
 .lobby-room-role {
   font-family: 'Orbitron', monospace;
@@ -434,157 +430,336 @@ textarea:focus {
   text-transform: uppercase;
   margin-bottom: 2px;
 }
-.lobby-room-label {
+.lobby-section-label {
   font-family: 'Orbitron', monospace;
-  font-size: 0.65em;
+  font-size: 0.6em;
   letter-spacing: 3px;
   color: #6666aa;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 #lobby-room-id {
   font-family: 'Orbitron', monospace;
-  font-size: 1.4em;
-  letter-spacing: 5px;
+  font-size: 1.5em;
+  letter-spacing: 6px;
   color: #00f0ff;
   text-shadow: 0 0 15px rgba(0,240,255,0.3);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
-#lobby-weapon-section {
-  margin: 12px 0;
+#lobby-inner {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 24px;
+  background: rgba(20,20,35,0.92);
+  border: 1px solid rgba(0,240,255,0.25);
+  border-radius: 12px;
+  padding: 28px 32px;
+  max-width: 880px;
+  width: 92%;
+  max-height: 88vh;
+  box-shadow: 0 0 60px rgba(0,240,255,0.08);
+}
+@media (max-width: 720px) {
+  #lobby-inner {
+    grid-template-columns: 1fr;
+    max-height: 92vh;
+    padding: 20px;
+    width: 96%;
+  }
+}
+
+/* 左カラム */
+#lobby-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* 右カラム */
+#lobby-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid rgba(0,240,255,0.1);
+  padding-left: 20px;
+}
+@media (max-width: 720px) {
+  #lobby-right {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid rgba(0,240,255,0.1);
+    padding-top: 12px;
+  }
+}
+
+.lobby-section {
+  background: rgba(0,0,0,0.15);
+  border: 1px solid rgba(0,240,255,0.08);
+  border-radius: 8px;
+  padding: 12px;
+}
+.lobby-section-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.6em;
+  letter-spacing: 4px;
+  color: #5555aa;
+  margin-bottom: 8px;
   text-align: center;
+}
+
+/* マップ名 */
+.lobby-map-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.9em;
+  letter-spacing: 3px;
+  color: #00f0ff;
+  text-shadow: 0 0 10px rgba(0,240,255,0.2);
+  margin-bottom: 6px;
+  text-align: center;
+}
+.lobby-map-desc {
+  font-size: 0.75em;
+  color: #666688;
+  letter-spacing: 1px;
+  text-align: center;
+  margin-top: 4px;
 }
 
 /* === マッププレビュー（ロビー） === */
 #map-preview-container {
-  margin: 8px auto;
   text-align: center;
 }
 #map-preview-canvas {
-  border: 1px solid rgba(0,240,255,0.15);
+  border: 1px solid rgba(0,240,255,0.12);
   border-radius: 6px;
   background: #0a0a18;
   max-width: 100%;
+  height: auto;
 }
 #guest-map-preview-container {
-  margin: 8px auto;
   text-align: center;
 }
 #guest-map-preview-canvas {
-  border: 1px solid rgba(0,240,255,0.12);
-  border-radius: 4px;
+  border: 1px solid rgba(0,240,255,0.1);
+  border-radius: 6px;
   background: #0a0a18;
   max-width: 100%;
+  height: auto;
 }
-.guest-map-name {
-  font-family: 'Orbitron', monospace;
-  font-size: 0.7em;
-  letter-spacing: 2px;
-  color: #8888aa;
-  margin-bottom: 4px;
+
+/* マップナビ（Host用） */
+#lobby-map-nav {
+  margin-top: 8px;
 }
-#lobby-inner {
-  background: rgba(20,20,35,0.9);
-  border: 1px solid rgba(0,240,255,0.3);
-  border-radius: 12px;
-  padding: 40px;
-  max-width: 520px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  text-align: center;
-  box-shadow: 0 0 60px rgba(0,240,255,0.1);
-}
-#lobby-inner h2 {
-  font-family: 'Orbitron', monospace;
-  font-size: 1.6em;
-  letter-spacing: 6px;
-  color: #00f0ff;
-  text-shadow: 0 0 20px rgba(0,240,255,0.3);
-  margin-bottom: 16px;
-}
-#lobby-controls-host, #lobby-controls-client {
-  margin-top: 16px;
+.map-nav {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
-}
-#lobby-controls-client .weapon-selector {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 8px;
   justify-content: center;
 }
-#lobby-controls-client .weapon-selector .map-btn {
+.map-nav-btn {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.85em;
+  padding: 6px 12px;
+  border: 1px solid rgba(0,240,255,0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(0,0,0,0.3);
+  color: #00f0ff;
+}
+.map-nav-btn:hover {
+  background: rgba(0,240,255,0.1);
+  box-shadow: 0 0 12px rgba(0,240,255,0.15);
+}
+.map-nav-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.8em;
+  color: #ccccee;
+  letter-spacing: 1px;
+  min-width: 150px;
+  text-align: center;
+}
+
+/* 武器セレクタ */
+.weapon-selector {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.weapon-selector .map-btn {
   padding: 6px 12px;
   font-size: 0.7em;
 }
-
-/* === プレイヤーリスト === */
-#player-list {
-  margin: 12px 0;
-  text-align: left;
+.map-btn {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 0.8em;
+  letter-spacing: 1px;
+  padding: 8px 14px;
+  border: 1px solid rgba(0,240,255,0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(0,0,0,0.3);
+  color: #8888aa;
+  text-transform: uppercase;
 }
-#player-list .pl-entry {
+.map-btn:hover {
+  border-color: rgba(0,240,255,0.4);
+  color: #ccccee;
+}
+.map-btn.active {
+  border-color: #00f0ff;
+  color: #00f0ff;
+  background: rgba(0,240,255,0.1);
+  box-shadow: 0 0 12px rgba(0,240,255,0.15);
+}
+
+/* Host/Client controls */
+#lobby-controls-host, #lobby-controls-client {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Status section */
+#lobby-status-section {
+  background: rgba(0,0,0,0.15);
+  border: 1px solid rgba(0,240,255,0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.lobby-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+}
+.lobby-status-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.65em;
+  letter-spacing: 2px;
+  color: #6666aa;
+}
+.lobby-status-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.7em;
+  letter-spacing: 2px;
+  color: #00f0ff;
+}
+.lobby-status-text {
+  font-size: 0.75em;
+  color: #8888aa;
+  letter-spacing: 1px;
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* === プレイヤーリスト（右カラム用カード） === */
+#player-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+.pl-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  margin: 4px 0;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,240,255,0.08);
+  border-radius: 8px;
   background: rgba(0,0,0,0.2);
-  font-size: 0.9em;
-  letter-spacing: 1px;
+  transition: border-color 0.2s;
 }
-#player-list .pl-dot {
-  width: 10px; height: 10px;
+.pl-card:hover {
+  border-color: rgba(0,240,255,0.2);
+}
+.pl-card-dot {
+  width: 12px; height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
   box-shadow: 0 0 8px currentColor;
 }
-#player-list .pl-name { flex: 1; color: #ccccee; }
-#player-list .pl-weapon {
-  color: #666688;
-  font-size: 0.8em;
-  margin: 0 8px;
+.pl-card-info {
+  flex: 1;
+  min-width: 0;
 }
-#player-list .pl-ready {
-  font-size: 0.7em;
-  font-family: 'Orbitron', monospace;
-  letter-spacing: 2px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  color: #00ff88;
-  border: 1px solid rgba(0,255,136,0.3);
-  min-width: 40px;
-  text-align: center;
+.pl-card-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.95em;
+  font-weight: 700;
+  color: #ccccee;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-#player-list .pl-notready {
-  font-size: 0.7em;
+.pl-card-name .crown {
+  font-size: 0.85em;
+}
+.pl-card-name .you-tag {
+  font-size: 0.55em;
   font-family: 'Orbitron', monospace;
-  letter-spacing: 2px;
-  padding: 2px 8px;
-  border-radius: 4px;
+  letter-spacing: 1px;
   color: #666688;
   border: 1px solid rgba(255,255,255,0.1);
-  min-width: 40px;
-  text-align: center;
+  padding: 1px 6px;
+  border-radius: 3px;
 }
-#player-list .pl-tag {
+.pl-card-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+.pl-card-weapon {
   font-size: 0.7em;
+  color: #8888aa;
+  letter-spacing: 1px;
+}
+.pl-card-ready {
+  font-size: 0.6em;
   font-family: 'Orbitron', monospace;
   letter-spacing: 2px;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 1px 8px;
+  border-radius: 3px;
 }
-#player-list .pl-tag.host {
-  border: 1px solid rgba(0,240,255,0.3);
+.pl-card-ready.ready {
+  color: #00ff88;
+  border: 1px solid rgba(0,255,136,0.25);
+  background: rgba(0,255,136,0.06);
+}
+.pl-card-ready.notready {
+  color: #ff4444;
+  border: 1px solid rgba(255,68,68,0.2);
+  background: rgba(255,68,68,0.04);
+}
+.pl-card-stats {
+  display: flex;
+  gap: 10px;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.65em;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+.pl-card-kills {
   color: #00f0ff;
 }
-#player-list .pl-tag.you {
-  border: 1px solid rgba(255,255,255,0.15);
-  color: #888;
+.pl-card-deaths {
+  color: #ff4444;
+}
+.pl-card-ping {
+  color: #8888aa;
+  font-size: 0.6em;
+  flex-shrink: 0;
 }
 
 /* === カウントダウン === */

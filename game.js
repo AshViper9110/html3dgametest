@@ -809,13 +809,51 @@ class Game {
     const isHost = this.network.isHost;
     document.getElementById('lobby-controls-host').style.display = isHost ? '' : 'none';
     document.getElementById('lobby-controls-client').style.display = isHost ? 'none' : '';
+    document.getElementById('lobby-map-nav').style.display = isHost ? '' : 'none';
     if (isHost) {
       this._setupMapSelector();
     }
+    this._updateLobbyMapInfo();
     this._renderPlayerList();
     this._updateStartButton();
     this._updateLobbyWeaponHighlight();
+    this._updateLobbyStatus();
     this._drawMapPreviews();
+  }
+
+  _updateLobbyMapInfo() {
+    const map = MAPS[this.selectedMap] || MAPS.grid;
+    const nameEl = document.getElementById('lobby-map-name');
+    const descEl = document.getElementById('lobby-map-desc');
+    if (nameEl) nameEl.textContent = map.name;
+    if (descEl) descEl.textContent = map.desc;
+  }
+
+  _updateLobbyStatus() {
+    const total = this.players.size;
+    let readyCount = 0;
+    this.players.forEach((p, id) => {
+      if (id === this.network.roomId) { readyCount++; return; }
+      if (id === this.network.myId) {
+        if (document.getElementById('btn-ready') && document.getElementById('btn-ready').dataset.ready === 'true') { readyCount++; }
+        return;
+      }
+      if (this.clientReady.get(id)) readyCount++;
+    });
+    const countEl = document.getElementById('lobby-player-count');
+    const readyEl = document.getElementById('lobby-ready-count');
+    const statusEl = document.getElementById('lobby-status-text');
+    if (countEl) countEl.textContent = `${total} / 8`;
+    if (readyEl) readyEl.textContent = `${readyCount} / ${total}`;
+    if (statusEl) {
+      if (total === 0) {
+        statusEl.textContent = 'Waiting for players...';
+      } else if (total >= 2 && readyCount >= total - 1) {
+        statusEl.textContent = 'Ready to start!';
+      } else {
+        statusEl.textContent = readyCount >= total - 1 ? 'Waiting for host...' : `Waiting for ${total - 1 - readyCount} player(s)...`;
+      }
+    }
   }
 
   _drawMapPreviews() {
@@ -901,8 +939,6 @@ class Game {
     ctx.font = '8px Orbitron, monospace';
     ctx.textAlign = 'center';
     ctx.fillText(map.name, W / 2, H - 3);
-    const nameEl = document.getElementById('guest-map-name');
-    if (nameEl) nameEl.textContent = `${map.name} — ${map.desc}`;
   }
 
   _updateLobbyWeaponHighlight() {
@@ -917,46 +953,80 @@ class Game {
     list.innerHTML = '';
     const isHost = this.network.isHost;
     this.players.forEach((p, id) => {
-      const entry = document.createElement('div');
-      entry.className = 'pl-entry';
-      const dot = document.createElement('span');
-      dot.className = 'pl-dot';
+      const card = document.createElement('div');
+      card.className = 'pl-card';
+
+      const dot = document.createElement('div');
+      dot.className = 'pl-card-dot';
       dot.style.color = '#' + p.color.toString(16).padStart(6, '0');
       dot.style.background = '#' + p.color.toString(16).padStart(6, '0');
-      const name = document.createElement('span');
-      name.className = 'pl-name';
-      name.textContent = p.name;
-      const weapon = document.createElement('span');
-      weapon.className = 'pl-weapon';
-      weapon.textContent = WEAPONS[this.clientWeapons.get(id) || 'pistol'].name;
+
+      const info = document.createElement('div');
+      info.className = 'pl-card-info';
+
+      const nameRow = document.createElement('div');
+      nameRow.className = 'pl-card-name';
+      const isHostPlayer = id === this.network.roomId;
+      if (isHostPlayer) {
+        const crown = document.createElement('span');
+        crown.className = 'crown';
+        crown.textContent = '👑';
+        nameRow.appendChild(crown);
+      }
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = p.name;
+      nameRow.appendChild(nameSpan);
+      if (id === this.network.myId && !isHostPlayer) {
+        const you = document.createElement('span');
+        you.className = 'you-tag';
+        you.textContent = 'YOU';
+        nameRow.appendChild(you);
+      }
+
+      const meta = document.createElement('div');
+      meta.className = 'pl-card-meta';
+
+      const weaponEl = document.createElement('span');
+      weaponEl.className = 'pl-card-weapon';
+      weaponEl.textContent = WEAPONS[this.clientWeapons.get(id) || 'pistol'].name;
+
       const readyEl = document.createElement('span');
+      readyEl.className = 'pl-card-ready';
       let isReady = false;
-      if (id === this.network.roomId) {
+      if (isHostPlayer) {
         isReady = true;
-        readyEl.className = 'pl-ready';
-        readyEl.textContent = 'HOST';
+        readyEl.classList.add('ready');
+        readyEl.textContent = 'READY';
       } else if (id === this.network.myId) {
         isReady = document.getElementById('btn-ready') && document.getElementById('btn-ready').dataset.ready === 'true';
-        readyEl.className = isReady ? 'pl-ready' : 'pl-notready';
-        readyEl.textContent = isReady ? 'READY' : 'WAIT';
+        readyEl.classList.add(isReady ? 'ready' : 'notready');
+        readyEl.textContent = isReady ? 'READY' : 'NOT READY';
       } else {
         isReady = this.clientReady.get(id) || false;
-        readyEl.className = isReady ? 'pl-ready' : 'pl-notready';
-        readyEl.textContent = isReady ? 'READY' : 'WAIT';
+        readyEl.classList.add(isReady ? 'ready' : 'notready');
+        readyEl.textContent = isReady ? 'READY' : 'NOT READY';
       }
-      const tag = document.createElement('span');
-      tag.className = 'pl-tag';
-      if (id === this.network.roomId || (isHost && id === this.network.myId)) {
-        tag.textContent = 'HOST'; tag.classList.add('host');
-      } else if (id === this.network.myId) {
-        tag.textContent = 'YOU'; tag.classList.add('you');
-      }
-      entry.appendChild(dot);
-      entry.appendChild(name);
-      entry.appendChild(weapon);
-      entry.appendChild(readyEl);
-      entry.appendChild(tag);
-      list.appendChild(entry);
+
+      meta.appendChild(weaponEl);
+      meta.appendChild(readyEl);
+      info.appendChild(nameRow);
+      info.appendChild(meta);
+
+      const stats = document.createElement('div');
+      stats.className = 'pl-card-stats';
+      const k = document.createElement('span');
+      k.className = 'pl-card-kills';
+      k.textContent = `K${p.kills || 0}`;
+      const d = document.createElement('span');
+      d.className = 'pl-card-deaths';
+      d.textContent = `D${p.deaths || 0}`;
+      stats.appendChild(k);
+      stats.appendChild(d);
+
+      card.appendChild(dot);
+      card.appendChild(info);
+      card.appendChild(stats);
+      list.appendChild(card);
     });
   }
 

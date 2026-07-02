@@ -36,46 +36,82 @@
   </div>
 </div>
 
-<!-- ========== ロビー画面 ========== -->
+<!-- ========== ロビー画面（2カラム） ========== -->
 <div id="lobby-screen" class="screen" style="display:none;">
   <div id="lobby-inner">
-    <div id="lobby-room-id-section">
-      <div id="lobby-room-role" class="lobby-room-role">Host</div>
-      <div class="lobby-room-label">ROOM ID</div>
-      <div id="lobby-room-id">---</div>
-      <button class="btn btn-small" id="lobby-copy-room">📋 Copy</button>
-      <span id="lobby-copy-feedback" style="display:none;color:#00ff88;font-size:0.8em;margin-left:8px;">Copied!</span>
-    </div>
-    <h2>LOBBY</h2>
-    <div id="player-list"></div>
-    <div id="map-preview-container">
-      <canvas id="map-preview-canvas" width="240" height="180"></canvas>
-    </div>
-    <div id="guest-map-preview-container" style="display:none;">
-      <div id="guest-map-name" class="guest-map-name"></div>
-      <canvas id="guest-map-preview-canvas" width="200" height="140"></canvas>
-    </div>
-    <div id="lobby-weapon-section">
-      <div class="weapon-selector" id="lobby-weapon-btns">
-        <button class="map-btn" data-weapon="pistol">PISTOL</button>
-        <button class="map-btn" data-weapon="assault">ASSAULT</button>
-        <button class="map-btn" data-weapon="sniper">SNIPER</button>
-        <button class="map-btn" data-weapon="rpg">RPG</button>
-        <button class="map-btn" data-weapon="shotgun">SHOTGUN</button>
+
+    <!-- ===== 左カラム: ゲーム情報 & 操作 ===== -->
+    <div id="lobby-left">
+
+      <!-- Room ID -->
+      <div id="lobby-room-id-section">
+        <div class="lobby-section-label">ROOM ID</div>
+        <div id="lobby-room-id">---</div>
+        <div id="lobby-room-role" class="lobby-room-role">Host</div>
+        <button class="btn btn-small" id="lobby-copy-room">📋 Copy</button>
+        <span id="lobby-copy-feedback" style="display:none;color:#00ff88;font-size:0.8em;margin-left:8px;">Copied!</span>
       </div>
-    </div>
-    <div id="lobby-controls-host" style="display:none;">
-      <div id="map-select-host">
-        <div class="map-nav" id="map-selector"></div>
+
+      <!-- Current Map -->
+      <div class="lobby-section">
+        <div class="lobby-section-title">CURRENT MAP</div>
+        <div id="lobby-map-name" class="lobby-map-name">NEON GRID</div>
+        <div id="map-preview-container">
+          <canvas id="map-preview-canvas" width="280" height="200"></canvas>
+        </div>
+        <div id="guest-map-preview-container" style="display:none;">
+          <canvas id="guest-map-preview-canvas" width="280" height="200"></canvas>
+        </div>
+        <div id="lobby-map-desc" class="lobby-map-desc"></div>
+        <!-- Map navigation (Host only) -->
+        <div id="lobby-map-nav" style="display:none;">
+          <div class="map-nav" id="map-selector"></div>
+        </div>
       </div>
-      <button class="btn btn-primary" id="btn-start-game" disabled>▶ START GAME</button>
+
+      <!-- Weapon -->
+      <div class="lobby-section">
+        <div class="lobby-section-title">WEAPON</div>
+        <div class="weapon-selector" id="lobby-weapon-btns">
+          <button class="map-btn" data-weapon="pistol">PISTOL</button>
+          <button class="map-btn" data-weapon="assault">ASSAULT</button>
+          <button class="map-btn" data-weapon="sniper">SNIPER</button>
+          <button class="map-btn" data-weapon="rpg">RPG</button>
+          <button class="map-btn" data-weapon="shotgun">SHOTGUN</button>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div id="lobby-controls-host" style="display:none;">
+        <button class="btn btn-primary" id="btn-start-game" disabled>▶ START GAME</button>
+      </div>
+      <div id="lobby-controls-client" style="display:none;">
+        <button class="btn btn-secondary" id="btn-ready">▶ READY</button>
+      </div>
+
+      <!-- Status -->
+      <div id="lobby-status-section">
+        <div class="lobby-status-row">
+          <span class="lobby-status-label">Players</span>
+          <span class="lobby-status-value" id="lobby-player-count">0 / 8</span>
+        </div>
+        <div class="lobby-status-row">
+          <span class="lobby-status-label">Ready</span>
+          <span class="lobby-status-value" id="lobby-ready-count">0 / 1</span>
+        </div>
+        <div id="lobby-status-text" class="lobby-status-text">Waiting for players...</div>
+      </div>
+
+      <!-- Leave -->
+      <button class="btn btn-small" id="btn-leave-lobby">✕ LEAVE LOBBY</button>
     </div>
-    <div id="lobby-controls-client" style="display:none;">
-      <button class="btn btn-secondary" id="btn-ready">▶ READY</button>
+
+    <!-- ===== 右カラム: プレイヤー一覧 ===== -->
+    <div id="lobby-right">
+      <div class="lobby-section-title">PLAYERS</div>
+      <div id="player-list"></div>
     </div>
-    <div style="margin-top:16px;">
-      <button class="btn btn-small" id="btn-leave-lobby">✕ LEAVE</button>
-    </div>
+
   </div>
 </div>
 
