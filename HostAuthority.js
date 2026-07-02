@@ -206,13 +206,12 @@ class HostAuthority {
   _explodeProjectile(proj) {
     if (!proj.wp || !proj.wp.explosive) return;
     this.processExplosion(proj, proj.hitPlayers);
-    this.game.effectManager.spawnExplosion(
-      proj.mesh.position.clone(),
-      proj.color || 0xff4400
-    );
+    const pos = proj.mesh.position.clone();
+    if (AUDIO) AUDIO.play('explosion', { position: pos });
+    this.game.effectManager.spawnExplosion(pos.clone(), proj.color || 0xff4400);
     this.game.network.broadcast({
       type: 'explosion',
-      pos: { x: proj.mesh.position.x, y: proj.mesh.position.y, z: proj.mesh.position.z },
+      pos: { x: pos.x, y: pos.y, z: pos.z },
       color: proj.color || 0xff4400,
       weapon: proj.weapon,
       pid: proj.id,

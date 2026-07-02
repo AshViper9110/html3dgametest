@@ -113,6 +113,9 @@
         <div id="lobby-status-text" class="lobby-status-text">Waiting for players...</div>
       </div>
 
+      <!-- Settings Toggle -->
+      <button class="btn btn-small" id="btn-settings">⚙ SETTINGS</button>
+
       <!-- Leave -->
       <button class="btn btn-small" id="btn-leave-lobby">✕ LEAVE LOBBY</button>
     </div>
@@ -123,6 +126,34 @@
       <div id="player-list"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- ========== 設定パネル ========== -->
+<div id="settings-panel" style="display:none;">
+  <div id="settings-inner">
+    <div class="settings-title">AUDIO SETTINGS</div>
+    <div class="settings-row">
+      <span class="settings-label">Master</span>
+      <input type="range" class="settings-slider" id="vol-master" min="0" max="100" value="100">
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">Weapon</span>
+      <input type="range" class="settings-slider" id="vol-weapon" min="0" max="100" value="60">
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">UI</span>
+      <input type="range" class="settings-slider" id="vol-ui" min="0" max="100" value="70">
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">Effects</span>
+      <input type="range" class="settings-slider" id="vol-explosion" min="0" max="100" value="80">
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">Player</span>
+      <input type="range" class="settings-slider" id="vol-player" min="0" max="100" value="60">
+    </div>
+    <button class="btn btn-small" id="btn-settings-close">CLOSE</button>
   </div>
 </div>
 
@@ -202,6 +233,8 @@
 <script src="WeaponRegistry.js"></script>
 <script src="WeaponManager.js"></script>
 <script src="BeamManager.js"></script>
+<script src="SoundRegistry.js"></script>
+<script src="AudioManager.js"></script>
 <script src="CheatValidator.js"></script>
 <script src="ObjectPool.js"></script>
 <script src="ParticlePool.js"></script>

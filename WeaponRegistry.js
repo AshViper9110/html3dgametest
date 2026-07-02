@@ -24,6 +24,7 @@ class WeaponRegistry {
     def.unlockLevel = def.unlockLevel || 1;
     def.name = def.displayName;
     def.maxAmmo = def.magazineSize;
+    def.sound = def.sound || id;
     this._list.push(id);
     this._map[id] = def;
   }

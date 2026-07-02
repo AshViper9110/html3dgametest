@@ -189,6 +189,9 @@ class Game {
       if (e.button === 0) {
         console.log('[Fire] Mouse mouseup → mouseDown=false');
         this.mouseDown = false;
+        if (AUDIO && this.localPlayer) {
+          AUDIO.stopBeamHum(this.localPlayer.weapon);
+        }
       }
     });
   }
@@ -620,6 +623,13 @@ class Game {
       const killed = this.localPlayer.takeDamage(data.damage || 1);
       data.lethal = killed;
       this._applyLocalHitEffects(data);
+      if (AUDIO) {
+        AUDIO.play('player_hit', { position: this.localPlayer.position });
+        if (data.lethal) AUDIO.play('player_death', { position: this.localPlayer.position });
+      }
+    }
+    if (data.shooterId === this.network.myId) {
+      if (AUDIO) AUDIO.play(data.lethal ? 'player_kill' : 'hit');
     }
     if (data.lethal) {
       this._trackKill(data.shooterId, data.targetId);
@@ -652,11 +662,10 @@ class Game {
   }
 
   _handleHitEffect(data) {
+    const pos = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
+    if (AUDIO) AUDIO.play('wall_hit', { position: pos });
     if (this.effectManager) {
-      this.effectManager.spawnHitEffect(
-        new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z),
-        data.color || 0xffffff
-      );
+      this.effectManager.spawnHitEffect(pos.clone(), data.color || 0xffffff);
     }
     this._removeLocalProjectile(data.pid);
   }
@@ -675,18 +684,15 @@ class Game {
   }
 
   _handleExplosionEffect(data) {
+    const pos = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
+    if (AUDIO) AUDIO.play('explosion', { position: pos });
     if (this.effectManager) {
-      this.effectManager.spawnExplosion(
-        new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z),
-        data.color || 0xff4400
-      );
+      this.effectManager.spawnExplosion(pos.clone(), data.color || 0xff4400);
     }
     this._removeLocalProjectile(data.pid);
     this.cameraEffectManager.explosionShake(8);
     const dist = this.localPlayer
-      ? new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z).distanceTo(
-          new THREE.Vector3(this.localPlayer.position.x, 0, this.localPlayer.position.z)
-        )
+      ? pos.distanceTo(new THREE.Vector3(this.localPlayer.position.x, 0, this.localPlayer.position.z))
       : Infinity;
     if (dist < 15) {
       this.cameraEffectManager.explosionShake(12 - dist * 0.5);
@@ -850,6 +856,7 @@ class Game {
   _changeMap(direction) {
     if (this.gameState !== GameState.LOBBY) return;
     if (!this.network.isHost) return;
+    if (AUDIO) AUDIO.play('ui_map_change');
     const count = MAP_REGISTRY.count();
     if (direction === 'next') {
       this.mapIndex = (this.mapIndex + 1) % count;
@@ -1043,6 +1050,7 @@ class Game {
   }
 
   _changeWeapon(direction) {
+    if (AUDIO) AUDIO.play('ui_weapon_change');
     if (direction === 'next') {
       this.loadoutWeapon = WEAPON_REGISTRY.next(this.loadoutWeapon);
     } else {
@@ -1188,11 +1196,13 @@ class Game {
   _showCountdownNumber(value) {
     const el = document.getElementById('countdown-text');
     if (value > 0) {
+      if (AUDIO) AUDIO.play('game_countdown', { position: null });
       el.textContent = String(value);
       el.style.animation = 'none';
       void el.offsetWidth;
       el.style.animation = 'countPulse 1s ease forwards';
     } else if (value === 0) {
+      if (AUDIO) AUDIO.play('game_fight', { position: null });
       el.textContent = 'FIGHT!!';
       el.style.color = '#ff0044';
       el.style.textShadow = '0 0 60px rgba(255,0,68,0.5)';
@@ -1264,7 +1274,7 @@ class Game {
     const lp = this.localPlayer;
     if (!lp || !lp.alive) return;
     if (lp.reloading) return;
-    if (lp.ammo <= 0) { this.reload(); return; }
+    if (lp.ammo <= 0) { if (AUDIO) AUDIO.play('player_empty', { position: lp.position }); this.reload(); return; }
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
 
     if (wp.weaponType === 'beam') {
@@ -1310,6 +1320,8 @@ class Game {
       }
     }
 
+    if (AUDIO) AUDIO.playWeapon(lp.weapon, { position: lp.position });
+
     lp.ammo--;
     this.updateAmmoUI();
   }
@@ -1341,6 +1353,11 @@ class Game {
       this.effectManager.spawnMuzzleFlash(origin, baseDir, lp.color);
     }
 
+    if (AUDIO) {
+      AUDIO.playWeapon(lp.weapon, { position: lp.position });
+      AUDIO.startBeamHum(lp.weapon, { position: lp.position });
+    }
+
     lp.ammo--;
     this.updateAmmoUI();
   }
@@ -1350,6 +1367,7 @@ class Game {
     if (!lp || !lp.alive || lp.reloading) return;
     if (lp.ammo >= lp.maxAmmo) return;
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
+    if (AUDIO) AUDIO.play('player_reload', { position: lp.position });
     lp.reloading = true;
     lp.reloadTimer = wp.reloadTime;
     this.updateAmmoUI();
@@ -1496,6 +1514,10 @@ class Game {
 
     if (this.effectManager) this.effectManager.update(dt);
     if (this.beamManager) this.beamManager.update(dt);
+    if (AUDIO) {
+      const lp = this.localPlayer;
+      if (lp) AUDIO.updateListener(lp.position);
+    }
     if (this.hostAuthority && this.network.isHost) {
       this.hostAuthority.handleHostProjectiles(dt);
     }
@@ -1530,6 +1552,7 @@ class Game {
         this.dashTriggered = true;
         if (this.effectManager) this.effectManager.spawnDashEffect(lp.position, _v3);
         if (this.cameraEffectManager) this.cameraEffectManager.dashFov();
+        if (AUDIO) AUDIO.play('player_dash', { position: lp.position });
       }
 
       let speed = CONFIG.playerSpeed;
@@ -1539,6 +1562,7 @@ class Game {
         if (this.dashTimer <= 0) {
           this.dashTimer = 0;
           if (this.effectManager) this.effectManager.spawnLandingEffect(lp.position);
+          if (AUDIO) AUDIO.play('player_land', { position: lp.position });
         }
       }
       if (this.arenaMap && this.arenaMap.pads) {
@@ -1677,6 +1701,7 @@ class Game {
 
   _respawnLocal() {
     const lp = this.localPlayer;
+    if (AUDIO) AUDIO.play('player_respawn', { position: lp ? lp.position : null });
     if (!lp) return;
     console.log('[Respawn] _respawnLocal isHost=%s alive=%s weapon=%s mouseDown=%s',
       this.network.isHost, lp.alive, this.loadoutWeapon, this.mouseDown);
@@ -1872,6 +1897,11 @@ class Game {
     sb.sort((a, b) => b.kills - a.kills);
     const topKills = sb.length > 0 ? sb[0].kills : 0;
     const winners = sb.filter(e => e.kills === topKills);
+    if (AUDIO) {
+      const iWon = winners.some(w => w.id === this.network.myId);
+      AUDIO.play(iWon ? 'game_victory' : 'game_defeat', { position: null });
+      AUDIO.play('ui_result', { position: null });
+    }
 
     const winnerNameEl = document.getElementById('result-winner-name');
     const winnerLabelEl = document.getElementById('result-winner-label');

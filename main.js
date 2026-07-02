@@ -8,6 +8,16 @@ game.init();
 
 /* ---- タイトル画面 ---- */
 
+/* UI Sounds Helper */
+function _uiSound(name) {
+  return () => { if (AUDIO) AUDIO.play(name); };
+}
+
+/* Hover sounds for buttons */
+document.querySelectorAll('.btn, .ws-btn, .ms-btn').forEach(el => {
+  el.addEventListener('mouseenter', _uiSound('ui_hover'));
+});
+
 /* Host */
 document.getElementById('btn-host').addEventListener('click', async () => {
   const name = document.getElementById('player-name-input').value.trim() || 'Player';
@@ -75,6 +85,7 @@ document.getElementById('player-name-input').addEventListener('input', () => {
 /* ホスト: ゲーム開始 */
 document.getElementById('btn-start-game').addEventListener('click', () => {
   if (document.getElementById('btn-start-game').disabled) return;
+  _uiSound('ui_start')();
   game._createArena(game.selectedMap);
   game.network.broadcast({ type: 'game_start', map: game.selectedMap });
   game.setState(GameState.COUNTDOWN);
@@ -84,6 +95,7 @@ document.getElementById('btn-start-game').addEventListener('click', () => {
 document.getElementById('btn-ready').addEventListener('click', () => {
   const btn = document.getElementById('btn-ready');
   const isReady = btn.dataset.ready !== 'true';
+  if (AUDIO) AUDIO.play(isReady ? 'ui_ready' : 'ui_click');
   btn.dataset.ready = isReady ? 'true' : 'false';
   btn.textContent = isReady ? '✔ READY' : '▶ READY';
   btn.classList.toggle('btn-secondary', !isReady);
@@ -116,6 +128,7 @@ document.getElementById('map-next').addEventListener('click', () => {
 
 /* ルームIDコピー（タイトル画面） */
 document.getElementById('btn-copy-room').addEventListener('click', () => {
+  _uiSound('ui_copy')();
   const text = document.getElementById('room-id-display').textContent;
   navigator.clipboard.writeText(text).catch(() => {});
   document.getElementById('title-status').textContent = '✅ Copied!';
@@ -123,6 +136,7 @@ document.getElementById('btn-copy-room').addEventListener('click', () => {
 
 /* ルームIDコピー（ロビー画面） */
 document.getElementById('lobby-copy-room').addEventListener('click', () => {
+  _uiSound('ui_copy')();
   const text = document.getElementById('lobby-room-id').textContent;
   if (!text || text === '---') return;
   navigator.clipboard.writeText(text).catch(() => {});
@@ -148,6 +162,29 @@ document.getElementById('btn-leave-lobby').addEventListener('click', () => {
   document.getElementById('host-section').style.display = 'none';
   game.setState(GameState.TITLE);
 });
+
+/* === Settings Panel Toggle === */
+document.getElementById('btn-settings').addEventListener('click', () => {
+  document.getElementById('settings-panel').style.display = 'flex';
+  _uiSound('ui_click')();
+});
+document.getElementById('btn-settings-close').addEventListener('click', () => {
+  document.getElementById('settings-panel').style.display = 'none';
+  _uiSound('ui_click')();
+});
+/* Volume sliders */
+function setupSlider(id, category) {
+  const slider = document.getElementById(id);
+  slider.addEventListener('input', () => {
+    const val = parseInt(slider.value) / 100;
+    if (AUDIO) AUDIO.setVolume(category, val);
+  });
+}
+setupSlider('vol-master', 'master');
+setupSlider('vol-weapon', 'weapon');
+setupSlider('vol-ui', 'ui');
+setupSlider('vol-explosion', 'explosion');
+setupSlider('vol-player', 'player');
 
 /* ブラウザ終了時 */
 window.addEventListener('beforeunload', () => {
