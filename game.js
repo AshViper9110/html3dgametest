@@ -544,8 +544,9 @@ class Game {
     console.log('[Projectile] received proj_spawn ownerId=%s weapon=%s', data.ownerId, data.weapon);
     const origin = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
     const dir = new THREE.Vector3(data.dir.x, data.dir.y, data.dir.z);
+    const mapHalf = this.arenaMap ? this.arenaMap.size / 2 : 40;
     const proj = new Projectile(this.scene, origin, dir,
-      data.ownerId, data.pid, data.color, data.weapon);
+      data.ownerId, data.pid, data.color, data.weapon, mapHalf);
     proj.isRemote = true;
     this.projectiles.push(proj);
     const owner = this.players.get(data.ownerId);

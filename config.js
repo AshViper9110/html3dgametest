@@ -18,8 +18,8 @@ const CONFIG = {
   stateSendRate: 0.05,   // 状態同期の送信間隔（秒）
   gameTimeLimit: 180,    // ゲーム制限時間（秒）
   killCamDuration: 2,    // キルカメラの持続時間（秒）
-  dashSpeed: 35,         // ダッシュ時の速度
-  dashDuration: 0.12,    // ダッシュの持続時間（秒）
+  dashSpeed: 60,         // ダッシュ時の速度
+  dashDuration: 0.2,    // ダッシュの持続時間（秒）
   dashCooldown: 0.8,     // ダッシュのクールダウン（秒）
   invincibleTime: 3,     // リスポーン後の無敵時間（秒）
   colors: { projectile: 0xffee00 },

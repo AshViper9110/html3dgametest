@@ -38,6 +38,7 @@ class HostAuthority {
     const wp = WEAPONS[data.weapon];
     const pellets = wp.pellets || 1;
     const spawnPos = new THREE.Vector3(data.position.x, 0, data.position.z);
+    const mapHalf = this.game.arenaMap ? this.game.arenaMap.size / 2 : 40;
 
     for (let i = 0; i < pellets; i++) {
       const dir = new THREE.Vector3(data.direction.x, 0, data.direction.z);
@@ -48,7 +49,7 @@ class HostAuthority {
       }
       const pid = peerId + '_h' + (this.projIdCounter++);
 
-      const proj = new Projectile(this.game.scene, spawnPos, dir, peerId, pid, data.color || 0xffffff, data.weapon);
+      const proj = new Projectile(this.game.scene, spawnPos, dir, peerId, pid, data.color || 0xffffff, data.weapon, mapHalf);
       proj.isHostProjectile = true;
       this.hostProjectiles.push(proj);
 
@@ -260,6 +261,7 @@ class HostAuthority {
           proj.hitPlayers.add(id);
 
           if (proj.wp && proj.wp.explosive) {
+            this.processHit(proj, id, proj.weapon);
             this._explodeProjectile(proj);
           } else {
             this.processHit(proj, id, proj.weapon);

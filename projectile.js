@@ -3,7 +3,7 @@ const _sharedProjGlowGeo = new THREE.SphereGeometry(0.6, 6, 6);
 const _v3_tmp = new THREE.Vector3();
 
 class Projectile {
-  constructor(scene, origin, dir, ownerId, id, color, weapon) {
+  constructor(scene, origin, dir, ownerId, id, color, weapon, mapHalf) {
     this.scene = scene;
     this.ownerId = ownerId;
     this.id = id;
@@ -14,6 +14,7 @@ class Projectile {
     this.color = color || this.wp.color;
     this.isHostProjectile = false;
     this.isRemote = false;
+    this.mapHalf = mapHalf !== undefined ? mapHalf : 40;
 
     this.mat = new THREE.MeshBasicMaterial({ color: this.color });
     this.mesh = new THREE.Mesh(_sharedProjGeo, this.mat);
@@ -44,7 +45,7 @@ class Projectile {
     this.mesh.position.x += this.velocity.x * dt;
     this.mesh.position.z += this.velocity.z * dt;
 
-    const half = 40;
+    const half = this.mapHalf;
     if (Math.abs(this.mesh.position.x) > half || Math.abs(this.mesh.position.z) > half) {
       this.destroy();
       return;
