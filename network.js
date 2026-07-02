@@ -1,8 +1,3 @@
-/* ============================================================
-   NEON ARENA - ネットワーク管理クラス
-   スター型PeerJSネットワークの接続管理、データ送受信を担当
-   ============================================================ */
-
 class NetworkManager {
   constructor(game) {
     this.game = game;
@@ -14,7 +9,9 @@ class NetworkManager {
     this.myId = null;
     this.connected = false;
     this.sendTimer = 0;
+    this.peerPacketCount = new Map();
   }
+
   async createRoom() {
     this.isHost = true;
     const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -29,6 +26,7 @@ class NetworkManager {
       this.peer.on('error', (err) => reject(err));
     });
   }
+
   async joinRoom(roomId, playerName) {
     this.isHost = false;
     this.roomId = roomId;
@@ -47,8 +45,20 @@ class NetworkManager {
       this.peer.on('error', (err) => reject(err));
     });
   }
+
   _setupConn(conn) {
-    conn.on('data', (data) => this.game.handleMessage(data, conn));
+    conn.on('data', (data) => {
+      if (this.isHost && this.game.cheatValidator) {
+        const peerId = conn.peer;
+        if (!this.game.cheatValidator.validatePacket(data, peerId)) {
+          if (this.game.cheatValidator.isSpamming(peerId)) {
+            this._disconnectPeer(conn);
+          }
+          return;
+        }
+      }
+      this.game.handleMessage(data, conn);
+    });
     conn.on('close', () => {
       if (this.isHost) {
         const idx = this.connections.indexOf(conn);
@@ -63,8 +73,30 @@ class NetworkManager {
       conn.on('open', () => { this.connected = true; });
     }
   }
-  send(data) { if (this.conn && this.conn.open) this.conn.send(data); }
-  broadcast(data, exclude) { this.connections.forEach(c => { if (c !== exclude && c.open) c.send(data); }); }
+
+  _disconnectPeer(conn) {
+    try { conn.close(); } catch(e) {}
+    const idx = this.connections.indexOf(conn);
+    if (idx >= 0) this.connections.splice(idx, 1);
+    this.game.onPlayerLeft(conn.peer);
+  }
+
+  send(data) {
+    if (this.conn && this.conn.open) this.conn.send(data);
+  }
+
+  sendTo(peerId, data) {
+    if (this.isHost && peerId === this.myId) return;
+    const conn = this.connections.find(c => c.peer === peerId);
+    if (conn && conn.open) conn.send(data);
+  }
+
+  broadcast(data, exclude) {
+    this.connections.forEach(c => {
+      if (c !== exclude && c.open) c.send(data);
+    });
+  }
+
   sendState(dt) {
     if (!this.connected && !this.isHost) return;
     this.sendTimer += dt;
@@ -76,11 +108,30 @@ class NetworkManager {
       type: 'state',
       id: this.myId,
       pos: { x: p.position.x, y: p.position.y, z: p.position.z },
-      rot: p.rotation, health: p.health, alive: p.alive,
+      rot: p.rotation,
+      health: p.health,
+      alive: p.alive,
+      weapon: p.weapon,
+      timestamp: performance.now(),
     };
-    if (this.isHost) this.broadcast(data);
-    else this.send(data);
+    if (this.isHost) {
+      this.broadcast(data);
+    } else {
+      this.send(data);
+    }
   }
+
+  sendFireRequest(weapon, position, direction, inputId) {
+    this.send({
+      type: 'fire_request',
+      weapon,
+      position: { x: position.x, y: position.y, z: position.z },
+      direction: { x: direction.x, y: direction.y, z: direction.z },
+      timestamp: performance.now(),
+      inputId,
+    });
+  }
+
   close() {
     this.connections.forEach(c => c.close());
     if (this.conn) this.conn.close();

@@ -1,14 +1,8 @@
-/* ============================================================
-   NEON ARENA - メインゲームクラス
-   ゲームの状態管理、プレイヤー操作、当たり判定、ネットワーク通信を統括
-   ============================================================ */
-
 class Game {
   constructor() {
     this.players = new Map();
     this.localId = null;
     this.projectiles = [];
-    this.projIdCounter = 0;
     this.remoteProjIdCounter = 0;
     this.keys = {};
     this.mouseDelta = 0;
@@ -36,6 +30,20 @@ class Game {
     this.mouseDown = false;
     this.dashTimer = 0;
     this.dashCooldown = 0;
+    this.dashTriggered = false;
+    this.inputIdCounter = 0;
+    this.isFalling = false;
+    this.wasGrounded = true;
+    this.killStreak = 0;
+    this.lastKillTime = 0;
+    this.multiKillTimer = 0;
+    this.killCountThisLife = 0;
+
+    this.cheatValidator = null;
+    this.hostAuthority = null;
+    this.hitValidator = null;
+    this.effectManager = null;
+    this.cameraEffectManager = null;
   }
 
   get localPlayer() { return this.players.get(this.localId); }
@@ -51,6 +59,13 @@ class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     document.getElementById('game-container').appendChild(this.renderer.domElement);
+
+    this.cheatValidator = new CheatValidator();
+    this.hostAuthority = new HostAuthority(this);
+    this.hitValidator = new HitValidator(this);
+    this.effectManager = new EffectManager(this.scene, this.camera);
+    this.cameraEffectManager = new CameraEffectManager(this.camera);
+
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
@@ -73,7 +88,9 @@ class Game {
       if (e.button === 0) this.mouseDown = false;
     });
     this.renderer.domElement.addEventListener('click', () => {
-      if (this.network.connected && !this.pointerLocked && this.gameStarted && !(this.respawnTimer > 0)) this.renderer.domElement.requestPointerLock();
+      if (this.network.connected && !this.pointerLocked && this.gameStarted && !(this.respawnTimer > 0)) {
+        this.renderer.domElement.requestPointerLock();
+      }
     });
     this._setupLights();
     this._createArena(this.selectedMap);
@@ -94,14 +111,21 @@ class Game {
       l.position.set(pos[0], pos[1], pos[2]);
       this.scene.add(l);
       this.rimLights.push(l);
-      const h = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: col }));
+      const h = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 8, 8),
+        new THREE.MeshBasicMaterial({ color: col })
+      );
       h.position.copy(l.position);
       this.scene.add(h);
     });
   }
 
   _clearArena() {
-    this.arenaObjects.forEach(o => { this.scene.remove(o); if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    this.arenaObjects.forEach(o => {
+      this.scene.remove(o);
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) o.material.dispose();
+    });
     this.arenaObjects = [];
     this.rimLights.forEach(l => this.scene.remove(l));
     this.rimLights = [];
@@ -112,17 +136,24 @@ class Game {
     const map = MAPS[mapKey] || MAPS.grid;
     this.scene.background = new THREE.Color(map.bg);
     this.scene.fog = new THREE.Fog(map.bg, map.fogNear, map.fogFar);
-    this.ambientLight.color.setHex(map.ambientColor);
-    this.ambientLight.intensity = map.ambientIntensity;
-    this.dirLight.color.setHex(map.dirColor);
-    this.dirLight.intensity = map.dirIntensity;
+    if (this.ambientLight) {
+      this.ambientLight.color.setHex(map.ambientColor);
+      this.ambientLight.intensity = map.ambientIntensity;
+    }
+    if (this.dirLight) {
+      this.dirLight.color.setHex(map.dirColor);
+      this.dirLight.intensity = map.dirIntensity;
+    }
     const half = map.size / 2;
-    const wallMat = new THREE.MeshStandardMaterial({ color: map.wallColor, metalness: 0.2, roughness: 0.6 });
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: map.wallColor, metalness: 0.2, roughness: 0.6,
+    });
     const addWall = (pos, size, idx) => {
       const geo = new THREE.BoxGeometry(...size);
       const mesh = new THREE.Mesh(geo, wallMat);
       mesh.position.set(pos[0], pos[1], pos[2]);
-      this.scene.add(mesh); this.arenaObjects.push(mesh);
+      this.scene.add(mesh);
+      this.arenaObjects.push(mesh);
       const eg = new THREE.EdgesGeometry(geo);
       const em = new THREE.LineBasicMaterial({
         color: map.edgeColors[idx % map.edgeColors.length],
@@ -130,7 +161,8 @@ class Game {
       });
       const el = new THREE.LineSegments(eg, em);
       el.position.copy(mesh.position);
-      this.scene.add(el); this.arenaObjects.push(el);
+      this.scene.add(el);
+      this.arenaObjects.push(el);
     };
     const wallData = [
       { p: [0, map.wallHeight/2, -half], s: [map.size, map.wallHeight, map.wallThick] },
@@ -141,33 +173,44 @@ class Game {
     wallData.forEach((d, i) => addWall(d.p, d.s, i));
     map.walls.forEach((w, i) => addWall(w.p, w.s, i + 4));
     const fgeo = new THREE.PlaneGeometry(map.size - 1, map.size - 1);
-    const fmat = new THREE.MeshStandardMaterial({ color: map.floorColor, metalness: 0.3, roughness: 0.7 });
+    const fmat = new THREE.MeshStandardMaterial({
+      color: map.floorColor, metalness: 0.3, roughness: 0.7,
+    });
     const floor = new THREE.Mesh(fgeo, fmat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = 0;
-    this.scene.add(floor); this.arenaObjects.push(floor);
+    this.scene.add(floor);
+    this.arenaObjects.push(floor);
     const gh1 = new THREE.GridHelper(map.size - 2, 20, map.gridColor, 0x222255);
-    gh1.material.transparent = true; gh1.material.opacity = 0.15;
+    gh1.material.transparent = true;
+    gh1.material.opacity = 0.15;
     gh1.position.y = 0.02;
-    this.scene.add(gh1); this.arenaObjects.push(gh1);
+    this.scene.add(gh1);
+    this.arenaObjects.push(gh1);
     const gh2 = new THREE.GridHelper(map.size - 2, 40, 0x4444aa, 0x222255);
-    gh2.material.transparent = true; gh2.material.opacity = 0.08;
+    gh2.material.transparent = true;
+    gh2.material.opacity = 0.08;
     gh2.position.y = 0.01;
-    this.scene.add(gh2); this.arenaObjects.push(gh2);
+    this.scene.add(gh2);
+    this.arenaObjects.push(gh2);
     this.arenaMap = map;
     if (map.pads) {
-      const padMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
       map.pads.forEach((pad, i) => {
         const g = new THREE.PlaneGeometry(pad.s[0], pad.s[2]);
-        const m = new THREE.Mesh(g, padMat.clone());
-        m.material.color.setHex(i % 2 === 0 ? 0x00f0ff : 0xff00ff);
-        m.material.opacity = 0.12 + 0.06 * Math.sin(i);
+        const padMat = new THREE.MeshBasicMaterial({
+          color: i % 2 === 0 ? 0x00f0ff : 0xff00ff,
+          transparent: true, opacity: 0.12 + 0.06 * Math.sin(i),
+          side: THREE.DoubleSide,
+        });
+        const m = new THREE.Mesh(g, padMat);
         m.position.set(pad.p[0], 0.05, pad.p[2]);
         m.rotation.x = -Math.PI / 2;
         this.scene.add(m);
         this.arenaObjects.push(m);
         const eg = new THREE.EdgesGeometry(g);
-        const em = new THREE.LineBasicMaterial({ color: m.material.color, transparent: true, opacity: 0.3 });
+        const em = new THREE.LineBasicMaterial({
+          color: m.material.color, transparent: true, opacity: 0.3,
+        });
         const el = new THREE.LineSegments(eg, em);
         el.position.copy(m.position);
         el.rotation.x = -Math.PI / 2;
@@ -200,7 +243,7 @@ class Game {
   onPlayerLeft(peerId) {
     this.removePlayer(peerId);
     this.updatePlayerListUI();
-    this.addKillFeed('👋 A player disconnected');
+    this.addKillFeed('A player disconnected');
   }
 
   showWaitingRoom() {
@@ -386,6 +429,9 @@ class Game {
     this.mouseDown = false;
     this.dashTimer = 0;
     this.dashCooldown = 0;
+    this.killStreak = 0;
+    this.killCountThisLife = 0;
+    this.multiKillTimer = 0;
     this.network.sendTimer = CONFIG.stateSendRate;
     document.getElementById('result-screen').classList.remove('show');
     document.getElementById('death-screen').classList.remove('show');
@@ -396,7 +442,7 @@ class Game {
     document.getElementById('death-count').textContent = '0';
     const lp = this.localPlayer;
     if (lp) { lp.refillAmmo(); this.updateAmmoUI(); }
-    this.addKillFeed('⚔ GAME START!');
+    this.addKillFeed('GAME START!');
     this.updateTimerUI();
     if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
   }
@@ -404,7 +450,7 @@ class Game {
   onDisconnected() {
     document.getElementById('conn-status').textContent = '● DISCONNECTED';
     document.getElementById('conn-status').classList.remove('connected');
-    this.addKillFeed('⚠ Connection lost');
+    this.addKillFeed('Connection lost');
   }
 
   addKillFeed(msg) {
@@ -416,6 +462,25 @@ class Game {
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
   }
 
+  showKillMessage(text) {
+    const existing = document.getElementById('kill-message');
+    if (existing) existing.remove();
+    const el = document.createElement('div');
+    el.id = 'kill-message';
+    el.style.cssText = `
+      position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);
+      font-family:Orbitron,monospace;font-size:4em;font-weight:900;
+      letter-spacing:8px;color:#ff0044;text-shadow:0 0 40px rgba(255,0,68,0.6),0 0 80px rgba(255,0,68,0.3);
+      z-index:70;pointer-events:none;animation:killFade 0.8s ease forwards;
+    `;
+    el.textContent = text;
+    document.body.appendChild(el);
+    const style = document.createElement('style');
+    style.id = 'kill-message-style';
+    style.textContent = `@keyframes killFade{0%{opacity:0;transform:translate(-50%,-50%) scale(0.5)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}50%{transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}`;
+    if (!document.getElementById('kill-message-style')) document.head.appendChild(style);
+  }
+
   shoot() {
     const lp = this.localPlayer;
     if (!lp || !lp.alive) return;
@@ -423,30 +488,39 @@ class Game {
     if (lp.ammo <= 0) { this.reload(); return; }
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
     const pellets = wp.pellets || 1;
-    let dirs = [];
     for (let i = 0; i < pellets; i++) {
       const dir = new THREE.Vector3(0, 0, -1);
       dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
-      dir.y = 0; dir.normalize();
+      dir.y = 0;
+      dir.normalize();
       if (wp.spread > 0) {
         dir.x += (Math.random() - 0.5) * wp.spread;
         dir.z += (Math.random() - 0.5) * wp.spread;
         dir.normalize();
       }
-      const pid = this.network.myId + '_' + (this.projIdCounter++);
-      const proj = new Projectile(this.scene, lp.position, dir, this.network.myId, pid, lp.color, lp.weapon);
-      this.projectiles.push(proj);
-      dirs.push({ x: dir.x, y: 0, z: dir.z });
+      const inputId = this.inputIdCounter++;
+      const dirData = { x: dir.x, y: 0, z: dir.z };
+
+      if (this.network.isHost) {
+        if (this.hostAuthority) {
+          this.hostAuthority.handleFireRequest({
+            weapon: lp.weapon,
+            position: { x: lp.position.x, y: 0, z: lp.position.z },
+            direction: dirData,
+            color: lp.color,
+            timestamp: performance.now(),
+          }, this.network.myId, 'local_' + inputId);
+        }
+      } else {
+        this.network.sendFireRequest(lp.weapon, lp.position, dirData, inputId);
+      }
+
+      if (this.effectManager) {
+        this.effectManager.spawnMuzzleFlash(lp.position, dir, lp.color);
+      }
     }
     lp.ammo--;
     this.updateAmmoUI();
-    const msg = {
-      type: 'shoot', ownerId: this.network.myId, pellets,
-      pos: { x: lp.position.x, y: 0, z: lp.position.z },
-      dirs, color: lp.color, weapon: lp.weapon,
-    };
-    if (this.network.isHost) this.network.broadcast(msg);
-    else this.network.send(msg);
   }
 
   reload() {
@@ -456,7 +530,7 @@ class Game {
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
     lp.reloading = true;
     lp.reloadTimer = wp.reloadTime;
-    this.addKillFeed('🔄 Reloading...');
+    this.addKillFeed('Reloading...');
     this.updateAmmoUI();
   }
 
@@ -475,17 +549,54 @@ class Game {
   handleMessage(data, conn) {
     if (!data || !data.type) return;
     switch (data.type) {
-      case 'join': if (this.network.isHost) this._handleJoin(data, conn); break;
-      case 'welcome': this._handleWelcome(data); break;
-      case 'player_joined': this._handlePlayerJoined(data); break;
-      case 'state': this._handleState(data); break;
-      case 'shoot': this._handleRemoteShoot(data); break;
-      case 'hit': this._handleHit(data); break;
-      case 'respawn': this._handleRemoteRespawn(data); break;
-      case 'game_start': this._handleGameStart(data); break;
-      case 'map_select': this._handleMapSelect(data); break;
-      case 'start': this.startGame(); break;
-      case 'game_over': this._handleGameOver(data); break;
+      case 'join':
+        if (this.network.isHost) this._handleJoin(data, conn);
+        break;
+      case 'welcome':
+        this._handleWelcome(data);
+        break;
+      case 'player_joined':
+        this._handlePlayerJoined(data);
+        break;
+      case 'state':
+        this._handleState(data, conn);
+        break;
+      case 'fire_request':
+        if (this.network.isHost) this._handleFireRequest(data, conn);
+        break;
+      case 'proj_spawn':
+        this._handleProjSpawn(data);
+        break;
+      case 'hit':
+        this._handleHit(data);
+        break;
+      case 'hit_effect':
+        this._handleHitEffect(data);
+        break;
+      case 'explosion':
+        this._handleExplosionEffect(data);
+        break;
+      case 'ammo_update':
+        this._handleAmmoUpdate(data);
+        break;
+      case 'player_correct':
+        this._handlePlayerCorrect(data);
+        break;
+      case 'respawn':
+        this._handleRemoteRespawn(data);
+        break;
+      case 'game_start':
+        this._handleGameStart(data);
+        break;
+      case 'map_select':
+        this._handleMapSelect(data);
+        break;
+      case 'start':
+        this.startGame();
+        break;
+      case 'game_over':
+        this._handleGameOver(data);
+        break;
     }
   }
 
@@ -500,7 +611,11 @@ class Game {
       const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 3;
       const p = this.players.get(peerId);
       if (p) {
-        p.position.set((Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2);
+        p.position.set(
+          (Math.random() - 0.5) * half * 2,
+          0,
+          (Math.random() - 0.5) * half * 2
+        );
         p.targetPosition.copy(p.position);
         p.health = CONFIG.maxHealth;
         p.alive = true;
@@ -515,7 +630,9 @@ class Game {
     }
     conn.send({
       type: 'welcome',
-      players: Array.from(this.players.entries()).map(([id, p]) => ({ id, name: p.name, color: p.color })),
+      players: Array.from(this.players.entries()).map(([id, p]) => ({
+        id, name: p.name, color: p.color,
+      })),
       yourId: peerId,
       map: this.selectedMap,
       gameStarted: this.gameStarted,
@@ -523,7 +640,7 @@ class Game {
     });
     this.network.broadcast({ type: 'player_joined', id: peerId, name, color }, conn);
     this.updatePlayerListUI();
-    this.addKillFeed(`⚡ ${name} joined`);
+    this.addKillFeed(`${name} joined`);
   }
 
   _handleWelcome(data) {
@@ -550,7 +667,7 @@ class Game {
       document.getElementById('result-screen').classList.remove('show');
       document.getElementById('death-screen').classList.remove('show');
       this.updateTimerUI();
-      this.addKillFeed('⚔ Joined game in progress');
+      this.addKillFeed('Joined game in progress');
       if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
     } else {
       this.showWaitingRoom();
@@ -565,16 +682,50 @@ class Game {
   _handlePlayerJoined(data) {
     this.addPlayer(data.id, data.color, data.name);
     this.updatePlayerListUI();
-    this.addKillFeed(`⚡ ${data.name} joined`);
+    this.addKillFeed(`${data.name} joined`);
   }
 
-  _handleState(data) {
+  _handleState(data, conn) {
     const p = this.players.get(data.id);
     if (!p) return;
+
+    if (this.network.isHost && this.cheatValidator && data.id !== this.network.myId) {
+      const lastPos = this.cheatValidator.getLastPosition(data.id);
+      const dt = 0.05;
+      const maxSpeed = CONFIG.dashSpeed || CONFIG.playerSpeed;
+
+      if (!this.cheatValidator.validatePosition(data.pos, lastPos, dt, maxSpeed)) {
+        const correctMsg = {
+          type: 'player_correct',
+          id: data.id,
+          pos: { x: lastPos.x, y: 0, z: lastPos.z },
+        };
+        this.network.sendTo(data.id, correctMsg);
+        return;
+      }
+
+      if (lastPos) {
+        const warpDist = (this.arenaMap ? this.arenaMap.size : 40) * 2;
+        if (!this.cheatValidator.validateNoWarp(data.pos, lastPos, warpDist)) {
+          const correctMsg = {
+            type: 'player_correct',
+            id: data.id,
+            pos: { x: lastPos.x, y: 0, z: (lastPos.z) },
+          };
+          this.network.sendTo(data.id, correctMsg);
+          return;
+        }
+      }
+
+      this.cheatValidator.recordPosition(data.id, data.pos, data.timestamp || performance.now());
+    }
+
     p.targetPosition.set(data.pos.x, data.pos.y, data.pos.z);
     p.targetRotation = data.rot;
     if (data.alive !== undefined) p.alive = data.alive;
     if (data.health !== undefined) p.health = data.health;
+    if (data.weapon !== undefined) p.weapon = data.weapon;
+
     if (this.network.isHost) {
       this.network.broadcast(data, this._findConn(data.id));
     }
@@ -584,18 +735,32 @@ class Game {
     return this.network.connections.find(c => c.peer === playerId);
   }
 
-  _handleRemoteShoot(data) {
+  _handleFireRequest(data, conn) {
+    if (!this.hostAuthority || !this.cheatValidator) return;
+    const peerId = conn.peer;
+
+    if (!this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId)) return;
+
+    const inputId = data.inputId;
+    if (inputId !== undefined && this.cheatValidator.isReplayAttack(peerId + '_' + inputId)) return;
+
+    this.hostAuthority.handleFireRequest(data, peerId, peerId + '_' + inputId);
+  }
+
+  _handleProjSpawn(data) {
     const origin = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
-    const pellets = data.pellets || 1;
-    const wp = WEAPONS[data.weapon] || WEAPONS.pistol;
-    for (let i = 0; i < pellets; i++) {
-      const d = new THREE.Vector3(data.dirs[i].x, data.dirs[i].y, data.dirs[i].z);
-      const pid = data.ownerId + '_r' + (this.remoteProjIdCounter++);
-      const proj = new Projectile(this.scene, origin, d, data.ownerId, pid, data.color, data.weapon);
-      proj.isRemote = true;
-      this.projectiles.push(proj);
+    const dir = new THREE.Vector3(data.dir.x, data.dir.y, data.dir.z);
+    const proj = new Projectile(
+      this.scene, origin, dir,
+      data.ownerId, data.pid, data.color, data.weapon
+    );
+    proj.isRemote = true;
+    this.projectiles.push(proj);
+
+    const owner = this.players.get(data.ownerId);
+    if (owner) {
+      this.effectManager.spawnMuzzleFlash(origin, dir, data.color || owner.color);
     }
-    if (this.network.isHost) this.network.broadcast(data, this._findConn(data.ownerId));
   }
 
   _handleHit(data) {
@@ -603,6 +768,12 @@ class Game {
       if (this.invincibleTimer > 0) return;
       const killed = this.localPlayer.takeDamage(data.damage || 1);
       this.updateHealthUI();
+      this.cameraEffectManager.hitShake(3);
+      this.cameraEffectManager.damageFlash();
+      if (this.effectManager) {
+        const lp = this.localPlayer;
+        if (lp) this.effectManager.spawnPlayerDamageFlash(lp);
+      }
       if (killed) {
         this.deaths++;
         document.getElementById('death-count').textContent = this.deaths;
@@ -611,19 +782,68 @@ class Game {
         document.getElementById('death-screen').classList.add('show');
         document.getElementById('respawn-timer').textContent = `RESPAWN IN ${Math.ceil(this.respawnTimer)}`;
         if (document.pointerLockElement) document.exitPointerLock();
-        const wpName = data.weapon ? WEAPONS[data.weapon]?.name || data.weapon : '';
-        this.addKillFeed(`☠ Eliminated by ${data.shooterName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
+        const wpName = data.weapon ? (WEAPONS[data.weapon] ? WEAPONS[data.weapon].name : data.weapon) : '';
+        this.addKillFeed(`Eliminated by ${data.shooterName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
+      } else {
+        this.cameraEffectManager.hitShake(2);
       }
     }
     if (data.lethal) {
       this._trackKill(data.shooterId, data.targetId);
     }
-    const shooter = this.players.get(data.shooterId);
     if (data.lethal && data.targetId !== this.network.myId) {
-      const wpName = data.weapon ? WEAPONS[data.weapon]?.name || data.weapon : '';
-      this.addKillFeed(`🎯 ${data.shooterName || 'Someone'} eliminated ${data.targetName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
+      const wpName = data.weapon ? (WEAPONS[data.weapon] ? WEAPONS[data.weapon].name : data.weapon) : '';
+      this.addKillFeed(`${data.shooterName || 'Someone'} eliminated ${data.targetName || 'opponent'}${wpName ? ' [' + wpName + ']' : ''}`);
     }
-    if (this.network.isHost) this.network.broadcast(data, this._findConn(data.shooterId));
+    if (this.network.isHost) {
+      this.network.broadcast(data, this._findConn(data.shooterId));
+    }
+  }
+
+  _handleHitEffect(data) {
+    if (this.effectManager) {
+      this.effectManager.spawnHitEffect(
+        new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z),
+        data.color || 0xffffff
+      );
+    }
+  }
+
+  _handleExplosionEffect(data) {
+    if (this.effectManager) {
+      this.effectManager.spawnExplosion(
+        new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z),
+        data.color || 0xff4400
+      );
+    }
+    this.cameraEffectManager.explosionShake(8);
+
+    const dist = this.localPlayer
+      ? new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z).distanceTo(
+          new THREE.Vector3(this.localPlayer.position.x, 0, this.localPlayer.position.z)
+        )
+      : Infinity;
+    if (dist < 15) {
+      this.cameraEffectManager.explosionShake(12 - dist * 0.5);
+    }
+  }
+
+  _handleAmmoUpdate(data) {
+    const lp = this.localPlayer;
+    if (!lp) return;
+    if (lp.weapon === data.weapon) {
+      lp.ammo = data.ammo;
+      lp.maxAmmo = data.maxAmmo || lp.maxAmmo;
+      this.updateAmmoUI();
+    }
+  }
+
+  _handlePlayerCorrect(data) {
+    const p = this.players.get(data.id);
+    if (p && data.id === this.network.myId) {
+      p.position.set(data.pos.x, data.pos.y, data.pos.z);
+      p.targetPosition.copy(p.position);
+    }
   }
 
   _handleRemoteRespawn(data) {
@@ -631,11 +851,23 @@ class Game {
     if (p) {
       p.health = CONFIG.maxHealth;
       p.alive = true;
-      if (data.pos) { p.position.set(data.pos.x, data.pos.y, data.pos.z); p.targetPosition.copy(p.position); }
-      else p.spawn();
+      if (data.pos) {
+        p.position.set(data.pos.x, data.pos.y, data.pos.z);
+        p.targetPosition.copy(p.position);
+      } else {
+        p.spawn();
+      }
       p.updateMesh();
     }
-    if (this.network.isHost) this.network.broadcast(data, this._findConn(data.id));
+    if (this.effectManager && data.pos) {
+      this.effectManager.spawnRespawnEffect(
+        new THREE.Vector3(data.pos.x, 0.5, data.pos.z),
+        p ? p.color : 0x00f0ff
+      );
+    }
+    if (this.network.isHost) {
+      this.network.broadcast(data, this._findConn(data.id));
+    }
   }
 
   _handleGameStart(data) {
@@ -686,11 +918,14 @@ class Game {
 
       this.dashCooldown = Math.max(0, this.dashCooldown - dt);
 
+      let isDashing = false;
       if (mx !== 0 || mz !== 0) {
         const len = Math.sqrt(mx * mx + mz * mz);
         mx /= len; mz /= len;
-        const fwd = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
-        const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
+        const fwd = new THREE.Vector3(0, 0, -1)
+          .applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
+        const right = new THREE.Vector3(1, 0, 0)
+          .applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
         _v3.copy(fwd).multiplyScalar(-mz);
         _v3b.copy(right).multiplyScalar(mx);
         _v3.add(_v3b).normalize();
@@ -698,30 +933,54 @@ class Game {
         if (this.keys['shift'] && this.dashCooldown <= 0 && this.dashTimer <= 0) {
           this.dashTimer = CONFIG.dashDuration;
           this.dashCooldown = CONFIG.dashCooldown;
+          isDashing = true;
+          this.dashTriggered = true;
+          if (this.effectManager) {
+            this.effectManager.spawnDashEffect(lp.position, _v3);
+          }
+          if (this.cameraEffectManager) {
+            this.cameraEffectManager.dashFov();
+          }
         }
 
         let speed = CONFIG.playerSpeed;
         if (this.dashTimer > 0) {
           speed = CONFIG.dashSpeed;
           this.dashTimer -= dt;
-          if (this.dashTimer <= 0) this.dashTimer = 0;
+          if (this.dashTimer <= 0) {
+            this.dashTimer = 0;
+            if (this.effectManager) {
+              this.effectManager.spawnLandingEffect(lp.position);
+            }
+          }
         }
         if (this.arenaMap && this.arenaMap.pads) {
           const pHalf = CONFIG.playerSize * 0.3;
+          let onPad = false;
           for (const pad of this.arenaMap.pads) {
             const px = pad.p[0], pz = pad.p[2];
             const hx = pad.s[0] / 2 + pHalf, hz = pad.s[2] / 2 + pHalf;
             if (Math.abs(lp.position.x - px) < hx && Math.abs(lp.position.z - pz) < hz) {
+              onPad = true;
+              if (!this._lastOnPad) {
+                if (this.effectManager) {
+                  this.effectManager.spawnJumpPadEffect(
+                    new THREE.Vector3(px, 0.1, pz),
+                    pad.speed === 0 ? 0xff00ff : 0x00f0ff
+                  );
+                }
+              }
               if (pad.speed > 0 && pad.speed !== 1) {
                 speed *= pad.speed;
               }
               if (pad.speed === 0 && this.arenaMap.teleport && this.teleportCooldown <= 0) {
                 lp.position.set(this.arenaMap.teleport.x, 0, this.arenaMap.teleport.z);
                 this.teleportCooldown = 1.5;
-                this.addKillFeed('🌀 Teleported!');
+                this.addKillFeed('Teleported!');
               }
             }
           }
+          this._lastOnPad = onPad;
         }
 
         _v3.multiplyScalar(speed * dt);
@@ -738,6 +997,10 @@ class Game {
         lp.rotation -= this.mouseDelta * 0.003;
         lp.targetRotation = lp.rotation;
         this.mouseDelta = 0;
+      }
+
+      if (this.network.isHost && this.effectManager && this.dashTriggered) {
+        this.dashTriggered = false;
       }
 
       const wp = WEAPONS[lp.weapon];
@@ -766,20 +1029,23 @@ class Game {
     }
 
     if (lp && lp.reloading) this.updateAmmoUI();
-
     if (this.teleportCooldown > 0) this.teleportCooldown -= dt;
 
-    this.players.forEach(p => { if (p.id !== this.network.myId) p.lerpToTarget(dt); p.update(dt); });
-
-    this.projectiles = this.projectiles.filter(p => p.alive);
-    this.projectiles.forEach(p => {
-      if (p.alive && p.wp.explosive && p.age + dt * 1.1 >= p.wp.projLifetime && p.ownerId === this.network.myId) {
-        this._rpgExplosion(p);
-      }
+    this.players.forEach(p => {
+      if (p.id !== this.network.myId) p.lerpToTarget(dt);
       p.update(dt);
     });
-    this._checkProjectileWalls();
-    this._checkProjectileHits();
+
+    this.projectiles = this.projectiles.filter(p => p.alive);
+    this.projectiles.forEach(p => p.update(dt));
+
+    if (this.effectManager) {
+      this.effectManager.update(dt);
+    }
+
+    if (this.hostAuthority && this.network.isHost) {
+      this.hostAuthority.handleHostProjectiles(dt);
+    }
 
     if (this.respawnTimer > 0) {
       this.respawnTimer -= dt;
@@ -795,6 +1061,7 @@ class Game {
         this.mouseDown = false;
         this.dashTimer = 0;
         this.dashCooldown = 0;
+        this.killStreak = 0;
         this._respawnLocal();
       }
     }
@@ -810,76 +1077,17 @@ class Game {
     this._updateCamera(dt);
   }
 
-  _checkProjectileHits() {
-    const lp = this.localPlayer;
-    if (!lp) return;
-    for (const p of this.projectiles) {
-      if (!p.alive) continue;
-      const wp = p.wp;
-      const hitDist = CONFIG.playerSize * 0.5 + wp.hitRadius;
-      if (p.ownerId === this.network.myId) {
-        let rpgHitPlayers = [];
-        this.players.forEach((other, id) => {
-          if (id === this.network.myId || !other.alive) return;
-          const dist = p.mesh.position.distanceTo(new THREE.Vector3(other.position.x, CONFIG.playerHeight / 2, other.position.z));
-          if (dist < hitDist) {
-            if (p.hitPlayers.has(id)) return;
-            p.hitPlayers.add(id);
-            if (wp.explosive) {
-              rpgHitPlayers.push({ id, other, dist });
-            } else {
-              const killed = other.takeDamage(wp.damage);
-              const hitMsg = {
-                type: 'hit', shooterId: this.network.myId, targetId: id,
-                damage: wp.damage, shooterName: lp.name, targetName: other.name,
-                lethal: killed, weapon: lp.weapon,
-              };
-              if (this.network.isHost) this.network.broadcast(hitMsg);
-              else this.network.send(hitMsg);
-              if (killed) {
-                this.kills++;
-                document.getElementById('kill-count').textContent = this.kills;
-                this.addKillFeed(`🎯 Eliminated ${other.name} [${wp.name}]`);
-                this._trackKill(this.network.myId, id);
-              }
-              p.destroy();
-            }
-          }
-        });
-        if (wp.explosive && rpgHitPlayers.length > 0) {
-          p.destroy();
-          rpgHitPlayers.forEach(({ id, other }) => {
-            const killed = other.takeDamage(wp.damage);
-            const hitMsg = {
-              type: 'hit', shooterId: this.network.myId, targetId: id,
-              damage: wp.damage, shooterName: lp.name, targetName: other.name,
-              lethal: killed, weapon: lp.weapon,
-            };
-            if (this.network.isHost) this.network.broadcast(hitMsg);
-            else this.network.send(hitMsg);
-            if (killed) {
-              this.kills++;
-              document.getElementById('kill-count').textContent = this.kills;
-              this.addKillFeed(`🎯 Eliminated ${other.name} [${wp.name}]`);
-              this._trackKill(this.network.myId, id);
-            }
-          });
-        }
-      } else {
-        if (lp && lp.alive) {
-          const dist = p.mesh.position.distanceTo(new THREE.Vector3(lp.position.x, CONFIG.playerHeight / 2, lp.position.z));
-          if (dist < hitDist) p.destroy();
-        }
-      }
-    }
-  }
-
   _respawnLocal() {
     const lp = this.localPlayer;
     if (!lp) return;
     const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 3;
-    lp.position.set((Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2);
-    lp.targetPosition.copy(lp.position);
+    const spawnPos = new THREE.Vector3(
+      (Math.random() - 0.5) * half * 2,
+      0,
+      (Math.random() - 0.5) * half * 2
+    );
+    lp.position.copy(spawnPos);
+    lp.targetPosition.copy(spawnPos);
     lp.health = CONFIG.maxHealth;
     lp.alive = true;
     this.mouseDown = false;
@@ -887,20 +1095,31 @@ class Game {
     lp.refillAmmo();
     this.updateAmmoUI();
     this.updateHealthUI();
-    this.addKillFeed('🔄 Respawned');
-    const msg = { type: 'respawn', id: this.network.myId, pos: { x: lp.position.x, y: 0, z: lp.position.z } };
+    this.killCountThisLife = 0;
+    this.addKillFeed('Respawned');
+    if (this.effectManager) {
+      this.effectManager.spawnRespawnEffect(spawnPos, lp.color);
+    }
+    const msg = {
+      type: 'respawn',
+      id: this.network.myId,
+      pos: { x: spawnPos.x, y: 0, z: spawnPos.z },
+    };
     if (this.network.isHost) this.network.broadcast(msg);
     else this.network.send(msg);
   }
 
   _updateCamera(dt) {
+    const effectiveDt = this.cameraEffectManager
+      ? this.cameraEffectManager.update(dt)
+      : dt;
+
     if (this.respawnTimer > CONFIG.respawnDelay && this.killCamKillerId) {
       const killer = this.players.get(this.killCamKillerId);
       if (killer && killer.alive) {
         const p = killer.position;
-        const dist = 12, height = 10;
-        const target = new THREE.Vector3(p.x + 8, p.y + height, p.z + 8);
-        this.camera.position.lerp(target, 1 - Math.exp(-6 * dt));
+        const target = new THREE.Vector3(p.x + 8, p.y + 10, p.z + 8);
+        this.camera.position.lerp(target, 1 - Math.exp(-6 * effectiveDt));
         this.camera.lookAt(p.x, 0.5, p.z);
         return;
       }
@@ -909,19 +1128,47 @@ class Game {
     if (!lp) return;
     const p = lp.position;
     const dist = 18, height = 14, angle = lp.rotation;
-    const target = new THREE.Vector3(p.x + Math.sin(angle) * dist, p.y + height, p.z + Math.cos(angle) * dist);
-    this.camera.position.lerp(target, 1 - Math.exp(-8 * dt));
+    const target = new THREE.Vector3(
+      p.x + Math.sin(angle) * dist,
+      p.y + height,
+      p.z + Math.cos(angle) * dist
+    );
+    this.camera.position.lerp(target, 1 - Math.exp(-8 * effectiveDt));
     this.camera.lookAt(p.x, 0.5, p.z);
+
+    if (this.cameraEffectManager && this.cameraEffectManager.getRedFlash() > 0) {
+      const redOverlay = document.getElementById('damage-overlay') || (() => {
+        const el = document.createElement('div');
+        el.id = 'damage-overlay';
+        el.style.cssText = `
+          position:fixed;top:0;left:0;width:100%;height:100%;
+          pointer-events:none;z-index:55;
+          background:radial-gradient(ellipse at center, transparent 50%, rgba(255,0,0,0.3) 100%);
+          opacity:0;
+          transition:opacity 0.05s;
+        `;
+        document.body.appendChild(el);
+        return el;
+      })();
+      redOverlay.style.opacity = Math.min(1, this.cameraEffectManager.getRedFlash() * 2);
+    } else {
+      const redOverlay = document.getElementById('damage-overlay');
+      if (redOverlay) redOverlay.style.opacity = '0';
+    }
   }
 
   _trackKill(shooterId, targetId) {
     if (!this.scoreboard.has(shooterId)) {
       const p = this.players.get(shooterId);
-      this.scoreboard.set(shooterId, { kills: 0, deaths: 0, name: p ? p.name : '?', color: p ? p.color : 0xffffff });
+      this.scoreboard.set(shooterId, {
+        kills: 0, deaths: 0, name: p ? p.name : '?', color: p ? p.color : 0xffffff,
+      });
     }
     if (!this.scoreboard.has(targetId)) {
       const p = this.players.get(targetId);
-      this.scoreboard.set(targetId, { kills: 0, deaths: 0, name: p ? p.name : '?', color: p ? p.color : 0xffffff });
+      this.scoreboard.set(targetId, {
+        kills: 0, deaths: 0, name: p ? p.name : '?', color: p ? p.color : 0xffffff,
+      });
     }
     this.scoreboard.get(shooterId).kills++;
     this.scoreboard.get(targetId).deaths++;
@@ -929,6 +1176,43 @@ class Game {
     if (shooter) shooter.kills++;
     const target = this.players.get(targetId);
     if (target) target.deaths++;
+
+    if (shooterId === this.network.myId) {
+      this.kills++;
+      document.getElementById('kill-count').textContent = this.kills;
+      this.cameraEffectManager.killSlowMo();
+      this.cameraEffectManager.hitShake(5);
+
+      this.killStreak++;
+      this.killCountThisLife++;
+
+      const now = performance.now();
+      if (now - this.lastKillTime < 2000) {
+        this.multiKillTimer += 1;
+      } else {
+        this.multiKillTimer = 1;
+      }
+      this.lastKillTime = now;
+
+      let killText = 'KILL';
+      if (this.multiKillTimer >= 5) killText = 'MULTI KILL';
+      else if (this.multiKillTimer >= 3) killText = 'TRIPLE KILL';
+      else if (this.multiKillTimer >= 2) killText = 'DOUBLE KILL';
+      if (this.killStreak >= 5) killText = 'RAMPAGE';
+
+      this.showKillMessage(killText);
+
+      if (this.effectManager && targetId) {
+        const target = this.players.get(targetId);
+        if (target) {
+          this.effectManager.spawnKillEffect(target.position);
+        }
+      }
+
+      if (this.hostAuthority && this.network.isHost) {
+        this.hostAuthority.refillAmmo(shooterId, this.localPlayer ? this.localPlayer.weapon : 'pistol');
+      }
+    }
   }
 
   _checkWallCollision(pos) {
@@ -951,70 +1235,6 @@ class Game {
         }
       }
     }
-  }
-
-  _checkProjectileWalls() {
-    const map = this.arenaMap;
-    if (!map) return;
-    const half = map.size / 2;
-    const wt = map.wallThick;
-    const wh = map.wallHeight;
-    const perimeterWalls = [
-      { p: [0, wh/2, -half], s: [map.size, wh, wt] },
-      { p: [0, wh/2, half], s: [map.size, wh, wt] },
-      { p: [-half, wh/2, 0], s: [wt, wh, map.size] },
-      { p: [half, wh/2, 0], s: [wt, wh, map.size] },
-    ];
-    const allWalls = (map.walls || []).concat(perimeterWalls);
-    for (const p of this.projectiles) {
-      if (!p.alive) continue;
-      let hitWall = false;
-      for (const w of allWalls) {
-        const wx = w.p[0], wz = w.p[2];
-        const wHalfX = w.s[0] / 2 + CONFIG.projectileRadius;
-        const wHalfZ = w.s[2] / 2 + CONFIG.projectileRadius;
-        const dx = p.mesh.position.x - wx;
-        const dz = p.mesh.position.z - wz;
-        if (Math.abs(dx) < wHalfX && Math.abs(dz) < wHalfZ) {
-          if (p.wp.explosive && p.ownerId === this.network.myId) {
-            this._rpgExplosion(p);
-          }
-          p.destroy();
-          hitWall = true;
-          break;
-        }
-      }
-      if (hitWall) continue;
-    }
-  }
-
-  _rpgExplosion(proj) {
-    const lp = this.localPlayer;
-    if (!lp) return;
-    const wp = proj.wp;
-    const rpgPos = proj.mesh.position;
-    this.players.forEach((other, id) => {
-      if (id === this.network.myId || !other.alive) return;
-      if (proj.hitPlayers.has(id)) return;
-      proj.hitPlayers.add(id);
-      const dist = rpgPos.distanceTo(new THREE.Vector3(other.position.x, CONFIG.playerHeight / 2, other.position.z));
-      if (dist < CONFIG.playerSize * 0.5 + wp.hitRadius) {
-        const killed = other.takeDamage(wp.damage);
-        const hitMsg = {
-          type: 'hit', shooterId: this.network.myId, targetId: id,
-          damage: wp.damage, shooterName: lp.name, targetName: other.name,
-          lethal: killed, weapon: proj.weapon,
-        };
-        if (this.network.isHost) this.network.broadcast(hitMsg);
-        else this.network.send(hitMsg);
-        if (killed) {
-          this.kills++;
-          document.getElementById('kill-count').textContent = this.kills;
-          this.addKillFeed(`💥 Eliminated ${other.name} [${wp.name}]`);
-          this._trackKill(this.network.myId, id);
-        }
-      }
-    });
   }
 
   updateTimerUI() {
@@ -1044,9 +1264,9 @@ class Game {
     document.getElementById('result-screen').classList.add('show');
     const winnerEl = document.getElementById('result-winner');
     if (sb.length > 0 && sb[0].kills > 0) {
-      winnerEl.textContent = `🏆 WINNER: ${sb[0].name} — ${sb[0].kills} KILLS`;
+      winnerEl.textContent = `WINNER: ${sb[0].name} \u2014 ${sb[0].kills} KILLS`;
     } else {
-      winnerEl.textContent = '💀 NO WINNER';
+      winnerEl.textContent = 'NO WINNER';
     }
     const list = document.getElementById('result-list');
     list.innerHTML = '';
@@ -1093,7 +1313,12 @@ class Game {
 
   animate() {
     requestAnimationFrame(() => this.animate());
-    const dt = Math.min(this.clock.getDelta(), 0.05);
+    let dt = Math.min(this.clock.getDelta(), 0.05);
+
+    if (this.cameraEffectManager && this.cameraEffectManager.isSlowMo()) {
+      dt *= 0.05;
+    }
+
     this.update(dt);
     this.renderer.render(this.scene, this.camera);
   }
