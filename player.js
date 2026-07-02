@@ -63,8 +63,8 @@ class Player {
     this.spawn();
   }
 
-  spawn() {
-    const half = 20;
+  spawn(halfExtent) {
+    const half = (typeof halfExtent === 'number' && halfExtent > 0) ? halfExtent : 20;
     this.position.set(
       (Math.random() - 0.5) * half * 2,
       0,

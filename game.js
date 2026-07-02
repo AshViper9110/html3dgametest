@@ -622,6 +622,20 @@ class Game {
         data.color || 0xffffff
       );
     }
+    this._removeLocalProjectile(data.pid);
+  }
+
+  /* 命中/爆発が確定した弾を、各クライアントが表示用に持っている
+     ローカルの弾（エコー用Projectile）から取り除く。
+     これをしないと、着弾後も見た目上の弾が壁や相手を貫通して
+     飛び続けてしまう（衝突判定はホスト側のみで行われるため）。 */
+  _removeLocalProjectile(pid) {
+    if (pid === undefined || pid === null) return;
+    const idx = this.projectiles.findIndex(p => p.id === pid);
+    if (idx >= 0) {
+      this.projectiles[idx].destroy();
+      this.projectiles.splice(idx, 1);
+    }
   }
 
   _handleExplosionEffect(data) {
@@ -631,6 +645,7 @@ class Game {
         data.color || 0xff4400
       );
     }
+    this._removeLocalProjectile(data.pid);
     this.cameraEffectManager.explosionShake(8);
     const dist = this.localPlayer
       ? new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z).distanceTo(
@@ -670,7 +685,7 @@ class Game {
         p.position.set(data.pos.x, data.pos.y, data.pos.z);
         p.targetPosition.copy(p.position);
       } else {
-        p.spawn();
+        p.spawn(this._spawnHalfExtent());
       }
       p.updateMesh();
     }
@@ -1153,7 +1168,7 @@ class Game {
       const weapon = this.clientWeapons.get(p.id) || 'pistol';
       p.weapon = weapon;
       p.refillAmmo();
-      p.spawn();
+      p.spawn(this._spawnHalfExtent());
       p.updateMesh();
       if (p.id === this.localId) {
         p.onReloadComplete = this._onReloadComplete;
@@ -1184,37 +1199,50 @@ class Game {
     if (lp.ammo <= 0) { console.log('[Fire] BLOCKED: ammo=%s → reload', lp.ammo); this.reload(); return; }
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
     const pellets = wp.pellets || 1;
-    for (let i = 0; i < pellets; i++) {
-      const dir = new THREE.Vector3(0, 0, -1);
-      dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
-      dir.y = 0;
-      dir.normalize();
-      if (wp.spread > 0) {
-        dir.x += (Math.random() - 0.5) * wp.spread;
-        dir.z += (Math.random() - 0.5) * wp.spread;
-        dir.normalize();
+
+    const baseDir = new THREE.Vector3(0, 0, -1);
+    baseDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
+    baseDir.y = 0;
+    baseDir.normalize();
+
+    /* 発砲リクエストは1トリガーにつき1回だけ送信する。
+       ペレットの展開（散弾銃など）はHostAuthority.handleFireRequest側で
+       wp.pelletsを見て行われるため、ここでペレット数分ループして
+       送信すると二重にペレットが生成されてしまう（連射レート制限で
+       事故的に隠れていたが、通信遅延次第で弾薬過剰消費・多重発射の
+       原因になりうる不具合だった）。 */
+    const inputId = this.inputIdCounter++;
+    const dirData = { x: baseDir.x, y: 0, z: baseDir.z };
+    if (this.network.isHost) {
+      console.log('[Fire] Host → handleFireRequest directly');
+      if (this.hostAuthority) {
+        this.hostAuthority.handleFireRequest({
+          weapon: lp.weapon,
+          position: { x: lp.position.x, y: 0, z: lp.position.z },
+          direction: dirData,
+          color: lp.color,
+          timestamp: Date.now(),
+        }, this.network.myId, 'local_' + inputId);
       }
-      const inputId = this.inputIdCounter++;
-      const dirData = { x: dir.x, y: 0, z: dir.z };
-      if (this.network.isHost) {
-        console.log('[Fire] Host → handleFireRequest directly');
-        if (this.hostAuthority) {
-          this.hostAuthority.handleFireRequest({
-            weapon: lp.weapon,
-            position: { x: lp.position.x, y: 0, z: lp.position.z },
-            direction: dirData,
-            color: lp.color,
-            timestamp: Date.now(),
-          }, this.network.myId, 'local_' + inputId);
+    } else {
+      console.log('[Fire] Client → sendFireRequest');
+      this.network.sendFireRequest(lp.weapon, lp.position, dirData, inputId, lp.color);
+    }
+
+    /* マズルフラッシュは見た目の演出のみ。ペレット数分表示して
+       散弾銃らしい発砲エフェクトにする（弾道そのものはホスト権威側で生成）。 */
+    if (this.effectManager) {
+      for (let i = 0; i < pellets; i++) {
+        const flashDir = baseDir.clone();
+        if (i > 0 && wp.spread > 0) {
+          flashDir.x += (Math.random() - 0.5) * wp.spread;
+          flashDir.z += (Math.random() - 0.5) * wp.spread;
+          flashDir.normalize();
         }
-      } else {
-        console.log('[Fire] Client → sendFireRequest');
-        this.network.sendFireRequest(lp.weapon, lp.position, dirData, inputId, lp.color);
-      }
-      if (this.effectManager) {
-        this.effectManager.spawnMuzzleFlash(lp.position, dir, lp.color);
+        this.effectManager.spawnMuzzleFlash(lp.position, flashDir, lp.color);
       }
     }
+
     lp.ammo--;
     this.updateAmmoUI();
   }
@@ -1526,12 +1554,17 @@ class Game {
   /* ----------------------------------------------------------
      リスポーン
      ---------------------------------------------------------- */
+  _spawnHalfExtent() {
+    /* 現在のマップサイズに合わせたスポーン可能範囲（壁の外に出ないようマージンを確保） */
+    return this.arenaMap ? Math.max(this.arenaMap.size / 2 - 3, 2) : 17;
+  }
+
   _respawnLocal() {
     const lp = this.localPlayer;
     if (!lp) return;
     console.log('[Respawn] _respawnLocal isHost=%s alive=%s weapon=%s mouseDown=%s',
       this.network.isHost, lp.alive, this.loadoutWeapon, this.mouseDown);
-    const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 3;
+    const half = this._spawnHalfExtent();
     const spawnPos = new THREE.Vector3(
       (Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2
     );

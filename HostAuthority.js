@@ -214,6 +214,7 @@ class HostAuthority {
       pos: { x: proj.mesh.position.x, y: proj.mesh.position.y, z: proj.mesh.position.z },
       color: proj.color || 0xff4400,
       weapon: proj.weapon,
+      pid: proj.id,
     });
   }
 
@@ -270,6 +271,7 @@ class HostAuthority {
               type: 'hit_effect',
               pos: { x: proj.mesh.position.x, y: proj.mesh.position.y, z: proj.mesh.position.z },
               color: proj.color || 0xffffff,
+              pid: proj.id,
             });
           }
           proj.destroy();
