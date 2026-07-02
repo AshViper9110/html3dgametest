@@ -160,16 +160,16 @@ class Game {
     });
     document.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
     this.renderer.domElement.addEventListener('mousedown', (e) => {
-      if (e.button === 0) this.mouseDown = true;
+      if (e.button === 0) {
+        this.mouseDown = true;
+        if (this.network.connected && !this.pointerLocked &&
+            this.gameState === GameState.PLAYING && !(this.respawnTimer > 0)) {
+          this.renderer.domElement.requestPointerLock();
+        }
+      }
     });
     this.renderer.domElement.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.mouseDown = false;
-    });
-    this.renderer.domElement.addEventListener('click', () => {
-      if (this.network.connected && !this.pointerLocked &&
-          this.gameState === GameState.PLAYING && !(this.respawnTimer > 0)) {
-        this.renderer.domElement.requestPointerLock();
-      }
     });
   }
 
@@ -345,6 +345,10 @@ class Game {
     if (this.gameState === GameState.LOBBY) {
       this._updateLobbyUI();
       if (this.network.isHost) this._syncLobbyState();
+    } else if (this.gameState === GameState.PLAYING || this.gameState === GameState.COUNTDOWN) {
+      if (this.network.isHost) {
+        this.network.broadcast({ type: 'player_left', peerId });
+      }
     }
   }
 
@@ -385,7 +389,7 @@ class Game {
       case 'lobby_state': this._handleLobbyState(data); break;
       case 'countdown_sync': this._handleCountdownSync(data); break;
       case 'game_timer': this._handleGameTimerSync(data); break;
-      case 'result_sync': this._handleResultSync(data); break;
+      case 'player_left': this._handlePlayerLeft(data); break;
       case 'return_lobby': this._handleReturnLobby(data); break;
     }
   }
@@ -745,8 +749,8 @@ class Game {
     this.gameTimer = data.time;
   }
 
-  _handleResultSync(data) {
-    this._showResultScreen(data.scoreboard);
+  _handlePlayerLeft(data) {
+    this.removePlayer(data.peerId);
   }
 
   _handleReturnLobby(data) {
@@ -1167,7 +1171,7 @@ class Game {
           }, this.network.myId, 'local_' + inputId);
         }
       } else {
-        this.network.sendFireRequest(lp.weapon, lp.position, dirData, inputId);
+        this.network.sendFireRequest(lp.weapon, lp.position, dirData, inputId, lp.color);
       }
       if (this.effectManager) {
         this.effectManager.spawnMuzzleFlash(lp.position, dir, lp.color);
@@ -1257,13 +1261,12 @@ class Game {
   }
 
   _updateCountdown(dt) {
+    if (!this.network.isHost) return;
     this.countdownTimer += dt;
     if (this.countdownTimer >= 1.0) {
       this.countdownTimer = 0;
       this.countdownValue--;
-      if (this.network.isHost) {
-        this.network.broadcast({ type: 'countdown_sync', value: this.countdownValue });
-      }
+      this.network.broadcast({ type: 'countdown_sync', value: this.countdownValue });
       if (this.countdownValue > 0) {
         this._showCountdownNumber(this.countdownValue);
       } else if (this.countdownValue === 0) {
@@ -1485,11 +1488,14 @@ class Game {
     lp.targetPosition.copy(spawnPos);
     lp.health = CONFIG.maxHealth;
     lp.alive = true;
+    lp.reloading = false;
+    lp.reloadTimer = 0;
+    lp.lastFireTime = 0;
+    lp.weapon = this.loadoutWeapon;
+    lp.refillAmmo();
     this.mouseDown = false;
     this.invincibleTimer = CONFIG.invincibleTime;
     lp.onReloadComplete = this._onReloadComplete;
-    lp.weapon = this.loadoutWeapon;
-    lp.refillAmmo();
     this.updateAmmoUI();
     this.updateHealthUI();
     this.killCountThisLife = 0;

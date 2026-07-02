@@ -126,7 +126,7 @@ class NetworkManager {
     }
   }
 
-  sendFireRequest(weapon, position, direction, inputId) {
+  sendFireRequest(weapon, position, direction, inputId, color) {
     this.send({
       type: 'fire_request',
       weapon,
@@ -134,6 +134,7 @@ class NetworkManager {
       direction: { x: direction.x, y: direction.y, z: direction.z },
       timestamp: Date.now(),
       inputId,
+      color,
     });
   }
 
