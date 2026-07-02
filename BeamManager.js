@@ -29,44 +29,74 @@ class BeamManager {
   }
 
   _createBeamMesh(beam) {
-    const positions = new Float32Array([
-      beam.start.x, beam.start.y + 0.5, beam.start.z,
-      beam.end.x, beam.end.y + 0.3, beam.end.z,
-    ]);
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const dir = new THREE.Vector3().subVectors(beam.end, beam.start);
+    const length = dir.length();
 
-    const color = new THREE.Color(beam.color);
-    const mat = new THREE.LineBasicMaterial({
+    // ========= メインビーム =========
+    const radius = beam.isPlasma ? 0.18 : 0.10;
+
+    const geo = new THREE.CylinderGeometry(
+      radius,
+      radius,
+      length,
+      12,
+      1,
+      false
+    );
+
+    const mat = new THREE.MeshBasicMaterial({
       color: beam.color,
       transparent: true,
       opacity: 0.9,
-      linewidth: 5,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
     });
-    const line = new THREE.Line(geo, mat);
-    this.scene.add(line);
-    beam.mesh = line;
+
+    const mesh = new THREE.Mesh(geo, mat);
+
+    mesh.position.copy(beam.start).add(beam.end).multiplyScalar(0.5);
+
+    mesh.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      dir.normalize()
+    );
+
+    this.scene.add(mesh);
+
+    beam.mesh = mesh;
     beam.geo = geo;
     beam.mat = mat;
 
-    if (beam.isPlasma) {
-      const glowMat = new THREE.LineBasicMaterial({
-        color: beam.color,
-        transparent: true,
-        opacity: 0.3,
-      });
-      const glowGeo = new THREE.BufferGeometry();
-      const gPos = new Float32Array([
-        beam.start.x, beam.start.y + 0.5, beam.start.z,
-        beam.end.x, beam.end.y + 0.3, beam.end.z,
-      ]);
-      glowGeo.setAttribute('position', new THREE.BufferAttribute(gPos, 3));
-      const glowLine = new THREE.Line(glowGeo, glowMat);
-      this.scene.add(glowLine);
-      beam.glow = glowLine;
-      beam.glowGeo = glowGeo;
-      beam.glowMat = glowMat;
-    }
+    // ========= 外側グロー =========
+    const glowRadius = radius * 2.2;
+
+    const glowGeo = new THREE.CylinderGeometry(
+      glowRadius,
+      glowRadius,
+      length,
+      12,
+      1,
+      false
+    );
+
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: beam.color,
+      transparent: true,
+      opacity: beam.isPlasma ? 0.35 : 0.18,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+
+    glow.position.copy(mesh.position);
+    glow.quaternion.copy(mesh.quaternion);
+
+    this.scene.add(glow);
+
+    beam.glow = glow;
+    beam.glowGeo = glowGeo;
+    beam.glowMat = glowMat;
   }
 
   _spawnImpactEffect(pos, color, isPlasma) {
@@ -136,7 +166,8 @@ class BeamManager {
       const beam = this.activeBeams[i];
       beam.life -= dt;
       const t = Math.max(0, beam.life / beam.maxLife);
-      if (beam.mat) beam.mat.opacity = t * 0.9;
+      if (beam.glowMat)
+        beam.glowMat.opacity = t * (beam.isPlasma ? 0.35 : 0.18);
       if (beam.glowMat) beam.glowMat.opacity = t * 0.3;
       if (beam.life <= 0) {
         this._removeBeam(beam);
