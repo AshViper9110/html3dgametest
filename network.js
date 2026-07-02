@@ -1,3 +1,8 @@
+/* ============================================================
+   NEON ARENA - ネットワーク管理
+   PeerJSを用いたスター型ネットワーク
+   ============================================================ */
+
 class NetworkManager {
   constructor(game) {
     this.game = game;
@@ -38,7 +43,7 @@ class NetworkManager {
         this.conn = conn;
         this._setupConn(conn);
         conn.on('open', () => {
-          conn.send({ type: 'join', name: playerName || 'Player' });
+          conn.send({ type: NetMsg.JOIN, name: playerName || 'Player' });
           resolve();
         });
       });
@@ -99,11 +104,11 @@ class NetworkManager {
 
   sendState(dt) {
     if (!this.connected && !this.isHost) return;
+    const p = this.game.localPlayer;
+    if (!p || !p.scene) return;
     this.sendTimer += dt;
     if (this.sendTimer < CONFIG.stateSendRate) return;
     this.sendTimer = 0;
-    const p = this.game.localPlayer;
-    if (!p || !p.scene) return;
     const data = {
       type: 'state',
       id: this.myId,
@@ -130,6 +135,19 @@ class NetworkManager {
       timestamp: Date.now(),
       inputId,
     });
+  }
+
+  /* ロビー同期メッセージ */
+  sendReady(ready) {
+    this.send({ type: NetMsg.READY, ready });
+  }
+
+  sendWeaponChange(weapon) {
+    this.send({ type: NetMsg.WEAPON_CHANGE, weapon });
+  }
+
+  sendNameChange(name) {
+    this.send({ type: NetMsg.NAME_CHANGE, name });
   }
 
   close() {

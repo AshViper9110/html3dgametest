@@ -10,143 +10,122 @@
 
 <div id="game-container"></div>
 
+<!-- ========== タイトル画面 ========== -->
+<div id="title-screen" class="screen">
+  <div id="title-inner">
+    <h1>NEON ARENA</h1>
+    <div class="subtitle">Real-Time PvP</div>
+    <div class="title-input-group">
+      <input id="player-name-input" type="text" placeholder="Enter your name" maxlength="16" value="Player">
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btn-host">🚀 Host</button>
+      <button class="btn btn-secondary" id="btn-join">⚡ Join</button>
+    </div>
+    <div id="join-section" style="display:none;">
+      <input id="room-id-input" type="text" placeholder="Room ID e.g. NEON-A7X3" maxlength="12">
+      <button class="btn btn-secondary btn-small" id="btn-join-room">Join Arena</button>
+      <button class="btn btn-small" id="btn-join-cancel">Cancel</button>
+    </div>
+    <div id="host-section" style="display:none;">
+      <div id="room-id-display">NEON-XXXX</div>
+      <button class="btn btn-primary btn-small" id="btn-copy-room">📋 Copy ID</button>
+      <div class="status-text" id="host-status">Waiting for players...</div>
+    </div>
+    <div class="status-text" id="title-status">Click Host or Join to start</div>
+  </div>
+</div>
+
+<!-- ========== ロビー画面 ========== -->
+<div id="lobby-screen" class="screen" style="display:none;">
+  <div id="lobby-inner">
+    <h2>LOBBY</h2>
+    <div id="player-list"></div>
+    <div id="lobby-controls-host" style="display:none;">
+      <div id="map-select-host">
+        <div class="map-nav" id="map-selector"></div>
+      </div>
+      <button class="btn btn-primary" id="btn-start-game" disabled>▶ START GAME</button>
+    </div>
+    <div id="lobby-controls-client" style="display:none;">
+      <div class="weapon-selector" id="lobby-weapon-btns">
+        <button class="map-btn" data-weapon="pistol">PISTOL</button>
+        <button class="map-btn" data-weapon="assault">ASSAULT</button>
+        <button class="map-btn" data-weapon="sniper">SNIPER</button>
+        <button class="map-btn" data-weapon="rpg">RPG</button>
+        <button class="map-btn" data-weapon="shotgun">SHOTGUN</button>
+      </div>
+      <button class="btn btn-secondary" id="btn-ready">▶ READY</button>
+    </div>
+    <div style="margin-top:16px;">
+      <button class="btn btn-small" id="btn-leave-lobby">✕ LEAVE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== カウントダウンオーバーレイ ========== -->
+<div id="countdown-overlay" style="display:none;">
+  <div id="countdown-text"></div>
+</div>
+
+<!-- ========== 試合HUD ========== -->
+<div id="hud" style="display:none;">
+  <div id="hud-top">
+    <div id="min-scoreboard"></div>
+    <div id="timer-display">03:00</div>
+    <div id="score-display">
+      <div class="score-row"><span class="score-label">K</span><span id="kill-count">0</span></div>
+      <div class="score-row"><span class="score-label">D</span><span id="death-count" style="color:#ff4444;">0</span></div>
+    </div>
+  </div>
+  <div id="hud-bottom">
+    <div id="health-container">
+      <span id="health-label">HP</span>
+      <div id="health-bar-bg"><div id="health-bar"></div></div>
+    </div>
+    <div>
+      <div id="ammo-display">--/--</div>
+      <div id="weapon-name"></div>
+    </div>
+  </div>
+</div>
+
 <div id="crosshair"><div id="crosshair-dot"></div></div>
-
-<div id="timer-display">--:--</div>
-
-<div id="hud">
-  <div id="health-container">
-    <span id="health-label">HP</span>
-    <div id="health-bar-bg"><div id="health-bar"></div></div>
-  </div>
-  <div id="ammo-display">--/--</div>
-  <div id="status-info">
-    <span id="conn-status">—</span>
-    <span id="ping-display">—</span>
-  </div>
-</div>
-
-<div id="score-display">
-  <div class="score-label">KILLS</div>
-  <div class="score-val" id="kill-count">0</div>
-  <div class="score-label" style="margin-top:8px;">DEATHS</div>
-  <div class="score-val" id="death-count" style="color:#ff4444;">0</div>
-</div>
 
 <div id="kill-feed"></div>
 
 <div id="instructions" class="hidden">
-  WASD: MOVE &nbsp;·&nbsp; MOUSE: AIM &nbsp;·&nbsp; LEFT CLICK: SHOOT
+  WASD: MOVE · MOUSE: AIM · LEFT CLICK: SHOOT · SHIFT: DASH · R: RELOAD
 </div>
 
+<!-- ========== デス画面（キルカメラ） ========== -->
 <div id="death-screen">
-  <div style="text-align:center;">
+  <div id="death-inner">
     <h2>ELIMINATED</h2>
-    <div class="respawn-text" id="respawn-timer">RESPAWN IN 5</div>
-    <div class="death-weapon-select">
-      <div style="color:#6666aa; font-size:0.6em; letter-spacing:2px; text-transform:uppercase; margin:16px 0 8px;">CHANGE WEAPON</div>
-      <div class="weapon-selector" id="death-weapon-btns">
-        <button class="map-btn active" data-weapon="pistol">PISTOL <span class="map-desc">Balanced</span></button>
-        <button class="map-btn" data-weapon="assault">ASSAULT <span class="map-desc">Full-auto</span></button>
-        <button class="map-btn" data-weapon="sniper">SNIPER <span class="map-desc">Precise</span></button>
-        <button class="map-btn" data-weapon="rpg">RPG <span class="map-desc">Explosive</span></button>
-        <button class="map-btn" data-weapon="shotgun">SHOTGUN <span class="map-desc">Spread</span></button>
-      </div>
+    <div id="death-info">
+      <div id="death-killer-name"></div>
+      <div id="death-weapon-name"></div>
     </div>
+    <div id="respawn-countdown">3</div>
+    <div class="weapon-selector" id="death-weapon-btns">
+      <button class="map-btn" data-weapon="pistol">PISTOL</button>
+      <button class="map-btn" data-weapon="assault">ASSAULT</button>
+      <button class="map-btn" data-weapon="sniper">SNIPER</button>
+      <button class="map-btn" data-weapon="rpg">RPG</button>
+      <button class="map-btn" data-weapon="shotgun">SHOTGUN</button>
+    </div>
+    <div class="death-hint">Change weapon for next spawn</div>
   </div>
 </div>
 
+<!-- ========== リザルト画面 ========== -->
 <div id="result-screen">
   <div id="result-inner">
-    <h2>GAME OVER</h2>
-    <div id="result-winner">🏆 WINNER</div>
+    <div id="result-winner-section">
+      <div id="result-winner-label">WINNER</div>
+      <div id="result-winner-name"></div>
+    </div>
     <div id="result-list"></div>
-    <button class="btn btn-primary" id="btn-back-lobby">← BACK TO LOBBY</button>
-  </div>
-</div>
-
-<button id="match-btn">⚡ MATCH</button>
-
-<div id="overlay">
-  <div id="overlay-inner">
-    <h1>NEON ARENA</h1>
-    <div class="subtitle">Real-Time PvP</div>
-    <div style="color:#444466; font-size:0.6em; letter-spacing:2px; margin-top:-8px; margin-bottom:20px;">v1.1.0</div>
-
-    <div id="step-1" class="step-section">
-      <div id="title-weapon-select" style="margin:0 0 14px 0;">
-        <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">▼ LOADOUT</div>
-        <div class="map-selector" id="title-weapon-btns">
-          <button class="map-btn active" data-weapon="pistol">PISTOL <span class="map-desc">Balanced</span></button>
-          <button class="map-btn" data-weapon="assault">ASSAULT <span class="map-desc">Full-auto</span></button>
-          <button class="map-btn" data-weapon="sniper">SNIPER <span class="map-desc">Precise</span></button>
-          <button class="map-btn" data-weapon="rpg">RPG <span class="map-desc">Explosive</span></button>
-          <button class="map-btn" data-weapon="shotgun">SHOTGUN <span class="map-desc">Spread</span></button>
-        </div>
-      </div>
-      <div class="btn-group">
-        <button class="btn btn-primary" id="btn-host">🚀 Host Game</button>
-        <button class="btn btn-secondary" id="btn-join">⚡ Join Game</button>
-      </div>
-    </div>
-
-    <div id="step-host" class="step-section" style="display:none;">
-      <span class="step-label">▼ Your name</span>
-      <input id="host-name-input" type="text" placeholder="Your name" maxlength="12" value="Host" style="width:100%; padding:12px; background:rgba(10,10,18,0.8); border:1px solid rgba(0,240,255,0.2); border-radius:6px; color:#00f0ff; font-family:'Rajdhani',sans-serif; font-size:1em; text-align:center; letter-spacing:2px; outline:none; margin-bottom:10px;">
-      <span class="step-label">▼ Share this room ID with your friend</span>
-      <div id="room-id-display" style="font-family:'Orbitron',monospace; font-size:2em; letter-spacing:6px; color:#00f0ff; text-shadow:0 0 20px rgba(0,240,255,0.3); padding:16px; border:1px solid rgba(0,240,255,0.2); border-radius:8px; margin:8px 0; background:rgba(0,0,0,0.3);">NEON-XXXX</div>
-      <button class="btn btn-primary btn-small" id="btn-copy-room">📋 Copy ID</button>
-      <div class="status-text" id="step-host-status">Waiting for opponent to join...</div>
-      <div style="margin-top:8px;">
-        <button class="btn btn-secondary btn-small" id="btn-host-back">← Back</button>
-      </div>
-    </div>
-
-    <div id="step-join" class="step-section" style="display:none;">
-      <span class="step-label">▼ Enter host's room ID and your name</span>
-      <input id="room-id-input" type="text" placeholder="Room ID e.g. NEON-A7X3" style="width:100%; padding:12px; background:rgba(10,10,18,0.8); border:1px solid rgba(0,240,255,0.2); border-radius:6px; color:#00f0ff; font-family:'Orbitron',monospace; font-size:1em; text-align:center; letter-spacing:3px; outline:none; margin-bottom:8px;">
-      <input id="player-name-input" type="text" placeholder="Your name" maxlength="12" style="width:100%; padding:12px; background:rgba(10,10,18,0.8); border:1px solid rgba(255,0,255,0.2); border-radius:6px; color:#ff00ff; font-family:'Rajdhani',sans-serif; font-size:1em; text-align:center; letter-spacing:2px; outline:none; margin-bottom:8px;">
-      <button class="btn btn-secondary btn-small" id="btn-join-room">⚡ Join Arena</button>
-      <button class="btn btn-primary btn-small" id="btn-join-back" style="margin-left:8px;">← Back</button>
-    </div>
-
-    <div class="status-text" id="overlay-status">Launching... click a button to start</div>
-
-    <div id="waiting-room" style="display:none; text-align:center;">
-      <div style="border-top:1px solid rgba(0,240,255,0.1); margin:16px 0 12px 0;"></div>
-      <div style="font-family:'Orbitron',monospace; font-size:1.1em; letter-spacing:4px; color:#00f0ff; text-shadow:0 0 20px rgba(0,240,255,0.3); margin-bottom:4px;">LOBBY</div>
-      <div id="waiting-room-status" style="color:#8888aa; font-size:0.85em; letter-spacing:2px; margin-bottom:12px;"></div>
-
-      <div id="lobby-content" style="display:flex; gap:16px; align-items:flex-start; justify-content:center;">
-        <div id="map-preview-container" style="display:none; flex-shrink:0;">
-          <canvas id="map-preview-canvas" width="240" height="240" style="border:1px solid rgba(0,240,255,0.2); border-radius:6px; background:rgba(0,0,0,0.3);"></canvas>
-        </div>
-        <div style="flex:1;">
-          <div id="player-list"></div>
-          <div id="map-select-host" style="display:none;">
-            <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">▼ SELECT MAP</div>
-            <div class="map-nav" id="map-selector"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="map-info-guest" style="display:none;">
-        <div style="display:flex; gap:12px; align-items:center; justify-content:center;">
-          <div id="guest-map-preview-container" style="display:none;">
-            <canvas id="guest-map-preview-canvas" width="160" height="160" style="border:1px solid rgba(0,240,255,0.15); border-radius:4px; background:rgba(0,0,0,0.3);"></canvas>
-          </div>
-          <div>
-            <div style="color:#6666aa; font-size:0.75em; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">MAP</div>
-            <div id="guest-map-name" style="color:#8888aa; font-size:0.9em; letter-spacing:2px;"></div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">
-        <button class="btn btn-primary" id="btn-start-game" style="display:none;">▶ START GAME</button>
-        <button class="btn btn-secondary btn-small" id="btn-leave-lobby">✕ LEAVE</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -165,6 +144,7 @@
 <script src="EffectManager.js"></script>
 <script src="projectile.js"></script>
 <script src="player.js"></script>
+<script src="GameState.js"></script>
 <script src="network.js"></script>
 <script src="game.js"></script>
 <script src="main.js"></script>

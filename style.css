@@ -651,3 +651,560 @@ textarea:focus {
     }
     .result-entry.winner .r-rank { color: #ffd700; }
     .result-entry.winner .r-kills { color: #ffd700; }
+
+/* === 画面共通 === */
+.screen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(10,10,18,0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+/* === タイトル === */
+#title-inner {
+  background: rgba(20,20,35,0.9);
+  border: 1px solid rgba(0,240,255,0.3);
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(0,240,255,0.1);
+}
+#title-inner h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: 2.4em;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #00f0ff;
+  text-shadow: 0 0 20px rgba(0,240,255,0.5);
+  margin-bottom: 4px;
+}
+#title-inner .subtitle {
+  color: #8888aa;
+  font-size: 0.9em;
+  letter-spacing: 4px;
+  margin-bottom: 24px;
+  text-transform: uppercase;
+}
+.title-input-group {
+  margin-bottom: 20px;
+}
+.title-input-group input {
+  width: 100%;
+  padding: 12px;
+  background: rgba(10,10,18,0.8);
+  border: 1px solid rgba(0,240,255,0.2);
+  border-radius: 6px;
+  color: #00f0ff;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1em;
+  text-align: center;
+  letter-spacing: 2px;
+  outline: none;
+}
+#join-section {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+#join-section input {
+  width: 100%;
+  padding: 12px;
+  background: rgba(10,10,18,0.8);
+  border: 1px solid rgba(255,0,255,0.2);
+  border-radius: 6px;
+  color: #ff00ff;
+  font-family: 'Orbitron', monospace;
+  font-size: 1em;
+  text-align: center;
+  letter-spacing: 3px;
+  outline: none;
+}
+#host-section {
+  margin-top: 16px;
+}
+#room-id-display {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.8em;
+  letter-spacing: 6px;
+  color: #00f0ff;
+  text-shadow: 0 0 20px rgba(0,240,255,0.3);
+  padding: 12px;
+  border: 1px solid rgba(0,240,255,0.2);
+  border-radius: 8px;
+  margin: 8px 0;
+  background: rgba(0,0,0,0.3);
+}
+
+/* === ロビー === */
+#lobby-inner {
+  background: rgba(20,20,35,0.9);
+  border: 1px solid rgba(0,240,255,0.3);
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 520px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(0,240,255,0.1);
+}
+#lobby-inner h2 {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.6em;
+  letter-spacing: 6px;
+  color: #00f0ff;
+  text-shadow: 0 0 20px rgba(0,240,255,0.3);
+  margin-bottom: 16px;
+}
+#lobby-controls-host, #lobby-controls-client {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+#lobby-controls-client .weapon-selector {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#lobby-controls-client .weapon-selector .map-btn {
+  padding: 6px 12px;
+  font-size: 0.7em;
+}
+
+/* === プレイヤーリスト === */
+#player-list {
+  margin: 12px 0;
+  text-align: left;
+}
+#player-list .pl-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 4px 0;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.2);
+  font-size: 0.9em;
+  letter-spacing: 1px;
+}
+#player-list .pl-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+#player-list .pl-name { flex: 1; color: #ccccee; }
+#player-list .pl-weapon {
+  color: #666688;
+  font-size: 0.8em;
+  margin: 0 8px;
+}
+#player-list .pl-ready {
+  font-size: 0.7em;
+  font-family: 'Orbitron', monospace;
+  letter-spacing: 2px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #00ff88;
+  border: 1px solid rgba(0,255,136,0.3);
+  min-width: 40px;
+  text-align: center;
+}
+#player-list .pl-notready {
+  font-size: 0.7em;
+  font-family: 'Orbitron', monospace;
+  letter-spacing: 2px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #666688;
+  border: 1px solid rgba(255,255,255,0.1);
+  min-width: 40px;
+  text-align: center;
+}
+#player-list .pl-tag {
+  font-size: 0.7em;
+  font-family: 'Orbitron', monospace;
+  letter-spacing: 2px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+#player-list .pl-tag.host {
+  border: 1px solid rgba(0,240,255,0.3);
+  color: #00f0ff;
+}
+#player-list .pl-tag.you {
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #888;
+}
+
+/* === カウントダウン === */
+#countdown-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  pointer-events: none;
+}
+#countdown-text {
+  font-family: 'Orbitron', monospace;
+  font-size: 8em;
+  font-weight: 900;
+  color: #00f0ff;
+  text-shadow: 0 0 60px rgba(0,240,255,0.5);
+  animation: countPulse 1s ease forwards;
+}
+@keyframes countPulse {
+  0% { opacity: 0; transform: scale(2); }
+  30% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+
+/* === 試合HUD === */
+#hud {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 40;
+  pointer-events: none;
+}
+#hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 20px;
+}
+#min-scoreboard {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.7em;
+  color: #666688;
+  letter-spacing: 1px;
+  background: rgba(10,10,18,0.6);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.min-sb-entry {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+}
+.min-sb-name { color: #aaaacc; }
+.min-sb-kills { color: #00f0ff; }
+.min-sb-deaths { color: #ff4444; }
+#timer-display {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.6em;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #00f0ff;
+  text-shadow: 0 0 20px rgba(0,240,255,0.3);
+  text-align: center;
+}
+#timer-display.urgent {
+  color: #ff0044;
+  text-shadow: 0 0 30px rgba(255,0,68,0.5);
+  animation: pulse 0.5s ease infinite alternate;
+}
+#score-display {
+  text-align: right;
+}
+.score-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.score-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.8em;
+  color: #6666aa;
+}
+#kill-count, #death-count {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.4em;
+  font-weight: 700;
+  color: #00f0ff;
+}
+#hud-bottom {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+#health-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#health-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.8em;
+  letter-spacing: 3px;
+  color: #6666aa;
+}
+#health-bar-bg {
+  width: 200px;
+  height: 8px;
+  background: rgba(20,20,35,0.9);
+  border: 1px solid rgba(0,240,255,0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+#health-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff0044, #ff4400, #00f0ff);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 12px rgba(0,240,255,0.3);
+}
+#health-bar.low { box-shadow: 0 0 20px rgba(255,0,68,0.5); }
+#weapon-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.7em;
+  color: #666688;
+  letter-spacing: 2px;
+  text-align: center;
+}
+#ammo-display {
+  font-family: 'Orbitron', monospace;
+  font-size: 1em;
+  letter-spacing: 2px;
+  color: #ffaa00;
+  text-shadow: 0 0 10px rgba(255,170,0,0.3);
+  text-align: center;
+}
+
+/* === デス画面 === */
+#death-screen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10,10,18,0.6);
+  backdrop-filter: blur(4px);
+}
+#death-screen.show { display: flex; }
+#death-inner {
+  text-align: center;
+}
+#death-inner h2 {
+  font-family: 'Orbitron', monospace;
+  font-size: 3em;
+  color: #ff0044;
+  text-shadow: 0 0 40px rgba(255,0,68,0.5);
+  letter-spacing: 8px;
+}
+#death-info {
+  margin: 12px 0;
+}
+#death-killer-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.2em;
+  color: #ff4444;
+  letter-spacing: 2px;
+}
+#death-weapon-name {
+  font-size: 0.8em;
+  color: #8888aa;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+#respawn-countdown {
+  font-family: 'Orbitron', monospace;
+  font-size: 4em;
+  font-weight: 900;
+  color: #00f0ff;
+  text-shadow: 0 0 40px rgba(0,240,255,0.4);
+  margin: 16px 0;
+}
+#death-screen .weapon-selector {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+#death-screen .weapon-selector .map-btn {
+  padding: 6px 14px;
+  font-size: 0.65em;
+}
+.death-hint {
+  color: #666688;
+  font-size: 0.7em;
+  letter-spacing: 1px;
+  margin-top: 8px;
+}
+
+/* === キルメッセージ === */
+.kill-center-msg {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  font-family: 'Orbitron', monospace;
+  font-size: 3em;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #ff0044;
+  text-shadow: 0 0 40px rgba(255,0,68,0.6), 0 0 80px rgba(255,0,68,0.3);
+  z-index: 70;
+  pointer-events: none;
+  animation: killFade 0.8s ease forwards;
+}
+@keyframes killFade {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); }
+  30% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+  50% { transform: translate(-50%,-50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%,-60%) scale(1); }
+}
+
+/* === キルフィード === */
+#kill-feed {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+.kill-msg {
+  background: rgba(10,10,18,0.8);
+  border: 1px solid rgba(0,240,255,0.15);
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 0.75em;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: #aaaacc;
+  animation: feedIn 0.3s ease, feedOut 0.3s ease 2.7s forwards;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+.kill-msg .killer { color: #00f0ff; }
+.kill-msg .victim { color: #ff4444; }
+.kill-msg .weapon-icon {
+  color: #ffaa00;
+  margin: 0 4px;
+}
+@keyframes feedIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes feedOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* === リザルト === */
+#result-screen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5,5,15,0.95);
+  backdrop-filter: blur(10px);
+}
+#result-screen.show { display: flex; }
+#result-inner {
+  text-align: center;
+  max-width: 500px;
+  width: 90%;
+}
+#result-winner-section {
+  margin-bottom: 30px;
+}
+#result-winner-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.2em;
+  letter-spacing: 8px;
+  color: #ffd700;
+  text-shadow: 0 0 30px rgba(255,215,0,0.3);
+  margin-bottom: 8px;
+}
+#result-winner-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 3em;
+  font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 40px rgba(255,215,0,0.5);
+  letter-spacing: 4px;
+}
+#result-draw {
+  font-family: 'Orbitron', monospace;
+  font-size: 3em;
+  font-weight: 900;
+  color: #8888aa;
+  letter-spacing: 8px;
+}
+#result-list {
+  text-align: left;
+  margin: 20px 0;
+}
+.result-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 4px 0;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.2);
+  font-size: 0.85em;
+  letter-spacing: 1px;
+}
+.result-entry .r-rank {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.8em;
+  color: #6666aa;
+  min-width: 24px;
+  text-align: center;
+}
+.result-entry .r-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.result-entry .r-name { flex: 1; color: #ccccee; }
+.result-entry .r-kills {
+  font-family: 'Orbitron', monospace;
+  color: #00f0ff;
+  font-size: 1em;
+  min-width: 40px;
+  text-align: right;
+}
+.result-entry .r-deaths {
+  font-family: 'Orbitron', monospace;
+  color: #ff4444;
+  font-size: 0.85em;
+  min-width: 40px;
+  text-align: right;
+}
+.result-entry .r-kd {
+  color: #8888aa;
+  font-size: 0.8em;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* === トランジション === */
+.hidden { display: none !important; }
