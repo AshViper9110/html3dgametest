@@ -25,42 +25,7 @@ const CONFIG = {
   colors: { projectile: 0xffee00 },
 };
 
-/* === 武器設定 ===
-   各武器のダメージ、連射速度、弾の速度、拡散、弾薬などを定義 */
-const WEAPONS = {
-  pistol: {
-    name: 'PISTOL', damage: 20, fireRate: 0.25,
-    projSpeed: 50, projLifetime: 1.5, projRadius: 0.2,
-    spread: 0, color: 0xffee00, hitRadius: 0.8,
-    maxAmmo: 10, reloadTime: 3,
-  },
-  assault: {
-    name: 'ASSAULT', damage: 15, fireRate: 0.08,
-    projSpeed: 55, projLifetime: 1.5, projRadius: 0.15,
-    spread: 0.06, color: 0xff6600, hitRadius: 0.7,
-    maxAmmo: 30, reloadTime: 3,
-  },
-  sniper: {
-    name: 'SNIPER', damage: 40, fireRate: 1.0,
-    projSpeed: 90, projLifetime: 2.0, projRadius: 0.3,
-    spread: 0, color: 0x00ffff, hitRadius: 0.9,
-    maxAmmo: 5, reloadTime: 3,
-  },
-  rpg: {
-    name: 'RPG', damage: 60, fireRate: 1.2,
-    projSpeed: 18, projLifetime: 3.0, projRadius: 0.4,
-    spread: 0, color: 0xff2200, hitRadius: 2.5,
-    explosive: true,
-    maxAmmo: 1, reloadTime: 3,
-  },
-  shotgun: {
-    name: 'SHOTGUN', damage: 4, fireRate: 0.6,
-    projSpeed: 50, projLifetime: 0.8, projRadius: 0.12,
-    spread: 0.18, color: 0xff6600, hitRadius: 0.3,
-    maxAmmo: 8, reloadTime: 2,
-    pellets: 6,
-  },
-};
+/* 武器定義は WeaponRegistry.js へ移行 */
 
 /* === プレイヤーカラー === */
 const PLAYER_COLORS = [

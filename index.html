@@ -72,12 +72,15 @@
       <!-- Weapon -->
       <div class="lobby-section">
         <div class="lobby-section-title">WEAPON</div>
-        <div class="weapon-selector" id="lobby-weapon-btns">
-          <button class="map-btn" data-weapon="pistol">PISTOL</button>
-          <button class="map-btn" data-weapon="assault">ASSAULT</button>
-          <button class="map-btn" data-weapon="sniper">SNIPER</button>
-          <button class="map-btn" data-weapon="rpg">RPG</button>
-          <button class="map-btn" data-weapon="shotgun">SHOTGUN</button>
+        <div id="lobby-weapon-selector" class="ws-container">
+          <div class="ws-row">
+            <button class="ws-btn ws-prev" data-target="lobby">◀</button>
+            <div class="ws-info">
+              <div id="lobby-ws-name" class="ws-name">Pistol</div>
+              <div id="lobby-ws-stats" class="ws-stats"></div>
+            </div>
+            <button class="ws-btn ws-next" data-target="lobby">▶</button>
+          </div>
         </div>
       </div>
 
@@ -159,12 +162,15 @@
       <div id="death-weapon-name"></div>
     </div>
     <div id="respawn-countdown">3</div>
-    <div class="weapon-selector" id="death-weapon-btns">
-      <button class="map-btn" data-weapon="pistol">PISTOL</button>
-      <button class="map-btn" data-weapon="assault">ASSAULT</button>
-      <button class="map-btn" data-weapon="sniper">SNIPER</button>
-      <button class="map-btn" data-weapon="rpg">RPG</button>
-      <button class="map-btn" data-weapon="shotgun">SHOTGUN</button>
+    <div id="death-weapon-selector" class="ws-container">
+      <div class="ws-row">
+        <button class="ws-btn ws-prev" data-target="death">◀</button>
+        <div class="ws-info">
+          <div id="death-ws-name" class="ws-name">Pistol</div>
+          <div id="death-ws-stats" class="ws-stats"></div>
+        </div>
+        <button class="ws-btn ws-next" data-target="death">▶</button>
+      </div>
     </div>
     <div class="death-hint">Change weapon for next spawn</div>
   </div>
@@ -184,6 +190,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="config.js"></script>
+<script src="WeaponRegistry.js"></script>
 <script src="CheatValidator.js"></script>
 <script src="ObjectPool.js"></script>
 <script src="ParticlePool.js"></script>

@@ -92,32 +92,19 @@ document.getElementById('btn-ready').addEventListener('click', () => {
   game._updateLobbyUI();
 });
 
-/* 武器変更（ロビー） */
-document.getElementById('lobby-weapon-btns').addEventListener('click', (e) => {
-  const btn = e.target.closest('.map-btn');
-  if (!btn) return;
-  const wp = btn.dataset.weapon;
-  game.loadoutWeapon = wp;
-  if (game.localPlayer) game.localPlayer.weapon = wp;
-  game.clientWeapons.set(game.localId, wp);
-  document.querySelectorAll('#lobby-weapon-btns .map-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  game.network.sendWeaponChange(wp);
-  game._updateLobbyUI();
-});
-
-/* デス画面: 武器変更 */
-document.getElementById('death-weapon-btns').addEventListener('click', (e) => {
-  const btn = e.target.closest('.map-btn');
-  if (!btn) return;
-  const wp = btn.dataset.weapon;
-  game.loadoutWeapon = wp;
-  if (game.localPlayer) game.localPlayer.weapon = wp;
-  game.clientWeapons.set(game.localId, wp);
-  document.querySelectorAll('#death-weapon-btns .map-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  game.network.sendWeaponChange(wp);
-});
+/* 武器変更（左右矢印） */
+function setupWeaponNav(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ws-btn');
+    if (!btn) return;
+    const dir = btn.classList.contains('ws-prev') ? 'prev' : 'next';
+    game._changeWeapon(dir);
+  });
+}
+setupWeaponNav('lobby-weapon-selector');
+setupWeaponNav('death-weapon-selector');
 
 /* ルームIDコピー（タイトル画面） */
 document.getElementById('btn-copy-room').addEventListener('click', () => {

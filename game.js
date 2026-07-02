@@ -35,7 +35,7 @@ class Game {
     this.killCamWeapon = '';
     this.invincibleTimer = 0;
     this.teleportCooldown = 0;
-    this.loadoutWeapon = 'pistol';
+    this.loadoutWeapon = WEAPON_REGISTRY.getAll()[0] || 'pistol';
     this.mouseDown = false;
     this.dashTimer = 0;
     this.dashCooldown = 0;
@@ -416,7 +416,8 @@ class Game {
     const name = data.name || 'Player';
     this.addPlayer(peerId, color, name);
     this.clientReady.set(peerId, false);
-    this.clientWeapons.set(peerId, 'pistol');
+    const defaultWeapon = WEAPON_REGISTRY.getAll()[0] || 'pistol';
+    this.clientWeapons.set(peerId, defaultWeapon);
     this.network.connected = true;
     if (!this.connectionHandled) {
       this.connectionHandled = true;
@@ -425,14 +426,14 @@ class Game {
     conn.send({
       type: 'welcome',
       players: Array.from(this.players.entries()).map(([id, p]) => ({
-        id, name: p.name, color: p.color, weapon: this.clientWeapons.get(id) || 'pistol',
+        id, name: p.name, color: p.color, weapon: this.clientWeapons.get(id) || defaultWeapon,
         ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
       })),
       yourId: peerId,
       map: this.selectedMap,
     });
     this.network.broadcast({ type: 'player_joined', id: peerId, name, color,
-      weapon: 'pistol', ready: false }, conn);
+      weapon: defaultWeapon, ready: false }, conn);
     this._updateLobbyUI();
     this._syncLobbyState();
   }
@@ -440,9 +441,10 @@ class Game {
   _handleWelcome(data) {
     this.connectionHandled = true;
     this.onConnected();
+    const defaultWeapon = WEAPON_REGISTRY.getAll()[0] || 'pistol';
     data.players.forEach(p => {
       this.addPlayer(p.id, p.color, p.name);
-      this.clientWeapons.set(p.id, p.weapon || 'pistol');
+      this.clientWeapons.set(p.id, p.weapon || defaultWeapon);
       this.clientReady.set(p.id, p.ready || false);
     });
     this.localId = data.yourId;
@@ -460,7 +462,7 @@ class Game {
   _handlePlayerJoined(data) {
     this.addPlayer(data.id, data.color, data.name);
     this.clientReady.set(data.id, data.ready !== undefined ? data.ready : false);
-    this.clientWeapons.set(data.id, data.weapon || 'pistol');
+    this.clientWeapons.set(data.id, data.weapon || WEAPON_REGISTRY.getAll()[0]);
     this._updateLobbyUI();
     this.addKillFeed(`${data.name} joined`);
   }
@@ -570,14 +572,8 @@ class Game {
     document.getElementById('death-killer-name').textContent = `Killed By ${this.killCamKillerName}`;
     document.getElementById('death-weapon-name').textContent = this.killCamWeapon;
     document.getElementById('respawn-countdown').textContent = '3';
-    this._highlightDeathWeapon(this.loadoutWeapon);
+    this._updateWeaponSelectorUI('death');
     if (document.pointerLockElement) document.exitPointerLock();
-  }
-
-  _highlightDeathWeapon(weapon) {
-    document.querySelectorAll('#death-weapon-btns .map-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.weapon === weapon);
-    });
   }
 
   _handleHit(data) {
@@ -865,7 +861,7 @@ class Game {
     this._updateLobbyMapInfo();
     this._renderPlayerList();
     this._updateStartButton();
-    this._updateLobbyWeaponHighlight();
+    this._updateWeaponSelectorUI('lobby');
     this._updateLobbyStatus();
     this._drawMapPreviews();
   }
@@ -990,11 +986,36 @@ class Game {
     ctx.fillText(map.name, W / 2, H - 3);
   }
 
-  _updateLobbyWeaponHighlight() {
+  _updateWeaponSelectorUI(target) {
+    target = target || 'lobby';
     const wp = this.loadoutWeapon;
-    document.querySelectorAll('#lobby-weapon-btns .map-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.weapon === wp);
-    });
+    const w = WEAPON_REGISTRY.get(wp);
+    const nameEl = document.getElementById(target + '-ws-name');
+    const statsEl = document.getElementById(target + '-ws-stats');
+    if (nameEl) nameEl.textContent = w ? w.name : '?';
+    if (statsEl) statsEl.innerHTML = w ? WEAPON_REGISTRY.statsLines(wp).join('<br>') : '';
+  }
+
+  _updateDeathWeaponSelector() {
+    this._updateWeaponSelectorUI('death');
+  }
+
+  _changeWeapon(direction) {
+    if (direction === 'next') {
+      this.loadoutWeapon = WEAPON_REGISTRY.next(this.loadoutWeapon);
+    } else {
+      this.loadoutWeapon = WEAPON_REGISTRY.prev(this.loadoutWeapon);
+    }
+    if (this.localPlayer) {
+      this.localPlayer.weapon = this.loadoutWeapon;
+    }
+    this.clientWeapons.set(this.network.myId, this.loadoutWeapon);
+    this._updateWeaponSelectorUI('lobby');
+    this._updateWeaponSelectorUI('death');
+    this.network.sendWeaponChange(this.loadoutWeapon);
+    if (this.network.isHost) {
+      this._syncLobbyState();
+    }
   }
 
   _renderPlayerList() {
@@ -1037,7 +1058,9 @@ class Game {
 
       const weaponEl = document.createElement('span');
       weaponEl.className = 'pl-card-weapon';
-      weaponEl.textContent = WEAPONS[this.clientWeapons.get(id) || 'pistol'].name;
+      const wpId = this.clientWeapons.get(id) || WEAPON_REGISTRY.getAll()[0];
+      const wpData = WEAPON_REGISTRY.get(wpId);
+      weaponEl.textContent = wpData ? wpData.name : wpId;
 
       const readyEl = document.createElement('span');
       readyEl.className = 'pl-card-ready';
@@ -1099,7 +1122,7 @@ class Game {
     this.players.forEach((p, id) => {
       players.push({
         id, name: p.name, ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
-        weapon: this.clientWeapons.get(id) || 'pistol',
+        weapon: this.clientWeapons.get(id) || WEAPON_REGISTRY.getAll()[0],
       });
     });
     this.network.broadcast({
@@ -1165,7 +1188,7 @@ class Game {
     this.players.forEach((p) => {
       p.health = CONFIG.maxHealth;
       p.alive = true;
-      const weapon = this.clientWeapons.get(p.id) || 'pistol';
+      const weapon = this.clientWeapons.get(p.id) || WEAPON_REGISTRY.getAll()[0];
       p.weapon = weapon;
       p.refillAmmo();
       p.spawn(this._spawnHalfExtent());
