@@ -37,17 +37,6 @@ class CameraEffectManager {
   }
 
   update(dt) {
-    let effectiveDt = dt;
-
-    if (this.slowMo > 0) {
-      this.slowMoDuration -= dt;
-      effectiveDt = dt * 0.3;
-      if (this.slowMoDuration <= 0) {
-        this.slowMo = 0;
-        this.slowMoDuration = 0;
-      }
-    }
-
     this.shakeIntensity = Math.max(0, this.shakeIntensity - this.shakeDecay * dt);
     if (this.shakeIntensity > 0.1) {
       this.camera.position.x += (Math.random() - 0.5) * this.shakeIntensity * 0.1;
@@ -71,11 +60,7 @@ class CameraEffectManager {
       this.redFlash = Math.max(0, this.redFlash - dt * 2);
     }
 
-    return effectiveDt;
-  }
-
-  isSlowMo() {
-    return this.slowMo > 0;
+    return dt;
   }
 
   getRedFlash() {

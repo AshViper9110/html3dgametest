@@ -1563,10 +1563,7 @@ class Game {
      ---------------------------------------------------------- */
   animate() {
     requestAnimationFrame(() => this.animate());
-    let dt = Math.min(this.clock.getDelta(), 0.05);
-    if (this.cameraEffectManager && this.cameraEffectManager.isSlowMo()) {
-      dt *= 0.05;
-    }
+    const dt = Math.min(this.clock.getDelta(), 0.05);
     this.update(dt);
     this.renderer.render(this.scene, this.camera);
   }
