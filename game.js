@@ -161,15 +161,25 @@ class Game {
     document.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
     this.renderer.domElement.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
+        console.log('[Fire] Mouse mousedown PLAYING=%s respawnTimer=%s pointerLocked=%s connected=%s',
+          this.gameState === GameState.PLAYING, this.respawnTimer, this.pointerLocked, this.network.connected);
         this.mouseDown = true;
         if (this.network.connected && !this.pointerLocked &&
             this.gameState === GameState.PLAYING && !(this.respawnTimer > 0)) {
+          console.log('[Fire] → requestPointerLock()');
           this.renderer.domElement.requestPointerLock();
+        } else {
+          console.log('[Fire] requestPointerLock SKIPPED (connected=%s pointerLocked=%s PLAYING=%s respawn=%s)',
+            this.network.connected, this.pointerLocked,
+            this.gameState === GameState.PLAYING, this.respawnTimer > 0);
         }
       }
     });
     this.renderer.domElement.addEventListener('mouseup', (e) => {
-      if (e.button === 0) this.mouseDown = false;
+      if (e.button === 0) {
+        console.log('[Fire] Mouse mouseup → mouseDown=false');
+        this.mouseDown = false;
+      }
     });
   }
 
@@ -366,7 +376,11 @@ class Game {
       case 'welcome': this._handleWelcome(data); break;
       case 'player_joined': this._handlePlayerJoined(data); break;
       case 'state': this._handleState(data, conn); break;
-      case 'fire_request': if (this.network.isHost) this._handleFireRequest(data, conn); break;
+      case 'fire_request':
+        console.log('[Network] recv fire_request from=%s weapon=%s', conn ? conn.peer : '?', data.weapon);
+        if (this.network.isHost) this._handleFireRequest(data, conn);
+        else console.log('[Network] NOT host, ignoring fire_request');
+        break;
       case 'proj_spawn': this._handleProjSpawn(data); break;
       case 'hit': this._handleHit(data); break;
       case 'hit_effect': this._handleHitEffect(data); break;
@@ -500,14 +514,25 @@ class Game {
   }
 
   _handleFireRequest(data, conn) {
-    if (!this.hostAuthority || !this.cheatValidator) return;
+    console.log('[Host] _handleFireRequest received weapon=%s peerId=%s inputId=%s',
+      data.weapon, conn ? conn.peer : '?', data.inputId);
+    if (!this.hostAuthority) { console.log('[Host] BLOCKED: no hostAuthority'); return; }
+    if (!this.cheatValidator) { console.log('[Host] BLOCKED: no cheatValidator'); return; }
     const peerId = conn.peer;
-    if (!this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId)) return;
-    if (data.inputId === undefined) return;
+    if (!this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId)) {
+      console.log('[Host] BLOCKED: validateTimestamp failed');
+      return;
+    }
+    if (data.inputId === undefined) {
+      console.log('[Host] BLOCKED: inputId undefined');
+      return;
+    }
+    console.log('[Host] → hostAuthority.handleFireRequest()');
     this.hostAuthority.handleFireRequest(data, peerId, peerId + '_' + data.inputId);
   }
 
   _handleProjSpawn(data) {
+    console.log('[Projectile] received proj_spawn ownerId=%s weapon=%s', data.ownerId, data.weapon);
     const origin = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
     const dir = new THREE.Vector3(data.dir.x, data.dir.y, data.dir.z);
     const proj = new Projectile(this.scene, origin, dir,
@@ -636,6 +661,7 @@ class Game {
   }
 
   _handleRemoteRespawn(data) {
+    console.log('[Host] _handleRemoteRespawn id=%s isHost=%s', data.id, this.network.isHost);
     const p = this.players.get(data.id);
     if (p) {
       p.health = CONFIG.maxHealth;
@@ -1151,9 +1177,11 @@ class Game {
      ---------------------------------------------------------- */
   shoot() {
     const lp = this.localPlayer;
-    if (!lp || !lp.alive) return;
-    if (lp.reloading) return;
-    if (lp.ammo <= 0) { this.reload(); return; }
+    console.log('[Fire] shoot() alive=%s reloading=%s ammo=%s isHost=%s',
+      lp ? lp.alive : 'N/A', lp ? lp.reloading : 'N/A', lp ? lp.ammo : 'N/A', this.network.isHost);
+    if (!lp || !lp.alive) { console.log('[Fire] BLOCKED: !lp || !lp.alive'); return; }
+    if (lp.reloading) { console.log('[Fire] BLOCKED: reloading'); return; }
+    if (lp.ammo <= 0) { console.log('[Fire] BLOCKED: ammo=%s → reload', lp.ammo); this.reload(); return; }
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
     const pellets = wp.pellets || 1;
     for (let i = 0; i < pellets; i++) {
@@ -1169,6 +1197,7 @@ class Game {
       const inputId = this.inputIdCounter++;
       const dirData = { x: dir.x, y: 0, z: dir.z };
       if (this.network.isHost) {
+        console.log('[Fire] Host → handleFireRequest directly');
         if (this.hostAuthority) {
           this.hostAuthority.handleFireRequest({
             weapon: lp.weapon,
@@ -1179,6 +1208,7 @@ class Game {
           }, this.network.myId, 'local_' + inputId);
         }
       } else {
+        console.log('[Fire] Client → sendFireRequest');
         this.network.sendFireRequest(lp.weapon, lp.position, dirData, inputId, lp.color);
       }
       if (this.effectManager) {
@@ -1292,6 +1322,9 @@ class Game {
 
     if (lp && lp.alive) {
       this._handlePlayerInput(lp, dt);
+    } else {
+      if (!lp) console.log('[Update] _updatePlaying: no lp');
+      else if (!lp.alive) console.log('[Update] _updatePlaying: lp.alive=false');
     }
 
     if (this.invincibleTimer > 0) {
@@ -1408,9 +1441,17 @@ class Game {
         const now = Date.now();
         if (now - lp.lastFireTime > wp.fireRate * 1000) {
           lp.lastFireTime = now;
+          console.log('[Fire] Fire rate passed → shoot()');
           this.shoot();
+        } else {
+          console.log('[Fire] BLOCKED: fire rate (last=%s now=%s rate=%s)',
+            lp.lastFireTime, now, wp.fireRate);
         }
+      } else {
+        console.log('[Fire] BLOCKED: unknown weapon');
       }
+    } else {
+      console.log('[Fire] BLOCKED: mouseDown=%s pointerLocked=%s', this.mouseDown, this.pointerLocked);
     }
   }
 
@@ -1488,6 +1529,8 @@ class Game {
   _respawnLocal() {
     const lp = this.localPlayer;
     if (!lp) return;
+    console.log('[Respawn] _respawnLocal isHost=%s alive=%s weapon=%s mouseDown=%s',
+      this.network.isHost, lp.alive, this.loadoutWeapon, this.mouseDown);
     const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 3;
     const spawnPos = new THREE.Vector3(
       (Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2
@@ -1502,6 +1545,8 @@ class Game {
     lp.weapon = this.loadoutWeapon;
     lp.refillAmmo();
     this.mouseDown = false;
+    console.log('[Respawn] after reset: mouseDown=%s pointerLocked=%s',
+      this.mouseDown, this.pointerLocked);
     this.invincibleTimer = CONFIG.invincibleTime;
     lp.onReloadComplete = this._onReloadComplete;
     this.updateAmmoUI();

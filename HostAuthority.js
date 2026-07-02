@@ -9,17 +9,29 @@ class HostAuthority {
   }
 
   handleFireRequest(data, peerId, inputId) {
+    console.log('[Host] handleFireRequest peerId=%s weapon=%s inputId=%s', peerId, data.weapon, inputId);
     const cv = this.game.cheatValidator;
-    if (!cv) return;
+    if (!cv) { console.log('[Host] BLOCKED: no cheatValidator'); return; }
 
-    if (!cv.validateWeapon(data.weapon)) return;
-    if (!cv.validateFireRate(peerId, data.weapon, data.timestamp || Date.now())) return;
-    if (cv.isReplayAttack(inputId)) return;
+    if (!cv.validateWeapon(data.weapon)) { console.log('[Host] BLOCKED: validateWeapon'); return; }
+    console.log('[Host] validateWeapon OK');
+    if (!cv.validateFireRate(peerId, data.weapon, data.timestamp || Date.now())) {
+      console.log('[Host] BLOCKED: validateFireRate');
+      return;
+    }
+    console.log('[Host] validateFireRate OK');
+    if (cv.isReplayAttack(inputId)) { console.log('[Host] BLOCKED: isReplayAttack'); return; }
+    console.log('[Host] isReplayAttack OK');
     if (this.respawnedPeers.has(peerId)) {
+      console.log('[Host] respawnedPeers → refillAllAmmo');
       this.refillAllAmmo(peerId);
       this.respawnedPeers.delete(peerId);
     }
-    if (!this._hasAmmo(peerId, data.weapon)) return;
+    if (!this._hasAmmo(peerId, data.weapon)) {
+      console.log('[Host] BLOCKED: _hasAmmo false (no ammo for %s)', data.weapon);
+      return;
+    }
+    console.log('[Host] _hasAmmo OK → consume + spawn projectile');
 
     this._consumeAmmo(peerId, data.weapon);
 
@@ -47,6 +59,7 @@ class HostAuthority {
   }
 
   _broadcastProjectile(ownerId, pid, weapon, pos, dir, color, inputId) {
+    console.log('[Network] broadcast proj_spawn ownerId=%s pid=%s weapon=%s', ownerId, pid, weapon);
     this.game.network.broadcast({
       type: 'proj_spawn',
       ownerId, pid, weapon,

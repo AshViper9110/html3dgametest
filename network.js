@@ -87,6 +87,7 @@ class NetworkManager {
   }
 
   send(data) {
+    console.log('[Network] send type=%s conn=%o open=%s', data.type, this.conn, this.conn ? this.conn.open : 'N/A');
     if (this.conn && this.conn.open) this.conn.send(data);
   }
 
@@ -97,6 +98,10 @@ class NetworkManager {
   }
 
   broadcast(data, exclude) {
+    if (data.type === 'proj_spawn' || data.type === 'fire_request') {
+      console.log('[Network] broadcast type=%s ownerId=%s to %d connections',
+        data.type, data.ownerId || '?', this.connections.filter(c => c !== exclude && c.open).length);
+    }
     this.connections.forEach(c => {
       if (c !== exclude && c.open) c.send(data);
     });
@@ -127,6 +132,7 @@ class NetworkManager {
   }
 
   sendFireRequest(weapon, position, direction, inputId, color) {
+    console.log('[Network] send fire_request weapon=%s inputId=%s', weapon, inputId);
     this.send({
       type: 'fire_request',
       weapon,
