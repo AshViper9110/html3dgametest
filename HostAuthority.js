@@ -165,13 +165,26 @@ class HostAuthority {
     this.game._trackKill(shooterId, victimId);
   }
 
+  _explodeProjectile(proj) {
+    if (!proj.wp || !proj.wp.explosive) return;
+    this.processExplosion(proj, proj.hitPlayers);
+    this.game.effectManager.spawnExplosion(
+      proj.mesh.position.clone(),
+      proj.color || 0xff4400
+    );
+    this.game.network.broadcast({
+      type: 'explosion',
+      pos: { x: proj.mesh.position.x, y: proj.mesh.position.y, z: proj.mesh.position.z },
+      color: proj.color || 0xff4400,
+      weapon: proj.weapon,
+    });
+  }
+
   handleHostProjectiles(dt) {
-    for (let i = this.hostProjectiles.length - 1; i >= 0; i--) {
-      const proj = this.hostProjectiles[i];
-      if (!proj.alive) {
-        this.hostProjectiles.splice(i, 1);
-        continue;
-      }
+    const projs = this.hostProjectiles;
+    for (let i = projs.length - 1; i >= 0; i--) {
+      const proj = projs[i];
+      if (!proj.alive) { projs.splice(i, 1); continue; }
 
       proj.update(dt);
 
@@ -179,46 +192,19 @@ class HostAuthority {
       if (map) {
         const half = map.size / 2;
         const walls = map.walls || [];
-        const allWalls = [...walls];
+        const pr = this.game.projectileRadius || CONFIG.projectileRadius;
         if (Math.abs(proj.mesh.position.x) > half || Math.abs(proj.mesh.position.z) > half) {
-          if (proj.wp && proj.wp.explosive) {
-            this.processExplosion(proj, proj.hitPlayers);
-            this.game.effectManager.spawnExplosion(
-              proj.mesh.position.clone(),
-              proj.color || 0xff4400,
-              proj.weapon
-            );
-            this.game.effectManager.spawnExplosionFX(proj.mesh.position.clone(), proj.color || 0xff4400);
-            this.game.network.broadcast({
-              type: 'explosion',
-              pos: { x: proj.mesh.position.x, y: proj.mesh.position.y, z: proj.mesh.position.z },
-              color: proj.color || 0xff4400,
-              weapon: proj.weapon,
-            });
-          }
+          this._explodeProjectile(proj);
           proj.destroy();
           continue;
         }
-        for (const w of allWalls) {
+        for (let wi = 0; wi < walls.length; wi++) {
+          const w = walls[wi];
           const wx = w.p[0], wz = w.p[2];
-          const wHalfX = w.s[0] / 2 + CONFIG.projectileRadius;
-          const wHalfZ = w.s[2] / 2 + CONFIG.projectileRadius;
+          const wHalfX = w.s[0] / 2 + pr;
+          const wHalfZ = w.s[2] / 2 + pr;
           if (Math.abs(proj.mesh.position.x - wx) < wHalfX && Math.abs(proj.mesh.position.z - wz) < wHalfZ) {
-            if (proj.wp && proj.wp.explosive) {
-              this.processExplosion(proj, proj.hitPlayers);
-              this.game.effectManager.spawnExplosion(
-                proj.mesh.position.clone(),
-                proj.color || 0xff4400,
-                proj.weapon
-              );
-              this.game.effectManager.spawnExplosionFX(proj.mesh.position.clone(), proj.color || 0xff4400);
-              this.game.network.broadcast({
-                type: 'explosion',
-                pos: { x: proj.mesh.position.x, y: proj.mesh.position.y, z: proj.mesh.position.z },
-                color: proj.color || 0xff4400,
-                weapon: proj.weapon,
-              });
-            }
+            this._explodeProjectile(proj);
             proj.destroy();
             break;
           }
@@ -227,27 +213,16 @@ class HostAuthority {
 
       if (!proj.alive) continue;
 
+      const vPos = new THREE.Vector3();
       this.game.players.forEach((victim, id) => {
         if (id === proj.ownerId || !victim.alive || proj.hitPlayers.has(id)) return;
         const hitDist = CONFIG.playerSize * 0.5 + ((proj.wp && proj.wp.hitRadius) || 0.8);
-        const vPos = new THREE.Vector3(victim.position.x, CONFIG.playerHeight / 2, victim.position.z);
+        vPos.set(victim.position.x, CONFIG.playerHeight / 2, victim.position.z);
         if (proj.mesh.position.distanceTo(vPos) < hitDist) {
           proj.hitPlayers.add(id);
 
           if (proj.wp && proj.wp.explosive) {
-            this.processExplosion(proj, proj.hitPlayers);
-            this.game.effectManager.spawnExplosion(
-              proj.mesh.position.clone(),
-              proj.color || 0xff4400,
-              proj.weapon
-            );
-            this.game.effectManager.spawnExplosionFX(proj.mesh.position.clone(), proj.color || 0xff4400);
-            this.game.network.broadcast({
-              type: 'explosion',
-              pos: { x: proj.mesh.position.x, y: proj.mesh.position.y, z: proj.mesh.position.z },
-              color: proj.color || 0xff4400,
-              weapon: proj.weapon,
-            });
+            this._explodeProjectile(proj);
           } else {
             this.processHit(proj, id, proj.weapon);
             this.game.effectManager.spawnHitEffect(

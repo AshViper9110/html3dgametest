@@ -32,7 +32,7 @@ class CameraEffectManager {
 
   killSlowMo() {
     this.slowMo = 1;
-    this.slowMoDuration = 0.15;
+    this.slowMoDuration = 0.08;
     this.originalDt = 0;
   }
 
@@ -41,7 +41,7 @@ class CameraEffectManager {
 
     if (this.slowMo > 0) {
       this.slowMoDuration -= dt;
-      effectiveDt = dt * 0.05;
+      effectiveDt = dt * 0.3;
       if (this.slowMoDuration <= 0) {
         this.slowMo = 0;
         this.slowMoDuration = 0;

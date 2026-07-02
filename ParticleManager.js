@@ -1,265 +1,275 @@
+const _pmV3 = new THREE.Vector3();
+const SPARK_GEO = new THREE.BoxGeometry(0.04, 0.04, 0.12);
+const PARTICLE_GEO = new THREE.SphereGeometry(0.1, 4, 4);
+const SMOKE_GEO = new THREE.SphereGeometry(0.3, 6, 6);
+const DEBRIS_GEO = new THREE.BoxGeometry(0.08, 0.06, 0.08);
+const SPEEDLINE_GEO = new THREE.BoxGeometry(0.02, 0.02, 0.5);
+
 class ParticleManager {
   constructor(scene) {
     this.scene = scene;
-    this.effects = [];
+    this.pool = [];
+    this.active = [];
+    this.maxParticles = 300;
+  }
+
+  _alloc() {
+    if (this.pool.length > 0) return this.pool.pop();
+    return {
+      mesh: null, mat: null, geo: null,
+      vel: new THREE.Vector3(),
+      life: 0, maxLife: 0,
+      gravity: false, rotSpeed: null, growSpeed: 0, type: '',
+    };
+  }
+
+  _free(e) {
+    if (e.mesh && e.mesh.parent) this.scene.remove(e.mesh);
+    if (e.mat) e.mat.dispose();
+    e.mesh = null;
+    e.mat = null;
+    e.geo = null;
+    e.vel.set(0, 0, 0);
+    e.rotSpeed = null;
+    if (this.active.length < this.maxParticles) this.pool.push(e);
+  }
+
+  _createParticle(geo, color, pos, vel, life, type, gravity, growSpeed) {
+    if (this.active.length >= this.maxParticles) return null;
+    const e = this._alloc();
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    this.scene.add(mesh);
+    e.mesh = mesh;
+    e.mat = mat;
+    e.geo = geo;
+    e.vel.copy(vel);
+    e.life = 0;
+    e.maxLife = life || 0.5;
+    e.type = type || 'particle';
+    e.gravity = gravity;
+    e.growSpeed = growSpeed || 0;
+    e.rotSpeed = null;
+    this.active.push(e);
+    return e;
+  }
+
+  _addParticle(color, pos, vel, life, size) {
+    if (size && size !== 0.1) {
+      const geo = new THREE.SphereGeometry(size, 4, 4);
+      return this._createParticle(geo, color, pos, vel, life, 'particle', true, 0);
+    }
+    return this._createParticle(PARTICLE_GEO, color, pos, vel, life, 'particle', true, 0);
+  }
+
+  _addSpark(color, pos, vel, life) {
+    return this._createParticle(SPARK_GEO, color, pos, vel, life, 'spark', true, 0);
+  }
+
+  _addSmokeParticle(color, pos, vel, life) {
+    const e = this._createParticle(SMOKE_GEO, color, pos, vel, life, 'smoke', false, 0.5 + Math.random() * 0.5);
+    return e;
+  }
+
+  _addDebris(pos, vel, life) {
+    const e = this._createParticle(DEBRIS_GEO, 0x888888, pos, vel, life, 'debris', true, 0);
+    if (e) {
+      e.rotSpeed = new THREE.Vector3(
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10
+      );
+    }
+    return e;
+  }
+
+  _addSpeedLine(color, pos, vel, life) {
+    const e = this._createParticle(SPEEDLINE_GEO, color, pos, vel, life, 'speedline', false, 0);
+    if (e) {
+      e.mesh.lookAt(_pmV3.copy(pos).add(vel.clone().normalize()));
+    }
+    return e;
   }
 
   spawnExplosionParticles(pos, color, count) {
-    const particles = [];
-    for (let i = 0; i < (count || 30); i++) {
+    count = Math.min(count || 30, 50);
+    for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 5 + Math.random() * 15;
-      const vel = new THREE.Vector3(
+      _pmV3.set(
         Math.cos(angle) * speed,
         Math.random() * 10 + 2,
         Math.sin(angle) * speed
       );
-      const life = 0.5 + Math.random() * 0.8;
-      this._addParticle(color || 0xff4400, pos, vel, life, 0.3 + Math.random() * 0.5);
+      this._addParticle(color || 0xff4400, pos, _pmV3, 0.4 + Math.random() * 0.4, 0.2 + Math.random() * 0.3);
     }
-    return particles;
   }
 
   spawnSparks(pos, color, count) {
-    for (let i = 0; i < (count || 15); i++) {
+    count = Math.min(count || 10, 15);
+    for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 3 + Math.random() * 10;
-      const vel = new THREE.Vector3(
+      const speed = 3 + Math.random() * 8;
+      _pmV3.set(
         Math.cos(angle) * speed,
         Math.random() * 6 - 3,
         Math.sin(angle) * speed
       );
-      this._addSpark(color || 0xffff00, pos, vel, 0.2 + Math.random() * 0.3);
+      this._addSpark(color || 0xffff00, pos, _pmV3, 0.15 + Math.random() * 0.15);
     }
   }
 
   spawnSmoke(pos, color, count) {
-    for (let i = 0; i < (count || 10); i++) {
+    count = Math.min(count || 5, 8);
+    for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 2 + Math.random() * 5;
-      const vel = new THREE.Vector3(
+      const speed = 2 + Math.random() * 4;
+      _pmV3.set(
         Math.cos(angle) * speed,
-        2 + Math.random() * 4,
+        2 + Math.random() * 3,
         Math.sin(angle) * speed
       );
-      this._addSmokeParticle(color || 0x444444, pos, vel, 0.8 + Math.random() * 0.6);
+      this._addSmokeParticle(color || 0x444444, pos, _pmV3, 0.6 + Math.random() * 0.4);
     }
   }
 
   spawnDebris(pos, count) {
-    for (let i = 0; i < (count || 8); i++) {
+    count = Math.min(count || 4, 6);
+    for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 4 + Math.random() * 12;
-      const vel = new THREE.Vector3(
+      const speed = 4 + Math.random() * 8;
+      _pmV3.set(
         Math.cos(angle) * speed,
-        3 + Math.random() * 8,
+        3 + Math.random() * 5,
         Math.sin(angle) * speed
       );
-      this._addDebris(pos, vel, 0.5 + Math.random() * 0.5);
+      this._addDebris(pos, _pmV3, 0.3 + Math.random() * 0.3);
     }
   }
 
   spawnRingParticles(pos, color, count, radius) {
-    for (let i = 0; i < (count || 20); i++) {
-      const angle = (i / (count || 20)) * Math.PI * 2;
-      const r = radius || 2;
-      const target = new THREE.Vector3(
+    count = Math.min(count || 12, 16);
+    const r = radius || 2;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      _pmV3.set(
         pos.x + Math.cos(angle) * r,
         pos.y,
         pos.z + Math.sin(angle) * r
-      );
-      const vel = target.sub(pos).normalize().multiplyScalar(5 + Math.random() * 5);
-      this._addParticle(color || 0xffffff, pos, vel, 0.4, 0.2);
+      ).sub(pos).normalize().multiplyScalar(5 + Math.random() * 3);
+      this._addParticle(color || 0xffffff, pos, _pmV3, 0.3, 0.15);
     }
   }
 
   spawnNeonBurst(pos, color, count) {
-    for (let i = 0; i < (count || 40); i++) {
+    count = Math.min(count || 20, 25);
+    for (let i = 0; i < count; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-      const speed = 8 + Math.random() * 15;
-      const vel = new THREE.Vector3(
+      const speed = 8 + Math.random() * 12;
+      _pmV3.set(
         Math.sin(phi) * Math.cos(theta) * speed,
         Math.sin(phi) * Math.sin(theta) * speed,
         Math.cos(phi) * speed
       );
-      this._addParticle(color || 0x00f0ff, pos, vel, 0.6 + Math.random() * 0.6, 0.15 + Math.random() * 0.2);
+      this._addParticle(color || 0x00f0ff, pos, _pmV3, 0.4 + Math.random() * 0.4, 0.12 + Math.random() * 0.1);
     }
   }
 
   spawnSpeedLines(pos, dir, count) {
-    for (let i = 0; i < (count || 20); i++) {
-      const spread = 2;
-      const vel = new THREE.Vector3(
+    count = Math.min(count || 8, 12);
+    for (let i = 0; i < count; i++) {
+      const spread = 1.5;
+      _pmV3.set(
         dir.x * 20 + (Math.random() - 0.5) * spread,
         (Math.random() - 0.5) * spread,
         dir.z * 20 + (Math.random() - 0.5) * spread
       );
       const p = new THREE.Vector3(
-        pos.x + (Math.random() - 0.5) * 3,
-        0.2 + Math.random() * 0.5,
-        pos.z + (Math.random() - 0.5) * 3
+        pos.x + (Math.random() - 0.5) * 2,
+        0.2 + Math.random() * 0.3,
+        pos.z + (Math.random() - 0.5) * 2
       );
-      this._addSpeedLine(0x00f0ff, p, vel, 0.15);
+      this._addSpeedLine(0x00f0ff, p, _pmV3, 0.12);
     }
   }
 
   spawnRespawnParticles(pos, color, count) {
-    for (let i = 0; i < (count || 50); i++) {
+    count = Math.min(count || 25, 30);
+    for (let i = 0; i < count; i++) {
       const theta = Math.random() * Math.PI * 2;
-      const r = 2 + Math.random() * 4;
-      const vel = new THREE.Vector3(
+      const r = 2 + Math.random() * 3;
+      _pmV3.set(
         Math.cos(theta) * r,
-        Math.random() * 8 + 4,
+        Math.random() * 6 + 2,
         Math.sin(theta) * r
       );
-      this._addParticle(color || 0x00f0ff, pos, vel, 0.8 + Math.random() * 0.8, 0.2 + Math.random() * 0.3);
+      this._addParticle(color || 0x00f0ff, pos, _pmV3, 0.5 + Math.random() * 0.4, 0.15 + Math.random() * 0.15);
     }
   }
 
   spawnJumpPadParticles(pos, color) {
-    for (let i = 0; i < 10; i++) {
-      const theta = (i / 10) * Math.PI * 2;
-      const vel = new THREE.Vector3(
+    for (let i = 0; i < 8; i++) {
+      const theta = (i / 8) * Math.PI * 2;
+      _pmV3.set(
         Math.cos(theta) * 3,
-        2 + Math.random() * 3,
+        2 + Math.random() * 2,
         Math.sin(theta) * 3
       );
-      this._addParticle(color || 0x00f0ff, pos, vel, 0.6, 0.15);
+      this._addParticle(color || 0x00f0ff, pos, _pmV3, 0.4, 0.12);
     }
   }
 
-  _addParticle(color, pos, vel, life, size) {
-    const geo = new THREE.SphereGeometry(size || 0.1, 4, 4);
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    this.scene.add(mesh);
-    this.effects.push({
-      type: 'particle', mesh, mat, geo,
-      vel: vel.clone(),
-      life: 0, maxLife: life || 0.5,
-      gravity: true,
-    });
-    return mesh;
-  }
-
-  _addSpark(color, pos, vel, life) {
-    const geo = new THREE.BoxGeometry(0.04, 0.04, 0.12);
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    this.scene.add(mesh);
-    this.effects.push({
-      type: 'spark', mesh, mat, geo,
-      vel: vel.clone(),
-      life: 0, maxLife: life || 0.3,
-      gravity: true,
-    });
-    return mesh;
-  }
-
-  _addSmokeParticle(color, pos, vel, life) {
-    const size = 0.3 + Math.random() * 0.4;
-    const geo = new THREE.SphereGeometry(size, 6, 6);
-    const mat = new THREE.MeshBasicMaterial({
-      color: color || 0x444444,
-      transparent: true, opacity: 0.3,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    this.scene.add(mesh);
-    this.effects.push({
-      type: 'smoke', mesh, mat, geo,
-      vel: vel.clone(),
-      life: 0, maxLife: life || 1.0,
-      gravity: false,
-      growSpeed: 0.5 + Math.random() * 0.5,
-    });
-    return mesh;
-  }
-
-  _addDebris(pos, vel, life) {
-    const sizes = [0.06, 0.08, 0.1, 0.12];
-    const size = sizes[Math.floor(Math.random() * sizes.length)];
-    const geo = new THREE.BoxGeometry(size, size * (0.5 + Math.random() * 0.5), size);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0x888888,
-      transparent: true, opacity: 0.8,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    const rotSpeed = new THREE.Vector3(
-      (Math.random() - 0.5) * 10,
-      (Math.random() - 0.5) * 10,
-      (Math.random() - 0.5) * 10
-    );
-    this.scene.add(mesh);
-    this.effects.push({
-      type: 'debris', mesh, mat, geo,
-      vel: vel.clone(),
-      rotSpeed,
-      life: 0, maxLife: life || 0.5,
-      gravity: true,
-    });
-    return mesh;
-  }
-
-  _addSpeedLine(color, pos, vel, life) {
-    const geo = new THREE.BoxGeometry(0.02, 0.02, 0.5);
-    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    mesh.lookAt(pos.clone().add(vel.clone().normalize()));
-    this.scene.add(mesh);
-    this.effects.push({
-      type: 'speedline', mesh, mat, geo,
-      vel: vel.clone(),
-      life: 0, maxLife: life || 0.15,
-      gravity: false,
-    });
-    return mesh;
-  }
-
   update(dt) {
-    for (let i = this.effects.length - 1; i >= 0; i--) {
-      const e = this.effects[i];
+    const active = this.active;
+    for (let i = active.length - 1; i >= 0; i--) {
+      const e = active[i];
       e.life += dt;
       if (e.life >= e.maxLife) {
-        this.scene.remove(e.mesh);
-        e.geo.dispose();
-        e.mat.dispose();
-        this.effects.splice(i, 1);
+        this._free(e);
+        active.splice(i, 1);
         continue;
       }
       const t = e.life / e.maxLife;
-      e.mesh.position.x += e.vel.x * dt;
-      e.mesh.position.y += (e.vel.y + (e.gravity ? -9.8 * e.life : 0)) * dt;
-      e.mesh.position.z += e.vel.z * dt;
+      const m = e.mesh;
+      const v = e.vel;
+      m.position.x += v.x * dt;
+      m.position.y += v.y * dt;
+      m.position.z += v.z * dt;
+      if (e.gravity) v.y -= 9.8 * dt;
       e.mat.opacity = 1 - t;
       if (e.type === 'smoke') {
-        const s = 1 + t * (e.growSpeed || 1);
-        e.mesh.scale.setScalar(s);
+        const s = 1 + t * e.growSpeed;
+        m.scale.setScalar(s);
       }
-      if (e.type === 'debris') {
-        e.mesh.rotation.x += (e.rotSpeed ? e.rotSpeed.x : 0) * dt;
-        e.mesh.rotation.y += (e.rotSpeed ? e.rotSpeed.y : 0) * dt;
-        e.mesh.rotation.z += (e.rotSpeed ? e.rotSpeed.z : 0) * dt;
+      if (e.rotSpeed) {
+        m.rotation.x += e.rotSpeed.x * dt;
+        m.rotation.y += e.rotSpeed.y * dt;
+        m.rotation.z += e.rotSpeed.z * dt;
       }
       if (e.type === 'speedline') {
-        e.mesh.scale.setScalar(1 - t * 0.8);
+        m.scale.setScalar(1 - t * 0.8);
+      }
+      if (e.type === 'spark' || e.type === 'particle') {
+        const s = 1 - t * 0.5;
+        m.scale.setScalar(Math.max(s, 0.01));
       }
     }
   }
 
   clear() {
-    this.effects.forEach(e => {
-      this.scene.remove(e.mesh);
-      e.geo.dispose();
-      e.mat.dispose();
-    });
-    this.effects = [];
+    const active = this.active;
+    for (let i = active.length - 1; i >= 0; i--) {
+      this._free(active[i]);
+      active.splice(i, 1);
+    }
+    const pool = this.pool;
+    for (let i = 0; i < pool.length; i++) {
+      if (pool[i].mat) pool[i].mat.dispose();
+    }
+    this.pool = [];
   }
 
-  get count() { return this.effects.length; }
+  get count() { return this.active.length; }
 }

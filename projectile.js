@@ -1,3 +1,7 @@
+const _sharedProjGeo = new THREE.SphereGeometry(0.3, 6, 6);
+const _sharedProjGlowGeo = new THREE.SphereGeometry(0.6, 6, 6);
+const _v3_tmp = new THREE.Vector3();
+
 class Projectile {
   constructor(scene, origin, dir, ownerId, id, color, weapon) {
     this.scene = scene;
@@ -11,22 +15,19 @@ class Projectile {
     this.isHostProjectile = false;
     this.isRemote = false;
 
-    const r = this.wp.projRadius || 0.2;
-    const geo = new THREE.SphereGeometry(r * 1.5, 6, 6);
-    const mat = new THREE.MeshBasicMaterial({ color: this.color });
-    this.mesh = new THREE.Mesh(geo, mat);
+    this.mat = new THREE.MeshBasicMaterial({ color: this.color });
+    this.mesh = new THREE.Mesh(_sharedProjGeo, this.mat);
     this.mesh.position.copy(origin);
     this.mesh.position.y += CONFIG.playerHeight * 0.6;
     this.scene.add(this.mesh);
 
-    this.velocity = dir.clone().multiplyScalar(this.wp.projSpeed || 50);
-    this.velocity.y = 0;
-
-    const ggeo = new THREE.SphereGeometry(r * 3, 6, 6);
-    const gmat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.25 });
-    this.glow = new THREE.Mesh(ggeo, gmat);
+    this.glowMat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.25 });
+    this.glow = new THREE.Mesh(_sharedProjGlowGeo, this.glowMat);
     this.glow.position.copy(this.mesh.position);
     this.scene.add(this.glow);
+
+    this.velocity = dir.clone().multiplyScalar(this.wp.projSpeed || 50);
+    this.velocity.y = 0;
 
     this.trail = [];
     this.trailTimer = 0;
@@ -54,21 +55,19 @@ class Projectile {
     this.glow.scale.setScalar(pulse);
 
     this.trailTimer += dt;
-    const trailRate = Math.max(0.01, 0.04 - this.speed * 0.0003);
-    if (this.trailTimer > trailRate) {
+    if (this.trailTimer > 0.03) {
       this.trailTimer = 0;
       this._spawnTrail();
     }
 
     const trailLife = 0.2 + this.speed * 0.006;
-    for (let i = this.trail.length - 1; i >= 0; i--) {
-      const t = this.trail[i];
+    const trails = this.trail;
+    for (let i = trails.length - 1; i >= 0; i--) {
+      const t = trails[i];
       t.life += dt;
       if (t.life > trailLife) {
-        this.scene.remove(t.mesh);
-        t.mesh.geometry.dispose();
-        t.mesh.material.dispose();
-        this.trail.splice(i, 1);
+        if (t.mesh.parent) this.scene.remove(t.mesh);
+        trails.splice(i, 1);
         continue;
       }
       const s = t.life / trailLife;
@@ -90,20 +89,19 @@ class Projectile {
     const m = new THREE.Mesh(geo, mat);
     m.position.copy(this.mesh.position);
     this.scene.add(m);
-    this.trail.push({ mesh: m, life: 0 });
+    this.trail.push({ mesh: m, life: 0, geo, mat });
   }
 
   explosionFX() {
     if (this.exploded) return;
     this.exploded = true;
     const r = (this.wp.projRadius || 0.2) * 8;
-    const geo = new THREE.SphereGeometry(r, 10, 10);
-    const mat = new THREE.MeshBasicMaterial({
+    const boomMat = new THREE.MeshBasicMaterial({
       color: 0xff4400,
       transparent: true,
       opacity: 0.6,
     });
-    const boom = new THREE.Mesh(geo, mat);
+    const boom = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 10), boomMat);
     boom.position.copy(this.mesh.position);
     this.scene.add(boom);
     const start = performance.now();
@@ -129,15 +127,15 @@ class Projectile {
     this.alive = false;
     if (this.mesh.parent) this.scene.remove(this.mesh);
     if (this.glow.parent) this.scene.remove(this.glow);
-    try { this.mesh.geometry.dispose(); } catch(e) {}
-    try { this.mesh.material.dispose(); } catch(e) {}
-    try { this.glow.geometry.dispose(); } catch(e) {}
-    try { this.glow.material.dispose(); } catch(e) {}
-    this.trail.forEach(t => {
+    this.mat.dispose();
+    this.glowMat.dispose();
+    const trails = this.trail;
+    for (let i = 0; i < trails.length; i++) {
+      const t = trails[i];
       if (t.mesh.parent) this.scene.remove(t.mesh);
-      try { t.mesh.geometry.dispose(); } catch(e) {}
-      try { t.mesh.material.dispose(); } catch(e) {}
-    });
+      t.geo.dispose();
+      t.mat.dispose();
+    }
     this.trail = [];
   }
 }

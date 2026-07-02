@@ -15,6 +15,7 @@ class Player {
     this.maxAmmo = 0;
     this.reloading = false;
     this.reloadTimer = 0;
+    this.onReloadComplete = null;
 
     const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
     const mat = new THREE.MeshStandardMaterial({
@@ -139,6 +140,8 @@ class Player {
         this.ammo = this.maxAmmo;
         this.reloading = false;
         this.reloadTimer = 0;
+        this.lastFireTime = 0;
+        if (this.onReloadComplete) this.onReloadComplete(this.weapon);
       }
     }
 

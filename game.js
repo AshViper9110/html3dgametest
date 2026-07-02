@@ -66,6 +66,8 @@ class Game {
     this.effectManager = new EffectManager(this.scene, this.camera);
     this.cameraEffectManager = new CameraEffectManager(this.camera);
 
+    this._wireReloadCallback();
+
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
@@ -417,6 +419,17 @@ class Game {
     });
   }
 
+  _wireReloadCallback() {
+    this._onReloadComplete = (weapon) => {
+      if (this.hostAuthority && this.network.isHost) {
+        this.hostAuthority.refillAmmo(this.network.myId, weapon);
+      }
+      if (!this.network.isHost) {
+        this.network.send({ type: 'reload_complete', weapon });
+      }
+    };
+  }
+
   startGame() {
     this.gameStarted = true;
     this.gameOver = false;
@@ -441,7 +454,7 @@ class Game {
     document.getElementById('kill-count').textContent = '0';
     document.getElementById('death-count').textContent = '0';
     const lp = this.localPlayer;
-    if (lp) { lp.refillAmmo(); this.updateAmmoUI(); }
+    if (lp) { lp.onReloadComplete = this._onReloadComplete; lp.refillAmmo(); this.updateAmmoUI(); }
     this.addKillFeed('GAME START!');
     this.updateTimerUI();
     if (!this.pointerLocked) setTimeout(() => this.renderer.domElement.requestPointerLock(), 300);
@@ -508,7 +521,7 @@ class Game {
             position: { x: lp.position.x, y: 0, z: lp.position.z },
             direction: dirData,
             color: lp.color,
-            timestamp: performance.now(),
+            timestamp: Date.now(),
           }, this.network.myId, 'local_' + inputId);
         }
       } else {
@@ -597,6 +610,11 @@ class Game {
       case 'game_over':
         this._handleGameOver(data);
         break;
+      case 'reload_complete':
+        if (this.network.isHost && this.hostAuthority) {
+          this.hostAuthority.refillAmmo(conn.peer, data.weapon);
+        }
+        break;
     }
   }
 
@@ -654,6 +672,7 @@ class Game {
     if (this.localPlayer) {
       this.localPlayer.weapon = this.loadoutWeapon;
       this.localPlayer.lastFireTime = 0;
+      this.localPlayer.onReloadComplete = this._onReloadComplete;
       this.localPlayer.refillAmmo();
     }
     if (data.gameStarted) {
@@ -1005,7 +1024,7 @@ class Game {
 
       const wp = WEAPONS[lp.weapon];
       if (this.mouseDown && this.pointerLocked) {
-        const now = performance.now();
+        const now = Date.now();
         if (now - lp.lastFireTime > wp.fireRate * 1000) {
           lp.lastFireTime = now;
           this.shoot();
@@ -1036,8 +1055,11 @@ class Game {
       p.update(dt);
     });
 
-    this.projectiles = this.projectiles.filter(p => p.alive);
-    this.projectiles.forEach(p => p.update(dt));
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      if (!p.alive) { this.projectiles.splice(i, 1); continue; }
+      p.update(dt);
+    }
 
     if (this.effectManager) {
       this.effectManager.update(dt);
@@ -1092,6 +1114,7 @@ class Game {
     lp.alive = true;
     this.mouseDown = false;
     this.invincibleTimer = CONFIG.invincibleTime;
+    lp.onReloadComplete = this._onReloadComplete;
     lp.refillAmmo();
     this.updateAmmoUI();
     this.updateHealthUI();
