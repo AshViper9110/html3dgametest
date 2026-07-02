@@ -656,6 +656,7 @@ class Game {
     }
     if (this.network.isHost) {
       this.network.broadcast(data, this._findConn(data.id));
+      if (this.hostAuthority) this.hostAuthority.refillAllAmmo(data.id);
     }
   }
 
@@ -1105,7 +1106,11 @@ class Game {
     this.killStreak = 0;
     this.killCountThisLife = 0;
     this.multiKillTimer = 0;
-    this.clientReady.clear();
+    const hostId = this.network.myId;
+    this.clientReady.forEach((v, id) => {
+      if (id !== hostId) this.clientReady.delete(id);
+    });
+    this.clientReady.set(hostId, true);
     this.network.sendTimer = CONFIG.stateSendRate;
     document.getElementById('kill-count').textContent = '0';
     document.getElementById('death-count').textContent = '0';
@@ -1499,6 +1504,9 @@ class Game {
     this.updateAmmoUI();
     this.updateHealthUI();
     this.killCountThisLife = 0;
+    if (this.hostAuthority && this.network.isHost) {
+      this.hostAuthority.refillAmmo(this.network.myId, lp.weapon);
+    }
     if (this.effectManager) {
       this.effectManager.spawnRespawnEffect(spawnPos, lp.color);
     }
@@ -1728,7 +1736,11 @@ class Game {
     this.invincibleTimer = 0;
     this.respawnTimer = 0;
     this.killCamKillerId = null;
-    this.clientReady.clear();
+    const hostId = this.network.myId;
+    this.clientReady.forEach((v, id) => {
+      if (id !== hostId) this.clientReady.delete(id);
+    });
+    this.clientReady.set(hostId, true);
     this.players.forEach(p => {
       p.alive = true;
       p.health = CONFIG.maxHealth;
@@ -1752,6 +1764,7 @@ class Game {
     this.gameTimer = CONFIG.gameTimeLimit;
     this.connectionHandled = false;
     this.setState(GameState.LOBBY);
+    if (this.network.isHost) this._syncLobbyState();
   }
 
   /* ----------------------------------------------------------
