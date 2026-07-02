@@ -162,14 +162,7 @@ textarea:focus {
   text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
 }
 
-/* === HUD（ヘルスバーなど） === */
-/* 注: HUDの完全な定義は「=== 試合HUD ===」セクションにあります */
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-  margin: 10px 0;
-}
+
 .map-nav-btn {
   font-family: 'Orbitron', monospace;
   font-size: 1em;
@@ -327,7 +320,8 @@ textarea:focus {
   font-size: 0.65em;
 }
 
-/* === 試合HUD === */
+/* === 画面共通 === */
+.screen {
   position: fixed;
   top: 0; left: 0;
   width: 100vw; height: 100vh;
