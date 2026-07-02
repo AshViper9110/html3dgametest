@@ -92,16 +92,18 @@ document.getElementById('btn-ready').addEventListener('click', () => {
   game._updateLobbyUI();
 });
 
-/* クライアント: 武器変更（ロビー） */
+/* 武器変更（ロビー） */
 document.getElementById('lobby-weapon-btns').addEventListener('click', (e) => {
   const btn = e.target.closest('.map-btn');
   if (!btn) return;
   const wp = btn.dataset.weapon;
   game.loadoutWeapon = wp;
   if (game.localPlayer) game.localPlayer.weapon = wp;
+  game.clientWeapons.set(game.localId, wp);
   document.querySelectorAll('#lobby-weapon-btns .map-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   game.network.sendWeaponChange(wp);
+  game._updateLobbyUI();
 });
 
 /* デス画面: 武器変更 */
@@ -111,6 +113,7 @@ document.getElementById('death-weapon-btns').addEventListener('click', (e) => {
   const wp = btn.dataset.weapon;
   game.loadoutWeapon = wp;
   if (game.localPlayer) game.localPlayer.weapon = wp;
+  game.clientWeapons.set(game.localId, wp);
   document.querySelectorAll('#death-weapon-btns .map-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   game.network.sendWeaponChange(wp);

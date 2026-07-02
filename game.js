@@ -408,6 +408,7 @@ class Game {
       type: 'welcome',
       players: Array.from(this.players.entries()).map(([id, p]) => ({
         id, name: p.name, color: p.color, weapon: this.clientWeapons.get(id) || 'pistol',
+        ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
       })),
       yourId: peerId,
       map: this.selectedMap,
@@ -424,6 +425,7 @@ class Game {
     data.players.forEach(p => {
       this.addPlayer(p.id, p.color, p.name);
       this.clientWeapons.set(p.id, p.weapon || 'pistol');
+      this.clientReady.set(p.id, p.ready || false);
     });
     this.localId = data.yourId;
     this.selectedMap = data.map || 'grid';
@@ -660,11 +662,9 @@ class Game {
   }
 
   _handleMapSelect(data) {
-    if (!this.network.isHost) {
-      this.selectedMap = data.map;
-      if (this.gameState === GameState.LOBBY) {
-        this._updateLobbyUI();
-      }
+    this.selectedMap = data.map;
+    if (this.gameState === GameState.LOBBY) {
+      this._updateLobbyUI();
     }
   }
 
@@ -699,7 +699,7 @@ class Game {
     }
     if (this.gameState === GameState.LOBBY) this._updateLobbyUI();
     if (this.network.isHost) {
-      this.network.broadcast({ type: 'weapon_change', id: peerId, weapon: data.weapon }, conn);
+      this._syncLobbyState();
     }
   }
 
@@ -709,6 +709,7 @@ class Game {
     if (p) p.name = data.name;
     if (this.network.isHost) {
       this.network.broadcast({ type: 'name_change', id: peerId, name: data.name }, conn);
+      this._syncLobbyState();
     }
     if (this.gameState === GameState.LOBBY) this._updateLobbyUI();
   }
@@ -719,6 +720,8 @@ class Game {
       data.players.forEach(p => {
         this.clientReady.set(p.id, p.ready);
         this.clientWeapons.set(p.id, p.weapon);
+        const player = this.players.get(p.id);
+        if (player && p.name) player.name = p.name;
       });
     }
     this._updateLobbyUI();
@@ -764,11 +767,13 @@ class Game {
       const idx = mapKeys.indexOf(this.selectedMap);
       this.selectedMap = mapKeys[(idx - 1 + mapKeys.length) % mapKeys.length];
       this._updateLobbyUI();
+      this._syncLobbyState();
       this.network.broadcast({ type: 'map_select', map: this.selectedMap });
     });
     const mapNameEl = document.createElement('span');
     mapNameEl.className = 'map-nav-name';
     mapNameEl.id = 'map-nav-name';
+    mapNameEl.textContent = MAPS[this.selectedMap] ? MAPS[this.selectedMap].name : this.selectedMap;
     const nextBtn = document.createElement('button');
     nextBtn.className = 'map-nav-btn';
     nextBtn.textContent = '▶';
@@ -776,6 +781,7 @@ class Game {
       const idx = mapKeys.indexOf(this.selectedMap);
       this.selectedMap = mapKeys[(idx + 1) % mapKeys.length];
       this._updateLobbyUI();
+      this._syncLobbyState();
       this.network.broadcast({ type: 'map_select', map: this.selectedMap });
     });
     container.appendChild(prevBtn);
@@ -807,6 +813,14 @@ class Game {
     }
     this._renderPlayerList();
     this._updateStartButton();
+    this._updateLobbyWeaponHighlight();
+  }
+
+  _updateLobbyWeaponHighlight() {
+    const wp = this.loadoutWeapon;
+    document.querySelectorAll('#lobby-weapon-btns .map-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.weapon === wp);
+    });
   }
 
   _renderPlayerList() {
@@ -876,12 +890,13 @@ class Game {
     const players = [];
     this.players.forEach((p, id) => {
       players.push({
-        id, ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
+        id, name: p.name, ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
         weapon: this.clientWeapons.get(id) || 'pistol',
       });
     });
     this.network.broadcast({
       type: 'lobby_state', map: this.selectedMap, players,
+      hostId: this.network.myId,
     });
   }
 
