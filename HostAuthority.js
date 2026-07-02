@@ -5,6 +5,7 @@ class HostAuthority {
     this.projIdCounter = 0;
     this.ammoStates = new Map();
     this.playerStats = new Map();
+    this.respawnedPeers = new Set();
   }
 
   handleFireRequest(data, peerId, inputId) {
@@ -14,6 +15,10 @@ class HostAuthority {
     if (!cv.validateWeapon(data.weapon)) return;
     if (!cv.validateFireRate(peerId, data.weapon, data.timestamp || Date.now())) return;
     if (cv.isReplayAttack(inputId)) return;
+    if (this.respawnedPeers.has(peerId)) {
+      this.refillAllAmmo(peerId);
+      this.respawnedPeers.delete(peerId);
+    }
     if (!this._hasAmmo(peerId, data.weapon)) return;
 
     this._consumeAmmo(peerId, data.weapon);
@@ -273,5 +278,6 @@ class HostAuthority {
     this.projIdCounter = 0;
     this.ammoStates.clear();
     this.playerStats.clear();
+    this.respawnedPeers.clear();
   }
 }

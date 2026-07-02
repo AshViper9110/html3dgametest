@@ -656,7 +656,10 @@ class Game {
     }
     if (this.network.isHost) {
       this.network.broadcast(data, this._findConn(data.id));
-      if (this.hostAuthority) this.hostAuthority.refillAllAmmo(data.id);
+      if (this.hostAuthority) {
+        this.hostAuthority.refillAllAmmo(data.id);
+        this.hostAuthority.respawnedPeers.add(data.id);
+      }
     }
   }
 
@@ -1504,8 +1507,11 @@ class Game {
     this.updateAmmoUI();
     this.updateHealthUI();
     this.killCountThisLife = 0;
-    if (this.hostAuthority && this.network.isHost) {
-      this.hostAuthority.refillAmmo(this.network.myId, lp.weapon);
+    if (this.hostAuthority) {
+      this.hostAuthority.respawnedPeers.add(this.network.myId);
+      if (this.network.isHost) {
+        this.hostAuthority.refillAmmo(this.network.myId, lp.weapon);
+      }
     }
     if (this.effectManager) {
       this.effectManager.spawnRespawnEffect(spawnPos, lp.color);
