@@ -41,7 +41,7 @@ class BeamManager {
       color: beam.color,
       transparent: true,
       opacity: 0.9,
-      linewidth: 1,
+      linewidth: 5,
     });
     const line = new THREE.Line(geo, mat);
     this.scene.add(line);

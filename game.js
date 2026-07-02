@@ -175,7 +175,7 @@ class Game {
         this.mouseDown = true;
         this.mouseClicked = true;
         if (this.network.connected && !this.pointerLocked &&
-            this.gameState === GameState.PLAYING && !(this.respawnTimer > 0)) {
+          this.gameState === GameState.PLAYING && !(this.respawnTimer > 0)) {
           console.log('[Fire] → requestPointerLock()');
           this.renderer.domElement.requestPointerLock();
         } else {
@@ -264,10 +264,10 @@ class Game {
       this.arenaObjects.push(el);
     };
     const wallData = [
-      { p: [0, map.wallHeight/2, -half], s: [map.size, map.wallHeight, map.wallThick] },
-      { p: [0, map.wallHeight/2, half], s: [map.size, map.wallHeight, map.wallThick] },
-      { p: [-half, map.wallHeight/2, 0], s: [map.wallThick, map.wallHeight, map.size] },
-      { p: [half, map.wallHeight/2, 0], s: [map.wallThick, map.wallHeight, map.size] },
+      { p: [0, map.wallHeight / 2, -half], s: [map.size, map.wallHeight, map.wallThick] },
+      { p: [0, map.wallHeight / 2, half], s: [map.size, map.wallHeight, map.wallThick] },
+      { p: [-half, map.wallHeight / 2, 0], s: [map.wallThick, map.wallHeight, map.size] },
+      { p: [half, map.wallHeight / 2, 0], s: [map.wallThick, map.wallHeight, map.size] },
     ];
     wallData.forEach((d, i) => addWall(d.p, d.s, i));
     map.walls.forEach((w, i) => addWall(w.p, w.s, i + 4));
@@ -350,7 +350,7 @@ class Game {
     p.name = name || 'Player';
     this.players.set(id, p);
     console.log('[Player Init] id=%s name=%s weapon=%s ammo=%s/%s alive=%s color=#%s',
-      id, p.name, p.weapon, p.ammo, p.maxAmmo, p.alive, p.color.toString(16).padStart(6,'0'));
+      id, p.name, p.weapon, p.ammo, p.maxAmmo, p.alive, p.color.toString(16).padStart(6, '0'));
     return p;
   }
 
@@ -466,8 +466,10 @@ class Game {
       yourId: peerId,
       map: this.selectedMap,
     });
-    this.network.broadcast({ type: 'player_joined', id: peerId, name, color,
-      weapon: defaultWeapon, ready: false }, conn);
+    this.network.broadcast({
+      type: 'player_joined', id: peerId, name, color,
+      weapon: defaultWeapon, ready: false
+    }, conn);
     this._updateLobbyUI();
     this._syncLobbyState();
   }
