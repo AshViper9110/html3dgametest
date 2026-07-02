@@ -37,7 +37,10 @@ class Game {
     this.invincibleTimer = 0;
     this.teleportCooldown = 0;
     this.loadoutWeapon = WEAPON_REGISTRY.getAll()[0] || 'pistol';
+    this.weaponManager = new WeaponManager(WEAPON_REGISTRY);
+    this.weaponManager.set(this.loadoutWeapon);
     this.mouseDown = false;
+    this.mouseClicked = false;
     this.dashTimer = 0;
     this.dashCooldown = 0;
     this.dashTriggered = false;
@@ -136,6 +139,7 @@ class Game {
     this.hitValidator = new HitValidator(this);
     this.effectManager = new EffectManager(this.scene, this.camera);
     this.cameraEffectManager = new CameraEffectManager(this.camera);
+    this.beamManager = new BeamManager(this.scene);
 
     this._wireReloadCallback();
     this._setupInputEvents();
@@ -169,6 +173,7 @@ class Game {
         console.log('[Fire] Mouse mousedown PLAYING=%s respawnTimer=%s pointerLocked=%s connected=%s',
           this.gameState === GameState.PLAYING, this.respawnTimer, this.pointerLocked, this.network.connected);
         this.mouseDown = true;
+        this.mouseClicked = true;
         if (this.network.connected && !this.pointerLocked &&
             this.gameState === GameState.PLAYING && !(this.respawnTimer > 0)) {
           console.log('[Fire] → requestPointerLock()');
@@ -318,6 +323,7 @@ class Game {
     this.projectiles = [];
     if (this.hostAuthority) this.hostAuthority.reset();
     if (this.effectManager) this.effectManager.clear();
+    if (this.beamManager) this.beamManager.clear();
     document.getElementById('kill-feed').innerHTML = '';
     document.getElementById('kill-count').textContent = '0';
     document.getElementById('death-count').textContent = '0';
@@ -400,6 +406,19 @@ class Game {
         if (this.network.isHost && this.hostAuthority) {
           this.hostAuthority.refillAmmo(conn.peer, data.weapon);
         }
+        break;
+      case 'beam_fire':
+        if (this.network.isHost) {
+          if (this.hostAuthority && conn) {
+            const peerId = conn.peer;
+            if (!this.cheatValidator || !this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId)) break;
+            if (data.inputId === undefined) break;
+            this.hostAuthority.handleBeamFireRequest(data, peerId, peerId + '_' + data.inputId);
+          }
+        }
+        break;
+      case 'beam_effect':
+        this._handleBeamEffect(data);
         break;
       /* 新規メッセージ */
       case 'ready': if (this.network.isHost) this._handleReady(data, conn); break;
@@ -555,6 +574,15 @@ class Game {
     }
   }
 
+  _handleBeamEffect(data) {
+    if (this.beamManager) {
+      const startPos = new THREE.Vector3(data.startPos.x, 0, data.startPos.z);
+      const endPos = new THREE.Vector3(data.endPos.x, 0, data.endPos.z);
+      const wp = WEAPONS[data.weapon];
+      this.beamManager.fireBeam(startPos, endPos, wp, data.color);
+    }
+  }
+
   _applyLocalHitEffects(data) {
     if (this.invincibleTimer > 0 || !this.localPlayer) return;
     this.cameraEffectManager.hitShake(3);
@@ -575,7 +603,9 @@ class Game {
     this.respawnCountdownValue = 3;
     this.killCamKillerId = data.shooterId;
     this.killCamKillerName = data.shooterName || 'Unknown';
-    this.killCamWeapon = data.weapon ? (WEAPONS[data.weapon] ? WEAPONS[data.weapon].name : data.weapon) : '';
+    const wpData = data.weapon ? WEAPONS[data.weapon] : null;
+    const beamIcon = wpData && wpData.weaponType === 'beam' ? '⚡ ' : '';
+    this.killCamWeapon = wpData ? beamIcon + wpData.displayName : (data.weapon || '');
     document.getElementById('death-screen').classList.add('show');
     document.getElementById('death-killer-name').textContent = `Killed By ${this.killCamKillerName}`;
     document.getElementById('death-weapon-name').textContent = this.killCamWeapon;
@@ -603,11 +633,13 @@ class Game {
   _addKillFeedMessage(data) {
     if (data.targetId === this.network.myId) return;
     if (!data.lethal) return;
-    const weaponName = data.weapon ? (WEAPONS[data.weapon] ? WEAPONS[data.weapon].name : data.weapon) : '';
+    const wpData = data.weapon ? WEAPONS[data.weapon] : null;
+    const weaponName = wpData ? wpData.displayName : (data.weapon || '');
+    const icon = wpData && wpData.weaponType === 'beam' ? '⚡' : (wpData ? '🔫' : '');
     const el = document.createElement('div');
     el.className = 'kill-msg';
     el.innerHTML = `<span class="killer">${this._escapeHtml(data.shooterName || '?')}</span>` +
-      `<span class="weapon-icon">${weaponName}</span>` +
+      `<span class="weapon-icon">${icon}</span>` +
       `<span class="victim">${this._escapeHtml(data.targetName || '?')}</span>`;
     document.getElementById('kill-feed').appendChild(el);
     setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
@@ -751,6 +783,7 @@ class Game {
     this.clientWeapons.set(peerId, data.weapon);
     if (peerId === this.localId) {
       this.loadoutWeapon = data.weapon;
+      this.weaponManager.set(data.weapon);
       if (this.localPlayer) this.localPlayer.weapon = data.weapon;
     }
     if (this.gameState === GameState.LOBBY) this._updateLobbyUI();
@@ -998,7 +1031,10 @@ class Game {
     const w = WEAPON_REGISTRY.get(wp);
     const nameEl = document.getElementById(target + '-ws-name');
     const statsEl = document.getElementById(target + '-ws-stats');
-    if (nameEl) nameEl.textContent = w ? w.name : '?';
+    if (nameEl) {
+      const beamIcon = w && w.weaponType === 'beam' ? '⚡ ' : '';
+      nameEl.textContent = w ? beamIcon + w.displayName : '?';
+    }
     if (statsEl) statsEl.innerHTML = w ? WEAPON_REGISTRY.statsLines(wp).join('<br>') : '';
   }
 
@@ -1012,6 +1048,7 @@ class Game {
     } else {
       this.loadoutWeapon = WEAPON_REGISTRY.prev(this.loadoutWeapon);
     }
+    this.weaponManager.set(this.loadoutWeapon);
     if (this.localPlayer) {
       this.localPlayer.weapon = this.loadoutWeapon;
     }
@@ -1066,7 +1103,8 @@ class Game {
       weaponEl.className = 'pl-card-weapon';
       const wpId = this.clientWeapons.get(id) || WEAPON_REGISTRY.getAll()[0];
       const wpData = WEAPON_REGISTRY.get(wpId);
-      weaponEl.textContent = wpData ? wpData.name : wpId;
+      const beamIcon = wpData && wpData.weaponType === 'beam' ? '⚡ ' : '';
+      weaponEl.textContent = wpData ? beamIcon + wpData.displayName : wpId;
 
       const readyEl = document.createElement('span');
       readyEl.className = 'pl-card-ready';
@@ -1224,12 +1262,19 @@ class Game {
      ---------------------------------------------------------- */
   shoot() {
     const lp = this.localPlayer;
-    console.log('[Fire] shoot() alive=%s reloading=%s ammo=%s isHost=%s',
-      lp ? lp.alive : 'N/A', lp ? lp.reloading : 'N/A', lp ? lp.ammo : 'N/A', this.network.isHost);
-    if (!lp || !lp.alive) { console.log('[Fire] BLOCKED: !lp || !lp.alive'); return; }
-    if (lp.reloading) { console.log('[Fire] BLOCKED: reloading'); return; }
-    if (lp.ammo <= 0) { console.log('[Fire] BLOCKED: ammo=%s → reload', lp.ammo); this.reload(); return; }
+    if (!lp || !lp.alive) return;
+    if (lp.reloading) return;
+    if (lp.ammo <= 0) { this.reload(); return; }
     const wp = WEAPONS[lp.weapon] || WEAPONS.pistol;
+
+    if (wp.weaponType === 'beam') {
+      this._fireBeam(wp, lp);
+    } else {
+      this._fireProjectile(wp, lp);
+    }
+  }
+
+  _fireProjectile(wp, lp) {
     const pellets = wp.pellets || 1;
 
     const baseDir = new THREE.Vector3(0, 0, -1);
@@ -1237,16 +1282,9 @@ class Game {
     baseDir.y = 0;
     baseDir.normalize();
 
-    /* 発砲リクエストは1トリガーにつき1回だけ送信する。
-       ペレットの展開（散弾銃など）はHostAuthority.handleFireRequest側で
-       wp.pelletsを見て行われるため、ここでペレット数分ループして
-       送信すると二重にペレットが生成されてしまう（連射レート制限で
-       事故的に隠れていたが、通信遅延次第で弾薬過剰消費・多重発射の
-       原因になりうる不具合だった）。 */
     const inputId = this.inputIdCounter++;
     const dirData = { x: baseDir.x, y: 0, z: baseDir.z };
     if (this.network.isHost) {
-      console.log('[Fire] Host → handleFireRequest directly');
       if (this.hostAuthority) {
         this.hostAuthority.handleFireRequest({
           weapon: lp.weapon,
@@ -1257,12 +1295,9 @@ class Game {
         }, this.network.myId, 'local_' + inputId);
       }
     } else {
-      console.log('[Fire] Client → sendFireRequest');
       this.network.sendFireRequest(lp.weapon, lp.position, dirData, inputId, lp.color);
     }
 
-    /* マズルフラッシュは見た目の演出のみ。ペレット数分表示して
-       散弾銃らしい発砲エフェクトにする（弾道そのものはホスト権威側で生成）。 */
     if (this.effectManager) {
       for (let i = 0; i < pellets; i++) {
         const flashDir = baseDir.clone();
@@ -1273,6 +1308,37 @@ class Game {
         }
         this.effectManager.spawnMuzzleFlash(lp.position, flashDir, lp.color);
       }
+    }
+
+    lp.ammo--;
+    this.updateAmmoUI();
+  }
+
+  _fireBeam(wp, lp) {
+    const baseDir = new THREE.Vector3(0, 0, -1);
+    baseDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), lp.rotation);
+    baseDir.y = 0;
+    baseDir.normalize();
+
+    const origin = lp.position.clone();
+    const inputId = this.inputIdCounter++;
+
+    if (this.network.isHost) {
+      if (this.hostAuthority) {
+        this.hostAuthority.handleBeamFireRequest({
+          weapon: lp.weapon,
+          origin: { x: origin.x, y: 0, z: origin.z },
+          direction: { x: baseDir.x, y: 0, z: baseDir.z },
+          color: lp.color,
+          timestamp: Date.now(),
+        }, this.network.myId, 'local_' + inputId);
+      }
+    } else {
+      this.network.sendBeamFire(lp.weapon, origin, baseDir, inputId, lp.color);
+    }
+
+    if (this.effectManager) {
+      this.effectManager.spawnMuzzleFlash(origin, baseDir, lp.color);
     }
 
     lp.ammo--;
@@ -1299,7 +1365,9 @@ class Game {
     } else {
       el.textContent = `${lp.ammo} / ${lp.maxAmmo}`;
     }
-    document.getElementById('weapon-name').textContent = WEAPONS[lp.weapon] ? WEAPONS[lp.weapon].name : '';
+    const wp = WEAPONS[lp.weapon];
+    const beamIcon = wp && wp.weaponType === 'beam' ? '⚡ ' : '';
+    document.getElementById('weapon-name').textContent = wp ? beamIcon + wp.displayName : '';
   }
 
   updateHealthUI() {
@@ -1427,6 +1495,7 @@ class Game {
     }
 
     if (this.effectManager) this.effectManager.update(dt);
+    if (this.beamManager) this.beamManager.update(dt);
     if (this.hostAuthority && this.network.isHost) {
       this.hostAuthority.handleHostProjectiles(dt);
     }
@@ -1495,23 +1564,26 @@ class Game {
       this.dashTriggered = false;
     }
 
-    if (this.mouseDown && this.pointerLocked) {
-      const wp = WEAPONS[lp.weapon];
-      if (wp) {
-        const now = Date.now();
-        if (now - lp.lastFireTime > wp.fireRate * 1000) {
-          lp.lastFireTime = now;
-          console.log('[Fire] Fire rate passed → shoot()');
-          this.shoot();
-        } else {
-          console.log('[Fire] BLOCKED: fire rate (last=%s now=%s rate=%s)',
-            lp.lastFireTime, now, wp.fireRate);
+    let shouldFire = false;
+    const wp = WEAPONS[lp.weapon];
+    if (wp && this.pointerLocked) {
+      if (wp.fireMode === 'Semi' || wp.fireMode === 'Beam') {
+        if (this.mouseClicked) {
+          shouldFire = true;
+          this.mouseClicked = false;
         }
       } else {
-        console.log('[Fire] BLOCKED: unknown weapon');
+        if (this.mouseDown) {
+          shouldFire = true;
+        }
       }
-    } else {
-      console.log('[Fire] BLOCKED: mouseDown=%s pointerLocked=%s', this.mouseDown, this.pointerLocked);
+    }
+    if (shouldFire) {
+      const now = Date.now();
+      if (now - lp.lastFireTime > wp.fireRate * 1000) {
+        lp.lastFireTime = now;
+        this.shoot();
+      }
     }
   }
 
@@ -1875,6 +1947,7 @@ class Game {
     this.projectiles = [];
     if (this.hostAuthority) this.hostAuthority.reset();
     if (this.effectManager) this.effectManager.clear();
+    if (this.beamManager) this.beamManager.clear();
     document.getElementById('kill-feed').innerHTML = '';
     document.getElementById('timer-display').textContent = '--:--';
     document.getElementById('ammo-display').textContent = '--/--';

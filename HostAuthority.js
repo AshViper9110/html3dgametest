@@ -289,6 +289,149 @@ class HostAuthority {
     return this.playerStats.get(peerId);
   }
 
+  handleBeamFireRequest(data, peerId, inputId) {
+    const cv = this.game.cheatValidator;
+    if (!cv) return;
+    if (!cv.validateWeapon(data.weapon)) return;
+    if (!cv.validateFireRate(peerId, data.weapon, data.timestamp || 0)) return;
+    if (cv.isReplayAttack(inputId)) return;
+
+    if (this.respawnedPeers.has(peerId)) {
+      this.refillAllAmmo(peerId);
+      this.respawnedPeers.delete(peerId);
+    }
+
+    if (!this._hasAmmo(peerId, data.weapon)) return;
+    this._consumeAmmo(peerId, data.weapon);
+
+    const wp = WEAPONS[data.weapon];
+    const origin = new THREE.Vector3(data.origin.x, 0, data.origin.z);
+    const dir = new THREE.Vector3(data.direction.x, 0, data.direction.z).normalize();
+    const maxRange = wp.range || 40;
+    const map = this.game.arenaMap;
+
+    const result = this._beamRaycast(origin, dir, maxRange, map, peerId, wp);
+
+    const beamMsg = {
+      type: 'beam_effect',
+      weapon: data.weapon,
+      startPos: { x: origin.x, y: 0, z: origin.z },
+      endPos: { x: result.endPos.x, y: 0, z: result.endPos.z },
+      color: data.color || wp.color || 0xffffff,
+      pid: inputId,
+    };
+
+    if (result.hitPlayer) {
+      const victim = this.game.players.get(result.hitPlayer);
+      if (victim && victim.alive) {
+        const killerId = peerId;
+        const killer = this.game.players.get(killerId);
+        const killed = victim.takeDamage(wp.damage);
+
+        const hitMsg = {
+          type: 'hit',
+          shooterId: killerId,
+          targetId: result.hitPlayer,
+          damage: wp.damage,
+          shooterName: killer ? killer.name : '?',
+          targetName: victim.name,
+          lethal: killed,
+          weapon: data.weapon,
+          pos: { x: result.endPos.x, y: 0, z: result.endPos.z },
+          beam: true,
+        };
+
+        this.game.network.broadcast(hitMsg);
+
+        if (killed) {
+          this._trackKill(killerId, result.hitPlayer);
+        }
+
+        if (result.hitPlayer === this.game.network.myId) {
+          this.game._applyLocalHitEffects(hitMsg);
+        }
+
+        beamMsg.hitPlayer = result.hitPlayer;
+      }
+    }
+
+    beamMsg.distance = result.distance;
+    this.game.network.broadcast(beamMsg);
+    if (this.game.beamManager) {
+      this.game._handleBeamEffect(beamMsg);
+    }
+    this._sendAmmoUpdate(peerId, data.weapon);
+  }
+
+  _beamRaycast(origin, dir, maxRange, map, ownerId, wp) {
+    const endPos = { x: origin.x + dir.x * maxRange, z: origin.z + dir.z * maxRange };
+    const hitRadius = wp.hitRadius || 0.8;
+    let closestDist = maxRange;
+    let hitPlayer = null;
+
+    const half = map ? map.size / 2 : 20;
+    const boundaryHits = this._rayAABB2D(origin, dir, -half, -half, half, half);
+    if (boundaryHits !== null && boundaryHits > 0 && boundaryHits < closestDist) {
+      closestDist = boundaryHits;
+    }
+
+    if (map && map.walls) {
+      for (const wall of map.walls) {
+        const wx = wall.p[0], wz = wall.p[2];
+        const hx = wall.s[0] / 2, hz = wall.s[2] / 2;
+        const dist = this._rayAABB2D(origin, dir, wx - hx, wz - hz, wx + hx, wz + hz);
+        if (dist !== null && dist > 0 && dist < closestDist) {
+          closestDist = dist;
+        }
+      }
+    }
+
+    this.game.players.forEach((player, id) => {
+      if (id === ownerId || !player.alive) return;
+      const dx = player.position.x - origin.x;
+      const dz = player.position.z - origin.z;
+      const t = dx * dir.x + dz * dir.z;
+      if (t < 0) return;
+      if (t > closestDist) return;
+      const closestX = origin.x + dir.x * t;
+      const closestZ = origin.z + dir.z * t;
+      const dist = Math.sqrt(
+        (closestX - player.position.x) ** 2 +
+        (closestZ - player.position.z) ** 2
+      );
+      if (dist < hitRadius && t < closestDist) {
+        closestDist = t;
+        hitPlayer = id;
+      }
+    });
+
+    endPos.x = origin.x + dir.x * closestDist;
+    endPos.z = origin.z + dir.z * closestDist;
+
+    return { endPos, hitPlayer, distance: closestDist };
+  }
+
+  _rayAABB2D(origin, dir, xmin, zmin, xmax, zmax) {
+    const invDx = dir.x !== 0 ? 1 / dir.x : 1e16;
+    const invDz = dir.z !== 0 ? 1 / dir.z : 1e16;
+
+    let tmin = -Infinity, tmax = Infinity;
+
+    const tx1 = (xmin - origin.x) * invDx;
+    const tx2 = (xmax - origin.x) * invDx;
+    tmin = Math.max(tmin, Math.min(tx1, tx2));
+    tmax = Math.min(tmax, Math.max(tx1, tx2));
+
+    const tz1 = (zmin - origin.z) * invDz;
+    const tz2 = (zmax - origin.z) * invDz;
+    tmin = Math.max(tmin, Math.min(tz1, tz2));
+    tmax = Math.min(tmax, Math.max(tz1, tz2));
+
+    if (tmax < tmin) return null;
+    if (tmax < 0) return null;
+    return tmin < 0 ? tmax : tmin;
+  }
+
   reset() {
     this.hostProjectiles.forEach(p => p.destroy());
     this.hostProjectiles = [];

@@ -9,107 +9,383 @@ class WeaponRegistry {
     def.id = id;
     def.pellets = def.pellets || 1;
     def.explosive = def.explosive || false;
-    def.auto = def.auto || false;
-    def.fireMode = def.fireMode || (def.auto ? 'auto' : 'semi');
+    def.auto = def.auto || (def.fireMode === 'Auto' || def.fireMode === 'Beam');
+    def.fireMode = def.fireMode || (def.auto ? 'Auto' : 'Semi');
+    def.weaponType = def.weaponType || 'projectile';
     def.projSpeed = def.projSpeed || 50;
     def.projLifetime = def.projLifetime || 1.5;
     def.projRadius = def.projRadius || 0.2;
     def.spread = def.spread || 0;
     def.hitRadius = def.hitRadius || 0.8;
-    def.explosiveRadius = def.explosiveRadius || 0;
+    def.explosionRadius = def.explosionRadius || 0;
+    def.range = def.range || 40;
+    def.recoil = def.recoil || 0.5;
+    def.icon = def.icon || '🔫';
+    def.unlockLevel = def.unlockLevel || 1;
+    def.name = def.displayName;
+    def.maxAmmo = def.magazineSize;
     this._list.push(id);
     this._map[id] = def;
   }
 
   _defineAll() {
     this._add('pistol', {
-      name: 'Pistol', category: 'pistol',
+      displayName: 'Pistol', category: 'Pistol',
+      description: 'Standard sidearm. Reliable and accurate.',
+      weaponType: 'projectile', fireMode: 'Semi',
       damage: 20, fireRate: 0.25,
-      maxAmmo: 10, reloadTime: 3,
+      projectileSpeed: 50, magazineSize: 12, reloadTime: 1.5,
+      spread: 0.02, pellets: 1, projectileRadius: 0.2,
+      explosionRadius: 0, range: 40, recoil: 0.5,
       color: 0xffee00,
-      fireRateStars: 2, rangeStars: 2, mobilityStars: 4,
+      fireRateStars: 3, rangeStars: 2, mobilityStars: 4,
+    });
+    this._add('heavy_pistol', {
+      displayName: 'Heavy Pistol', category: 'Pistol',
+      description: 'Large caliber sidearm. High damage, slow fire.',
+      weaponType: 'projectile', fireMode: 'Semi',
+      damage: 35, fireRate: 0.45,
+      projectileSpeed: 55, magazineSize: 8, reloadTime: 2.0,
+      spread: 0.03, pellets: 1, projectileRadius: 0.25,
+      explosionRadius: 0, range: 45, recoil: 1.2,
+      color: 0xffaa00,
+      fireRateStars: 1, rangeStars: 3, mobilityStars: 3,
+    });
+    this._add('machine_pistol', {
+      displayName: 'Machine Pistol', category: 'Pistol',
+      description: 'Full-auto sidearm. High fire rate, low damage.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 12, fireRate: 0.07,
+      projectileSpeed: 48, magazineSize: 20, reloadTime: 1.8,
+      spread: 0.08, pellets: 1, projectileRadius: 0.15,
+      explosionRadius: 0, range: 30, recoil: 0.8,
+      color: 0xffaa44,
+      auto: true,
+      fireRateStars: 5, rangeStars: 1, mobilityStars: 4,
+    });
+    this._add('revolver', {
+      displayName: 'Revolver', category: 'Pistol',
+      description: 'Six-shooter. Slow but devastating.',
+      weaponType: 'projectile', fireMode: 'Semi',
+      damage: 50, fireRate: 0.7,
+      projectileSpeed: 60, magazineSize: 6, reloadTime: 2.5,
+      spread: 0.01, pellets: 1, projectileRadius: 0.3,
+      explosionRadius: 0, range: 50, recoil: 1.5,
+      color: 0xff6600,
+      fireRateStars: 1, rangeStars: 3, mobilityStars: 3,
     });
     this._add('smg', {
-      name: 'SMG', category: 'smg',
+      displayName: 'SMG', category: 'SMG',
+      description: 'Rapid-fire close-quarters weapon.',
+      weaponType: 'projectile', fireMode: 'Auto',
       damage: 12, fireRate: 0.06,
-      projSpeed: 48, projRadius: 0.10, spread: 0.10,
-      maxAmmo: 35, reloadTime: 2.2,
+      projectileSpeed: 48, magazineSize: 35, reloadTime: 2.2,
+      spread: 0.10, pellets: 1, projectileRadius: 0.10,
+      explosionRadius: 0, range: 30, recoil: 0.6,
       color: 0x00ffaa,
       auto: true,
       fireRateStars: 5, rangeStars: 1, mobilityStars: 3,
     });
-    this._add('assault', {
-      name: 'Assault Rifle', category: 'rifle',
-      damage: 15, fireRate: 0.08,
-      projSpeed: 55, projRadius: 0.15, spread: 0.06,
-      maxAmmo: 30, reloadTime: 3,
-      color: 0xff6600,
+    this._add('compact_smg', {
+      displayName: 'Compact SMG', category: 'SMG',
+      description: 'Small and lightweight. Fast reload.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 10, fireRate: 0.05,
+      projectileSpeed: 45, magazineSize: 25, reloadTime: 1.5,
+      spread: 0.12, pellets: 1, projectileRadius: 0.10,
+      explosionRadius: 0, range: 25, recoil: 0.5,
+      color: 0x00ff88,
+      auto: true,
+      fireRateStars: 5, rangeStars: 1, mobilityStars: 5,
+    });
+    this._add('vector', {
+      displayName: 'Vector', category: 'SMG',
+      description: 'High-end SMG. Extreme fire rate.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 14, fireRate: 0.04,
+      projectileSpeed: 50, magazineSize: 30, reloadTime: 2.0,
+      spread: 0.09, pellets: 1, projectileRadius: 0.10,
+      explosionRadius: 0, range: 28, recoil: 0.7,
+      color: 0x00ffcc,
+      auto: true,
+      fireRateStars: 5, rangeStars: 1, mobilityStars: 4,
+    });
+    this._add('mp7', {
+      displayName: 'MP7', category: 'SMG',
+      description: 'Armor-piercing SMG. Good range.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 16, fireRate: 0.07,
+      projectileSpeed: 52, magazineSize: 30, reloadTime: 2.2,
+      spread: 0.07, pellets: 1, projectileRadius: 0.12,
+      explosionRadius: 0, range: 35, recoil: 0.6,
+      color: 0x22ffaa,
       auto: true,
       fireRateStars: 4, rangeStars: 2, mobilityStars: 3,
     });
+    this._add('assault', {
+      displayName: 'Assault Rifle', category: 'Assault Rifle',
+      description: 'Versatile all-rounder. Balanced performance.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 15, fireRate: 0.08,
+      projectileSpeed: 55, magazineSize: 30, reloadTime: 2.5,
+      spread: 0.06, pellets: 1, projectileRadius: 0.15,
+      explosionRadius: 0, range: 45, recoil: 0.7,
+      color: 0xff6600,
+      auto: true,
+      fireRateStars: 4, rangeStars: 3, mobilityStars: 3,
+    });
+    this._add('ak_rifle', {
+      displayName: 'AK Rifle', category: 'Assault Rifle',
+      description: 'Powerful rifle. High damage, more recoil.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 20, fireRate: 0.10,
+      projectileSpeed: 55, magazineSize: 30, reloadTime: 2.8,
+      spread: 0.08, pellets: 1, projectileRadius: 0.16,
+      explosionRadius: 0, range: 48, recoil: 1.0,
+      color: 0xff4400,
+      auto: true,
+      fireRateStars: 3, rangeStars: 3, mobilityStars: 2,
+    });
+    this._add('carbine', {
+      displayName: 'Carbine', category: 'Assault Rifle',
+      description: 'Lightweight carbine. Faster handling.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 14, fireRate: 0.07,
+      projectileSpeed: 52, magazineSize: 25, reloadTime: 2.0,
+      spread: 0.05, pellets: 1, projectileRadius: 0.14,
+      explosionRadius: 0, range: 40, recoil: 0.5,
+      color: 0xff8833,
+      auto: true,
+      fireRateStars: 4, rangeStars: 2, mobilityStars: 4,
+    });
+    this._add('bullpup', {
+      displayName: 'Bullpup Rifle', category: 'Assault Rifle',
+      description: 'Bullpup design. Great accuracy.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 17, fireRate: 0.09,
+      projectileSpeed: 58, magazineSize: 28, reloadTime: 2.6,
+      spread: 0.04, pellets: 1, projectileRadius: 0.15,
+      explosionRadius: 0, range: 50, recoil: 0.6,
+      color: 0xff7722,
+      auto: true,
+      fireRateStars: 3, rangeStars: 4, mobilityStars: 3,
+    });
     this._add('battlerifle', {
-      name: 'Battle Rifle', category: 'rifle',
+      displayName: 'Battle Rifle', category: 'Battle Rifle',
+      description: 'Heavy rifle. Hard-hitting and precise.',
+      weaponType: 'projectile', fireMode: 'Semi',
       damage: 28, fireRate: 0.18,
-      projSpeed: 65, projRadius: 0.18, spread: 0.02,
-      maxAmmo: 20, reloadTime: 3,
+      projectileSpeed: 65, magazineSize: 20, reloadTime: 2.8,
+      spread: 0.02, pellets: 1, projectileRadius: 0.18,
+      explosionRadius: 0, range: 55, recoil: 1.0,
       color: 0xffaa00,
-      fireRateStars: 2, rangeStars: 3, mobilityStars: 3,
+      fireRateStars: 2, rangeStars: 4, mobilityStars: 2,
+    });
+    this._add('marksman', {
+      displayName: 'Marksman Rifle', category: 'Battle Rifle',
+      description: 'Scoped battle rifle. Medium-long range.',
+      weaponType: 'projectile', fireMode: 'Semi',
+      damage: 32, fireRate: 0.22,
+      projectileSpeed: 70, magazineSize: 15, reloadTime: 3.0,
+      spread: 0.01, pellets: 1, projectileRadius: 0.20,
+      explosionRadius: 0, range: 60, recoil: 1.2,
+      color: 0xffcc44,
+      fireRateStars: 2, rangeStars: 4, mobilityStars: 2,
+    });
+    this._add('dmr', {
+      displayName: 'DMR', category: 'DMR',
+      description: 'Designated marksman rifle. High precision.',
+      weaponType: 'projectile', fireMode: 'Semi',
+      damage: 35, fireRate: 0.35,
+      projectileSpeed: 75, magazineSize: 15, reloadTime: 3.0,
+      spread: 0, pellets: 1, projectileRadius: 0.18,
+      explosionRadius: 0, range: 65, recoil: 1.0,
+      color: 0x44ffaa,
+      fireRateStars: 2, rangeStars: 4, mobilityStars: 2,
+    });
+    this._add('semi_auto_rifle', {
+      displayName: 'Semi Auto Rifle', category: 'DMR',
+      description: 'Fast-firing semi-auto. Quick follow-ups.',
+      weaponType: 'projectile', fireMode: 'Semi',
+      damage: 28, fireRate: 0.20,
+      projectileSpeed: 68, magazineSize: 20, reloadTime: 2.8,
+      spread: 0.02, pellets: 1, projectileRadius: 0.17,
+      explosionRadius: 0, range: 55, recoil: 0.8,
+      color: 0x66ff88,
+      fireRateStars: 3, rangeStars: 3, mobilityStars: 3,
     });
     this._add('shotgun', {
-      name: 'Shotgun', category: 'shotgun',
+      displayName: 'Shotgun', category: 'Shotgun',
+      description: 'Classic pump-action. Devastating up close.',
+      weaponType: 'projectile', fireMode: 'Shotgun',
       damage: 5, fireRate: 0.6,
-      projSpeed: 50, projLifetime: 0.8, projRadius: 0.12,
-      spread: 0.18, hitRadius: 0.3,
-      maxAmmo: 8, reloadTime: 2,
-      pellets: 6,
+      projectileSpeed: 50, magazineSize: 8, reloadTime: 2.5,
+      spread: 0.18, pellets: 8, projectileRadius: 0.12,
+      explosionRadius: 0, range: 20, recoil: 1.2,
+      hitRadius: 0.3,
       color: 0xff6600,
       fireRateStars: 1, rangeStars: 1, mobilityStars: 2,
     });
-    this._add('dmr', {
-      name: 'DMR', category: 'rifle',
-      damage: 35, fireRate: 0.35,
-      projSpeed: 75, projRadius: 0.18, spread: 0,
-      maxAmmo: 15, reloadTime: 3,
-      color: 0x44ffaa,
-      fireRateStars: 2, rangeStars: 4, mobilityStars: 3,
+    this._add('auto_shotgun', {
+      displayName: 'Auto Shotgun', category: 'Shotgun',
+      description: 'Full-auto shotgun. Rapid pellets.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 4, fireRate: 0.25,
+      projectileSpeed: 48, magazineSize: 12, reloadTime: 3.0,
+      spread: 0.20, pellets: 8, projectileRadius: 0.10,
+      explosionRadius: 0, range: 18, recoil: 1.0,
+      hitRadius: 0.25,
+      color: 0xff8844,
+      auto: true,
+      fireRateStars: 4, rangeStars: 1, mobilityStars: 2,
     });
-    this._add('sniper', {
-      name: 'Sniper Rifle', category: 'sniper',
-      damage: 60, fireRate: 1.0,
-      projSpeed: 90, projLifetime: 2.0, projRadius: 0.3,
-      spread: 0, hitRadius: 0.9,
-      maxAmmo: 5, reloadTime: 3,
-      color: 0x00ffff,
-      fireRateStars: 1, rangeStars: 5, mobilityStars: 1,
+    this._add('double_barrel', {
+      displayName: 'Double Barrel', category: 'Shotgun',
+      description: 'Two barrels. Massive burst damage.',
+      weaponType: 'projectile', fireMode: 'Shotgun',
+      damage: 8, fireRate: 0.9,
+      projectileSpeed: 50, magazineSize: 2, reloadTime: 2.0,
+      spread: 0.22, pellets: 12, projectileRadius: 0.12,
+      explosionRadius: 0, range: 16, recoil: 2.0,
+      hitRadius: 0.25,
+      color: 0xff4400,
+      fireRateStars: 1, rangeStars: 1, mobilityStars: 2,
+    });
+    this._add('combat_shotgun', {
+      displayName: 'Combat Shotgun', category: 'Shotgun',
+      description: 'Military shotgun. Balanced and reliable.',
+      weaponType: 'projectile', fireMode: 'Shotgun',
+      damage: 6, fireRate: 0.5,
+      projectileSpeed: 52, magazineSize: 10, reloadTime: 2.8,
+      spread: 0.16, pellets: 8, projectileRadius: 0.14,
+      explosionRadius: 0, range: 22, recoil: 1.0,
+      hitRadius: 0.3,
+      color: 0xff8833,
+      fireRateStars: 2, rangeStars: 1, mobilityStars: 2,
     });
     this._add('lmg', {
-      name: 'LMG', category: 'heavy',
+      displayName: 'LMG', category: 'LMG',
+      description: 'Light machine gun. Suppressive fire.',
+      weaponType: 'projectile', fireMode: 'Auto',
       damage: 14, fireRate: 0.07,
-      projSpeed: 50, projRadius: 0.14, spread: 0.12,
-      maxAmmo: 80, reloadTime: 5,
+      projectileSpeed: 50, magazineSize: 80, reloadTime: 5.0,
+      spread: 0.12, pellets: 1, projectileRadius: 0.14,
+      explosionRadius: 0, range: 40, recoil: 0.8,
       color: 0xff4444,
       auto: true,
       fireRateStars: 4, rangeStars: 2, mobilityStars: 1,
     });
-    this._add('rpg', {
-      name: 'Rocket Launcher', category: 'heavy',
+    this._add('minigun', {
+      displayName: 'Minigun', category: 'LMG',
+      description: 'Rotary cannon. Unmatched fire rate.',
+      weaponType: 'projectile', fireMode: 'Auto',
+      damage: 12, fireRate: 0.03,
+      projectileSpeed: 55, magazineSize: 120, reloadTime: 6.0,
+      spread: 0.15, pellets: 1, projectileRadius: 0.12,
+      explosionRadius: 0, range: 35, recoil: 1.2,
+      color: 0xff2222,
+      auto: true,
+      fireRateStars: 5, rangeStars: 2, mobilityStars: 1,
+    });
+    this._add('sniper', {
+      displayName: 'Sniper Rifle', category: 'Sniper Rifle',
+      description: 'Bolt-action sniper. One-shot potential.',
+      weaponType: 'projectile', fireMode: 'Semi',
+      damage: 60, fireRate: 1.0,
+      projectileSpeed: 90, magazineSize: 5, reloadTime: 3.5,
+      spread: 0, pellets: 1, projectileRadius: 0.3,
+      explosionRadius: 0, range: 80, recoil: 2.0,
+      hitRadius: 0.9,
+      color: 0x00ffff,
+      fireRateStars: 1, rangeStars: 5, mobilityStars: 1,
+    });
+    this._add('heavy_sniper', {
+      displayName: 'Heavy Sniper', category: 'Sniper Rifle',
+      description: 'Anti-material rifle. Extreme damage.',
+      weaponType: 'projectile', fireMode: 'Semi',
+      damage: 80, fireRate: 1.5,
+      projectileSpeed: 95, magazineSize: 3, reloadTime: 4.0,
+      spread: 0, pellets: 1, projectileRadius: 0.35,
+      explosionRadius: 0, range: 90, recoil: 2.5,
+      hitRadius: 1.0,
+      color: 0x00ddff,
+      fireRateStars: 1, rangeStars: 5, mobilityStars: 1,
+    });
+    this._add('rail_sniper', {
+      displayName: 'Rail Sniper', category: 'Sniper Rifle',
+      description: 'Railgun technology. Instant velocity.',
+      weaponType: 'projectile', fireMode: 'Semi',
       damage: 70, fireRate: 1.2,
-      projSpeed: 18, projLifetime: 3.0, projRadius: 0.4,
-      spread: 0, hitRadius: 2.5,
-      explosive: true, explosiveRadius: 2.5,
-      maxAmmo: 1, reloadTime: 3.5,
+      projectileSpeed: 120, magazineSize: 4, reloadTime: 3.8,
+      spread: 0, pellets: 1, projectileRadius: 0.25,
+      explosionRadius: 0, range: 85, recoil: 2.0,
+      hitRadius: 0.8,
+      color: 0x44ddff,
+      fireRateStars: 1, rangeStars: 5, mobilityStars: 1,
+    });
+    this._add('rpg', {
+      displayName: 'Rocket Launcher', category: 'Launcher',
+      description: 'Explosive rocket. Area damage.',
+      weaponType: 'projectile', fireMode: 'Launcher',
+      damage: 60, fireRate: 1.2,
+      projectileSpeed: 18, magazineSize: 1, reloadTime: 3.5,
+      spread: 0, pellets: 1, projectileRadius: 0.4,
+      explosive: true, explosionRadius: 2.5,
+      range: 60, recoil: 1.5,
+      hitRadius: 2.5, projLifetime: 3.0,
       color: 0xff2200,
-      fireRateStars: 1, rangeStars: 4, mobilityStars: 1,
+      fireRateStars: 1, rangeStars: 3, mobilityStars: 1,
     });
     this._add('grenade_launcher', {
-      name: 'Grenade Launcher', category: 'heavy',
+      displayName: 'Grenade Launcher', category: 'Launcher',
+      description: 'Lobs grenades. Bouncing explosive.',
+      weaponType: 'projectile', fireMode: 'Launcher',
       damage: 80, fireRate: 0.9,
-      projSpeed: 22, projLifetime: 2.5, projRadius: 0.35,
-      spread: 0.04, hitRadius: 3.0,
-      explosive: true, explosiveRadius: 3.0,
-      maxAmmo: 4, reloadTime: 3,
+      projectileSpeed: 22, magazineSize: 4, reloadTime: 3.0,
+      spread: 0.04, pellets: 1, projectileRadius: 0.35,
+      explosive: true, explosionRadius: 3.0,
+      range: 50, recoil: 1.2,
+      hitRadius: 3.0, projLifetime: 2.5,
       color: 0xff8800,
-      fireRateStars: 1, rangeStars: 3, mobilityStars: 1,
+      fireRateStars: 1, rangeStars: 2, mobilityStars: 1,
+    });
+    this._add('quad_rocket', {
+      displayName: 'Quad Rocket', category: 'Launcher',
+      description: 'Four rockets in rapid succession.',
+      weaponType: 'projectile', fireMode: 'Launcher',
+      damage: 55, fireRate: 0.15,
+      projectileSpeed: 20, magazineSize: 4, reloadTime: 4.0,
+      spread: 0.06, pellets: 1, projectileRadius: 0.35,
+      explosive: true, explosionRadius: 2.0,
+      range: 55, recoil: 1.0,
+      hitRadius: 2.0, projLifetime: 2.8,
+      color: 0xff4400,
+      fireRateStars: 4, rangeStars: 2, mobilityStars: 1,
+    });
+    this._add('plasma_rifle', {
+      displayName: 'Plasma Rifle', category: 'Energy',
+      description: 'Rapid-fire plasma beam weapon.',
+      weaponType: 'beam', fireMode: 'Auto',
+      damage: 18, fireRate: 0.10,
+      projectileSpeed: 0, magazineSize: 40, reloadTime: 2.5,
+      spread: 0, pellets: 1, projectileRadius: 0,
+      explosionRadius: 0.8, range: 50, recoil: 0.3,
+      hitRadius: 0.8,
+      color: 0x00ffcc,
+      auto: true,
+      fireRateStars: 4, rangeStars: 3, mobilityStars: 3,
+    });
+    this._add('laser_rifle', {
+      displayName: 'Laser Rifle', category: 'Energy',
+      description: 'Precision laser. Instant beam attack.',
+      weaponType: 'beam', fireMode: 'Semi',
+      damage: 40, fireRate: 0.5,
+      projectileSpeed: 0, magazineSize: 10, reloadTime: 2.0,
+      spread: 0, pellets: 1, projectileRadius: 0,
+      explosionRadius: 0, range: 80, recoil: 0.2,
+      hitRadius: 0.5,
+      color: 0x88ddff,
+      fireRateStars: 2, rangeStars: 5, mobilityStars: 3,
     });
   }
 
@@ -135,19 +411,25 @@ class WeaponRegistry {
   statsLines(id) {
     const w = this.get(id);
     if (!w) return [];
+    const beamIcon = w.weaponType === 'beam' ? '⚡ ' : '';
     return [
-      `Damage  : ${w.damage}`,
-      `Ammo    : ${w.maxAmmo}`,
-      `Fire Rate : ${'★'.repeat(w.fireRateStars)}${'☆'.repeat(5 - w.fireRateStars)}`,
-      `Range   : ${'★'.repeat(w.rangeStars)}${'☆'.repeat(5 - w.rangeStars)}`,
-      `Mobility : ${'★'.repeat(w.mobilityStars)}${'☆'.repeat(5 - w.mobilityStars)}`,
+      w.description,
+      ``,
+      `Category  : ${w.category}`,
+      `Type      : ${w.weaponType.toUpperCase()}`,
+      `Fire Mode : ${w.fireMode}`,
+      `Damage    : ${w.damage}`,
+      `Fire Rate : ${(w.fireRate * 1000).toFixed(0)}ms`,
+      `Magazine  : ${w.magazineSize}`,
+      `Reload    : ${w.reloadTime}s`,
+      `Range     : ${w.range}m`,
+      `Recoil    : ${'★'.repeat(Math.round(w.recoil))}${'☆'.repeat(5 - Math.round(w.recoil))}`,
     ];
   }
 }
 
 const WEAPON_REGISTRY = new WeaponRegistry();
 
-/* 旧コード互換: WEAPONS[weaponId] でアクセス可能 */
 const WEAPONS = {};
 WEAPON_REGISTRY.getAll().forEach(id => {
   WEAPONS[id] = WEAPON_REGISTRY.get(id);

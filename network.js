@@ -144,6 +144,18 @@ class NetworkManager {
     });
   }
 
+  sendBeamFire(weapon, origin, direction, inputId, color) {
+    this.send({
+      type: 'beam_fire',
+      weapon,
+      origin: { x: origin.x, y: origin.y, z: origin.z },
+      direction: { x: direction.x, y: direction.y, z: direction.z },
+      timestamp: Date.now(),
+      inputId,
+      color,
+    });
+  }
+
   /* ロビー同期メッセージ */
   sendReady(ready) {
     this.send({ type: NetMsg.READY, ready });
