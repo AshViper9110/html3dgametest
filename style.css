@@ -5,9 +5,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
 
 /* === ボディスタイル === */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
 body {
   background: #0a0a12;
-  overflow: hidden;
   font-family: 'Rajdhani', sans-serif;
   color: #fff;
   user-select: none;
@@ -35,6 +38,7 @@ body {
   justify-content: center;
   z-index: 100;
   backdrop-filter: blur(8px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 #overlay.hidden {
@@ -45,9 +49,9 @@ body {
   background: rgba(20, 20, 35, 0.9);
   border: 1px solid rgba(0, 240, 255, 0.3);
   border-radius: 12px;
-  padding: 40px;
+  padding: clamp(24px, 3vw, 40px);
   max-width: 520px;
-  width: 90%;
+  width: min(90%, 520px);
   text-align: center;
   box-shadow: 0 0 60px rgba(0, 240, 255, 0.1), inset 0 0 60px rgba(0, 240, 255, 0.03);
 }
@@ -74,14 +78,18 @@ body {
 .btn {
   font-family: 'Rajdhani', sans-serif;
   font-weight: 700;
-  font-size: 1.1em;
+  font-size: clamp(0.85em, 0.75em + 0.4vw, 1.1em);
   letter-spacing: 2px;
-  padding: 14px 32px;
+  padding: clamp(10px, 1vw, 14px) clamp(16px, 2vw, 32px);
   border: none;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .btn-primary {
@@ -107,15 +115,16 @@ body {
 }
 
 .btn-small {
-  padding: 8px 16px;
-  font-size: 0.85em;
+  padding: clamp(6px, 0.6vw, 8px) clamp(10px, 1.2vw, 16px);
+  font-size: clamp(0.7em, 0.65em + 0.3vw, 0.85em);
 }
 
 .btn-group {
   display: flex;
-  gap: 12px;
+  gap: clamp(8px, 1vw, 12px);
   justify-content: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 textarea {
@@ -231,31 +240,6 @@ textarea:focus {
   box-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
 }
 
-/* === キルフィード === */
-#kill-feed {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  pointer-events: none;
-}
-
-.kill-msg {
-  background: rgba(10, 10, 18, 0.8);
-  border: 1px solid rgba(0, 240, 255, 0.15);
-  border-radius: 4px;
-  padding: 6px 14px;
-  font-size: 0.8em;
-  font-weight: 500;
-  letter-spacing: 1px;
-  color: #aaaacc;
-  animation: fadeIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
-  backdrop-filter: blur(4px);
-}
-
 /* === 各種アニメーション === */
 @keyframes fadeIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
@@ -278,47 +262,7 @@ textarea:focus {
   display: none;
 }
 
-/* === デス画面 === */
-#death-screen {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  z-index: 60;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(10, 10, 18, 0.6);
-  backdrop-filter: blur(4px);
-}
 
-#death-screen.show {
-  display: flex;
-}
-
-#death-screen h2 {
-  font-family: 'Orbitron', monospace;
-  font-size: 3em;
-  color: #ff0044;
-  text-shadow: 0 0 40px rgba(255, 0, 68, 0.5);
-  letter-spacing: 8px;
-}
-
-#death-screen .respawn-text {
-  color: #6666aa;
-  font-size: 1em;
-  letter-spacing: 3px;
-  margin-top: 10px;
-}
-#death-screen .weapon-selector {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-#death-screen .weapon-selector .map-btn {
-  padding: 6px 14px;
-  font-size: 0.65em;
-}
 
 /* === 画面共通 === */
 .screen {
@@ -331,6 +275,7 @@ textarea:focus {
   justify-content: center;
   z-index: 100;
   backdrop-filter: blur(8px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 /* === タイトル === */
@@ -338,17 +283,17 @@ textarea:focus {
   background: rgba(20,20,35,0.9);
   border: 1px solid rgba(0,240,255,0.3);
   border-radius: 12px;
-  padding: 40px;
+  padding: clamp(24px, 3vw, 40px);
   max-width: 420px;
-  width: 90%;
+  width: min(90%, 420px);
   text-align: center;
   box-shadow: 0 0 60px rgba(0,240,255,0.1);
 }
 #title-inner h1 {
   font-family: 'Orbitron', monospace;
-  font-size: 2.4em;
+  font-size: clamp(1.8em, 1.5em + 1.2vw, 2.4em);
   font-weight: 900;
-  letter-spacing: 6px;
+  letter-spacing: clamp(3px, 0.3vw + 2px, 6px);
   color: #00f0ff;
   text-shadow: 0 0 20px rgba(0,240,255,0.5);
   margin-bottom: 4px;
@@ -365,16 +310,18 @@ textarea:focus {
 }
 .title-input-group input {
   width: 100%;
-  padding: 12px;
+  padding: clamp(10px, 1vw, 12px);
   background: rgba(10,10,18,0.8);
   border: 1px solid rgba(0,240,255,0.2);
   border-radius: 6px;
   color: #00f0ff;
   font-family: 'Rajdhani', sans-serif;
-  font-size: 1em;
+  font-size: clamp(0.85em, 0.8em + 0.3vw, 1em);
   text-align: center;
   letter-spacing: 2px;
   outline: none;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 #join-section {
   margin-top: 16px;
@@ -385,36 +332,43 @@ textarea:focus {
 }
 #join-section input {
   width: 100%;
-  padding: 12px;
+  padding: clamp(10px, 1vw, 12px);
   background: rgba(10,10,18,0.8);
   border: 1px solid rgba(255,0,255,0.2);
   border-radius: 6px;
   color: #ff00ff;
   font-family: 'Orbitron', monospace;
-  font-size: 1em;
+  font-size: clamp(0.85em, 0.8em + 0.3vw, 1em);
   text-align: center;
-  letter-spacing: 3px;
+  letter-spacing: clamp(2px, 0.2vw + 1px, 3px);
   outline: none;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 #host-section {
   margin-top: 16px;
+  min-width: 0;
 }
 #room-id-display {
   font-family: 'Orbitron', monospace;
-  font-size: 1.8em;
-  letter-spacing: 6px;
+  font-size: clamp(1.2em, 1em + 1vw, 1.8em);
+  letter-spacing: clamp(3px, 0.3vw + 2px, 6px);
   color: #00f0ff;
   text-shadow: 0 0 20px rgba(0,240,255,0.3);
-  padding: 12px;
+  padding: clamp(8px, 1vw, 12px);
   border: 1px solid rgba(0,240,255,0.2);
   border-radius: 8px;
   margin: 8px 0;
   background: rgba(0,0,0,0.3);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* === ロビー（2カラム） === */
 #lobby-room-id-section {
   margin-bottom: 8px;
+  min-width: 0;
+  word-break: break-all;
 }
 .lobby-room-role {
   font-family: 'Orbitron', monospace;
@@ -433,31 +387,47 @@ textarea:focus {
 }
 #lobby-room-id {
   font-family: 'Orbitron', monospace;
-  font-size: 1.5em;
-  letter-spacing: 6px;
+  font-size: clamp(1.1em, 1em + 0.6vw, 1.5em);
+  letter-spacing: clamp(3px, 0.3vw + 2px, 6px);
   color: #00f0ff;
   text-shadow: 0 0 15px rgba(0,240,255,0.3);
   margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #lobby-inner {
   display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 24px;
+  grid-template-columns: minmax(min(280px, 100%), 340px) minmax(0, 1fr);
+  gap: clamp(12px, 1.5vw, 24px);
   background: rgba(20,20,35,0.92);
   border: 1px solid rgba(0,240,255,0.25);
   border-radius: 12px;
-  padding: 28px 32px;
+  padding: clamp(16px, 2vw, 28px) clamp(16px, 2.5vw, 32px);
   max-width: 880px;
-  width: 92%;
+  width: min(92%, 880px);
   max-height: 88vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 0 60px rgba(0,240,255,0.08);
 }
 @media (max-width: 720px) {
   #lobby-inner {
     grid-template-columns: 1fr;
     max-height: 92vh;
-    padding: 20px;
+    padding: 16px;
     width: 96%;
+  }
+}
+@media (min-width: 721px) and (max-width: 900px) {
+  #lobby-inner {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+@media (min-height: 1080px) {
+  #lobby-inner {
+    -webkit-overflow-scrolling: auto;
   }
 }
 
@@ -465,9 +435,12 @@ textarea:focus {
 #lobby-left {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: clamp(8px, 1vw, 12px);
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  min-height: 0;
 }
 
 /* 右カラム */
@@ -475,8 +448,10 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   border-left: 1px solid rgba(0,240,255,0.1);
-  padding-left: 20px;
+  padding-left: clamp(12px, 1.5vw, 20px);
+  overflow: hidden;
 }
 @media (max-width: 720px) {
   #lobby-right {
@@ -491,7 +466,9 @@ textarea:focus {
   background: rgba(0,0,0,0.15);
   border: 1px solid rgba(0,240,255,0.08);
   border-radius: 8px;
-  padding: 12px;
+  padding: clamp(8px, 1vw, 12px);
+  min-width: 0;
+  overflow: hidden;
 }
 .lobby-section-title {
   font-family: 'Orbitron', monospace;
@@ -530,6 +507,7 @@ textarea:focus {
   background: #0a0a18;
   max-width: 100%;
   height: auto;
+  aspect-ratio: 280 / 200;
 }
 #guest-map-preview-container {
   text-align: center;
@@ -540,6 +518,7 @@ textarea:focus {
   background: #0a0a18;
   max-width: 100%;
   height: auto;
+  aspect-ratio: 280 / 200;
 }
 
 /* マップセレクタ（左右矢印式） */
@@ -550,21 +529,21 @@ textarea:focus {
 .ms-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: clamp(6px, 1vw, 12px);
   width: 100%;
-  max-width: 340px;
 }
 .ms-btn {
   font-family: 'Orbitron', monospace;
-  font-size: 1.3em;
-  padding: 8px 14px;
+  font-size: clamp(1em, 1.2vw, 1.3em);
+  padding: clamp(6px, 0.6vw, 8px) clamp(10px, 1vw, 14px);
   border: 1px solid rgba(0,240,255,0.25);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   background: rgba(0,0,0,0.4);
   color: #00f0ff;
-  flex: 0 0 48px;
+  flex: 0 0 auto;
+  min-width: 36px;
   text-align: center;
   user-select: none;
 }
@@ -586,7 +565,7 @@ textarea:focus {
 }
 .ms-name {
   font-family: 'Orbitron', monospace;
-  font-size: 0.85em;
+  font-size: clamp(0.7em, 0.6em + 0.3vw, 0.85em);
   letter-spacing: 1px;
   color: #00f0ff;
   text-shadow: 0 0 10px rgba(0,240,255,0.2);
@@ -630,21 +609,21 @@ textarea:focus {
 .ws-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: clamp(6px, 1vw, 12px);
   width: 100%;
-  max-width: 360px;
 }
 .ws-btn {
   font-family: 'Orbitron', monospace;
-  font-size: 1.3em;
-  padding: 8px 14px;
+  font-size: clamp(1em, 1.2vw, 1.3em);
+  padding: clamp(6px, 0.6vw, 8px) clamp(10px, 1vw, 14px);
   border: 1px solid rgba(0,240,255,0.25);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   background: rgba(0,0,0,0.4);
   color: #00f0ff;
-  flex: 0 0 48px;
+  flex: 0 0 auto;
+  min-width: 36px;
   text-align: center;
   user-select: none;
 }
@@ -666,7 +645,7 @@ textarea:focus {
 }
 .ws-name {
   font-family: 'Orbitron', monospace;
-  font-size: 0.85em;
+  font-size: clamp(0.7em, 0.6em + 0.3vw, 0.85em);
   letter-spacing: 1px;
   color: #00f0ff;
   text-shadow: 0 0 10px rgba(0,240,255,0.2);
@@ -749,13 +728,18 @@ textarea:focus {
   align-items: center;
   gap: 8px;
 }
+#lobby-controls-host .btn, #lobby-controls-client .btn {
+  width: 100%;
+  max-width: 320px;
+}
 
 /* Status section */
 #lobby-status-section {
   background: rgba(0,0,0,0.15);
   border: 1px solid rgba(0,240,255,0.08);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: clamp(8px, 1vw, 10px) clamp(8px, 1vw, 12px);
+  min-width: 0;
 }
 .lobby-status-row {
   display: flex;
@@ -786,21 +770,26 @@ textarea:focus {
 /* === プレイヤーリスト（右カラム用カード） === */
 #player-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding-right: 4px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .pl-card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: clamp(6px, 0.8vw, 10px);
+  padding: clamp(8px, 0.8vw, 10px) clamp(8px, 1vw, 12px);
   border: 1px solid rgba(0,240,255,0.08);
   border-radius: 8px;
   background: rgba(0,0,0,0.2);
   transition: border-color 0.2s;
+  min-width: 0;
+  overflow: hidden;
 }
 .pl-card:hover {
   border-color: rgba(0,240,255,0.2);
@@ -817,13 +806,17 @@ textarea:focus {
 }
 .pl-card-name {
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.95em;
+  font-size: clamp(0.8em, 0.7em + 0.4vw, 0.95em);
   font-weight: 700;
   color: #ccccee;
   letter-spacing: 1px;
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pl-card-name .crown {
   font-size: 0.85em;
@@ -897,10 +890,11 @@ textarea:focus {
   z-index: 80;
   pointer-events: none;
   background: rgba(5,5,15,0.3);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 #countdown-text {
   font-family: 'Orbitron', monospace;
-  font-size: 8em;
+  font-size: clamp(4em, 2em + 8vw, 8em);
   font-weight: 900;
   color: #00f0ff;
   text-shadow: 0 0 60px rgba(0,240,255,0.5);
@@ -924,7 +918,7 @@ textarea:focus {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 12px 20px;
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) 0 max(20px, env(safe-area-inset-left, 0px));
 }
 #min-scoreboard {
   font-family: 'Orbitron', monospace;
@@ -980,7 +974,7 @@ textarea:focus {
 }
 #hud-bottom {
   position: fixed;
-  bottom: 30px;
+  bottom: max(30px, env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1042,6 +1036,7 @@ textarea:focus {
   justify-content: center;
   background: rgba(10,10,18,0.6);
   backdrop-filter: blur(4px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 #death-screen.show { display: flex; }
 #death-inner {
@@ -1049,17 +1044,17 @@ textarea:focus {
   background: rgba(10,10,20,0.9);
   border: 1px solid rgba(255,0,68,0.2);
   border-radius: 12px;
-  padding: 30px 40px;
+  padding: clamp(20px, 3vw, 30px) clamp(20px, 3vw, 40px);
   box-shadow: 0 0 60px rgba(255,0,68,0.1);
   max-width: 400px;
-  width: 90%;
+  width: min(90%, 400px);
 }
 #death-inner h2 {
   font-family: 'Orbitron', monospace;
-  font-size: 3em;
+  font-size: clamp(2em, 1.5em + 2vw, 3em);
   color: #ff0044;
   text-shadow: 0 0 40px rgba(255,0,68,0.5);
-  letter-spacing: 8px;
+  letter-spacing: clamp(4px, 0.4vw + 2px, 8px);
 }
 #death-info {
   margin: 12px 0;
@@ -1078,7 +1073,7 @@ textarea:focus {
 }
 #respawn-countdown {
   font-family: 'Orbitron', monospace;
-  font-size: 4em;
+  font-size: clamp(2.5em, 1.5em + 3vw, 4em);
   font-weight: 900;
   color: #00f0ff;
   text-shadow: 0 0 40px rgba(0,240,255,0.4);
@@ -1120,8 +1115,8 @@ textarea:focus {
 /* === キルフィード === */
 #kill-feed {
   position: fixed;
-  top: 80px;
-  right: 20px;
+  top: max(80px, calc(env(safe-area-inset-top, 0px) + 60px));
+  right: max(20px, env(safe-area-inset-right, 0px));
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -1161,17 +1156,20 @@ textarea:focus {
   justify-content: center;
   background: rgba(5,5,15,0.95);
   backdrop-filter: blur(10px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 #result-screen.show { display: flex; }
 #result-inner {
   background: rgba(20,20,40,0.95);
   border: 1px solid rgba(0,240,255,0.2);
   border-radius: 12px;
-  padding: 36px 44px;
-  max-width: 500px;
-  width: 90%;
-  max-height: 85vh;
+  padding: clamp(20px, 3vw, 36px) clamp(20px, 3vw, 44px);
+  max-width: min(500px, 95%);
+  width: min(90%, 500px);
+  max-height: min(85vh, 600px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   text-align: center;
   box-shadow: 0 0 80px rgba(0,240,255,0.1);
 }
@@ -1188,11 +1186,12 @@ textarea:focus {
 }
 #result-winner-name {
   font-family: 'Orbitron', monospace;
-  font-size: 3em;
+  font-size: clamp(1.8em, 1.2em + 2vw, 3em);
   font-weight: 900;
   color: #ffd700;
   text-shadow: 0 0 40px rgba(255,215,0,0.5);
   letter-spacing: 4px;
+  word-break: break-word;
 }
 #result-draw {
   font-family: 'Orbitron', monospace;
@@ -1208,14 +1207,15 @@ textarea:focus {
 .result-entry {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: clamp(6px, 0.8vw, 10px);
+  padding: clamp(6px, 0.6vw, 8px) clamp(8px, 0.8vw, 12px);
   margin: 4px 0;
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 6px;
   background: rgba(0,0,0,0.2);
-  font-size: 0.85em;
+  font-size: clamp(0.7em, 0.6em + 0.3vw, 0.85em);
   letter-spacing: 1px;
+  min-width: 0;
 }
 .result-entry .r-rank {
   font-family: 'Orbitron', monospace;
@@ -1229,7 +1229,7 @@ textarea:focus {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.result-entry .r-name { flex: 1; color: #ccccee; }
+.result-entry .r-name { flex: 1; color: #ccccee; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-entry .r-kills {
   font-family: 'Orbitron', monospace;
   color: #00f0ff;
@@ -1262,14 +1262,15 @@ textarea:focus {
   justify-content: center;
   background: rgba(5,5,15,0.85);
   backdrop-filter: blur(6px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 #settings-inner {
   background: rgba(20,20,40,0.95);
   border: 1px solid rgba(0,240,255,0.2);
   border-radius: 12px;
-  padding: 28px 36px;
+  padding: clamp(20px, 2.5vw, 28px) clamp(20px, 2.5vw, 36px);
   max-width: 400px;
-  width: 90%;
+  width: min(90%, 400px);
   text-align: center;
   box-shadow: 0 0 60px rgba(0,240,255,0.08);
 }
@@ -1284,8 +1285,14 @@ textarea:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: clamp(8px, 2vw, 16px);
   margin-bottom: 12px;
+}
+@media (max-width: 360px) {
+  .settings-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 .settings-label {
   font-family: 'Rajdhani', sans-serif;
