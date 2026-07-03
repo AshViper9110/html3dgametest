@@ -755,17 +755,16 @@ class WeaponRegistry {
     if (!w) return [];
     const beamIcon = w.weaponType === "beam" ? "⚡ " : "";
     return [
-      w.description,
-      ``,
-      `Category  : ${w.category}`,
-      `Type      : ${w.weaponType.toUpperCase()}`,
-      `Fire Mode : ${w.fireMode}`,
-      `Damage    : ${w.damage}`,
-      `Fire Rate : ${(w.fireRate * 1000).toFixed(0)}ms`,
-      `Magazine  : ${w.magazineSize}`,
-      `Reload    : ${w.reloadTime}s`,
-      `Range     : ${w.range}m`,
-      `Recoil    : ${"★".repeat(Math.round(w.recoil))}${"☆".repeat(5 - Math.round(w.recoil))}`,
+      `<div class="ws-desc">${w.description}</div>`,
+      `<div class="stat-row"><span class="stat-lbl">Category</span><span class="stat-val">${w.category}</span></div>`,
+      `<div class="stat-row"><span class="stat-lbl">Type</span><span class="stat-val">${w.weaponType.toUpperCase()}</span></div>`,
+      `<div class="stat-row"><span class="stat-lbl">Fire Mode</span><span class="stat-val">${w.fireMode}</span></div>`,
+      `<div class="stat-row damage"><span class="stat-lbl">Damage</span><span class="stat-val">${w.damage}</span></div>`,
+      `<div class="stat-row fire-rate"><span class="stat-lbl">Fire Rate</span><span class="stat-val">${(w.fireRate * 1000).toFixed(0)}ms</span></div>`,
+      `<div class="stat-row"><span class="stat-lbl">Magazine</span><span class="stat-val">${w.magazineSize}</span></div>`,
+      `<div class="stat-row"><span class="stat-lbl">Reload</span><span class="stat-val">${w.reloadTime}s</span></div>`,
+      `<div class="stat-row"><span class="stat-lbl">Range</span><span class="stat-val">${w.range}m</span></div>`,
+      `<div class="stat-row"><span class="stat-lbl">Recoil</span><span class="stat-val">${"★".repeat(Math.round(w.recoil))}${"☆".repeat(5 - Math.round(w.recoil))}</span></div>`,
     ];
   }
 }

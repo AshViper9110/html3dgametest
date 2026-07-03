@@ -673,21 +673,52 @@ textarea:focus {
 }
 .ws-stats {
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.55em;
-  color: #8888cc;
-  letter-spacing: 0.3px;
-  margin-top: 4px;
-  line-height: 1.25;
-  white-space: pre;
+  font-size: 0.75em;
+  color: #ccccff;
+  margin-top: 6px;
+  line-height: 1.5;
   max-height: 220px;
   overflow-y: auto;
+  text-align: left;
+  padding: 4px 8px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 4px;
+}
+.ws-desc {
+  color: #8888bb;
+  font-style: italic;
+  font-size: 0.9em;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1px 0;
+}
+.stat-lbl {
+  color: #6666aa;
+  letter-spacing: 0.5px;
+}
+.stat-val {
+  color: #ddddf8;
+  font-weight: 600;
+  text-align: right;
+}
+.stat-row.damage .stat-val {
+  color: #ff6b6b;
+}
+.stat-row.fire-rate .stat-val {
+  color: #ffd93d;
 }
 #death-screen .ws-name {
   font-size: 0.95em;
 }
 #death-screen .ws-stats {
-  font-size: 0.55em;
-  color: #aaaacc;
+  font-size: 0.75em;
+  color: #ccccff;
   max-height: 200px;
   overflow-y: auto;
 }
