@@ -25,6 +25,7 @@ class Player {
     this.dashSpeedMult = 1;
     this.healthRegen = 0;
     this.lastDamageTime = 0;
+    this.statusEffects = [];
     this.heat = 0;
     this.maxHeat = 0;
     this.coolingSpeed = 0;

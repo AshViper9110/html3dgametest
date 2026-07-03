@@ -2108,12 +2108,35 @@ class Game {
       }
     }
 
+    this._tickStatusEffects(dt);
     if (this.effectManager) this.effectManager.update(dt);
     if (this.beamManager) this.beamManager.update(dt);
     if (this.trainingManager) this.trainingManager.update(dt);
     if (AUDIO) {
       if (lp) AUDIO.updateListener(lp.position);
     }
+  }
+
+  _tickStatusEffects(dt) {
+    this.players.forEach((player) => {
+      if (!player.alive || !player.statusEffects) return;
+      for (let i = player.statusEffects.length - 1; i >= 0; i--) {
+        const se = player.statusEffects[i];
+        se.remaining -= dt;
+        if (se.remaining <= 0) {
+          player.statusEffects.splice(i, 1);
+          continue;
+        }
+        if (se.type === 'burn' || se.type === 'poison') {
+          player.health = Math.max(0, player.health - se.damagePerSec * dt);
+          if (player.health <= 0 && player.alive) {
+            const msg = { type: 'died', playerId: player.id, killerId: 0, weapon: se.sourceWeapon || 'status' };
+            this.network.broadcast(msg);
+            this._handleDied(msg);
+          }
+        }
+      }
+    });
   }
 
   _updatePlaying(dt) {
@@ -2200,6 +2223,7 @@ class Game {
       p.update(dt);
     }
 
+    this._tickStatusEffects(dt);
     if (this.effectManager) this.effectManager.update(dt);
     if (this.beamManager) this.beamManager.update(dt);
     if (AUDIO) {
@@ -2244,8 +2268,19 @@ class Game {
       }
 
       let speed = CONFIG.playerSpeed * (lp.moveSpeedMult || 1);
+      /* Apply freeze slow from status effects */
+      if (lp.statusEffects) {
+        for (const se of lp.statusEffects) {
+          if (se.type === 'freeze' && se.slowAmount != null) speed *= se.slowAmount;
+        }
+      }
       if (this.dashTimer > 0) {
         speed = CONFIG.dashSpeed * (lp.dashSpeedMult || 1);
+        if (lp.statusEffects) {
+          for (const se of lp.statusEffects) {
+            if (se.type === 'freeze' && se.slowAmount != null) speed *= se.slowAmount;
+          }
+        }
         this.dashTimer -= dt;
         if (this.dashTimer <= 0) {
           this.dashTimer = 0;
@@ -2268,9 +2303,12 @@ class Game {
 
     if (this.mouseDelta !== 0) {
       lp.rotation -= this.mouseDelta * 0.003;
-      lp.targetRotation = lp.rotation;
       this.mouseDelta = 0;
     }
+    if (lp.recoilOffset) {
+      lp.rotation -= lp.recoilOffset * dt * 8;
+    }
+    lp.targetRotation = lp.rotation;
 
     if ((this.network.isHost || this.gameState === GameState.TRAINING) && this.effectManager && this.dashTriggered) {
       this.dashTriggered = false;
@@ -2292,17 +2330,29 @@ class Game {
     }
     if (!wp) console.log('[Fire] handleInput: weapon=%s NOT FOUND in WEAPONS', lp.weapon);
     else if (!this.pointerLocked) console.log('[Fire] handleInput: pointerLocked=false');
-    if (shouldFire) {
-      const now = Date.now();
-      const fireRateMult = this.passiveManager ? this.passiveManager.getFireRateMultiplier(this.localId) : 1;
-      const effectiveInterval = (wp.fireRate * 1000) / fireRateMult;
-      if (now - lp.lastFireTime > effectiveInterval) {
-        lp.lastFireTime = now;
-        this.shoot();
-      } else {
-        console.log('[Fire] handleInput: fire rate blocked (%dms < %dms)', now - lp.lastFireTime, wp.fireRate * 1000);
+      if (shouldFire) {
+        const now = Date.now();
+        const fireRateMult = this.passiveManager ? this.passiveManager.getFireRateMultiplier(this.localId) : 1;
+        const effectiveInterval = (wp.fireRate * 1000) / fireRateMult;
+        if (now - lp.lastFireTime > effectiveInterval) {
+          lp.lastFireTime = now;
+          this.shoot();
+          /* Recoil */
+          if (wp.recoil > 0) {
+            const recoilMult = this.passiveManager ? this.passiveManager.getMultiplier('recoilMultiplier', this.localId) : 1;
+            const recoilAmount = wp.recoil * (recoilMult != null ? recoilMult : 1) * 0.02;
+            lp.recoilOffset = (lp.recoilOffset || 0) + (recoilAmount + (Math.random() - 0.5) * recoilAmount * 0.5);
+          }
+        } else {
+          console.log('[Fire] handleInput: fire rate blocked (%dms < %dms)', now - lp.lastFireTime, wp.fireRate * 1000);
+        }
       }
-    }
+      /* Recoil recovery */
+      if (lp.recoilOffset) {
+        const recovery = 6 * dt;
+        if (Math.abs(lp.recoilOffset) < recovery) lp.recoilOffset = 0;
+        else lp.recoilOffset -= Math.sign(lp.recoilOffset) * recovery;
+      }
   }
 
   _handlePadInteraction(lp, speed, dt) {

@@ -242,7 +242,7 @@ class HostAuthority {
     /* Apply explosion passives via applyToExplosion */
     const explosionData = {
       damage: wp.damage,
-      radius: wp.explosionRadius || 2.5,
+      radius: proj.explosionRadius || wp.explosionRadius || 2.5,
     };
     if (passive) {
       passive.applyToExplosion(explosionData, proj.ownerId);
@@ -300,7 +300,7 @@ class HostAuthority {
   }
 
   _explodeProjectile(proj) {
-    if (!proj.wp || !proj.wp.explosive) return;
+    if (!((proj.wp && proj.wp.explosive) || proj.explosiveAmmo)) return;
     this.processExplosion(proj, proj.hitPlayers);
     const pos = proj.mesh.position.clone();
     if (AUDIO) AUDIO.play('explosion', { position: pos });
@@ -530,7 +530,7 @@ class HostAuthority {
         if (proj.mesh.position.distanceTo(vPos) < hitDist) {
           proj.hitPlayers.add(id);
 
-          if (proj.wp && proj.wp.explosive) {
+          if ((proj.wp && proj.wp.explosive) || proj.explosiveAmmo) {
             this.processHit(proj, id, proj.weapon);
             this._explodeProjectile(proj);
           } else {

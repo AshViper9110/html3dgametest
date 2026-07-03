@@ -285,16 +285,20 @@ class PassiveManager {
     if (!mods) return;
 
     if (mods.projSpeedMultiplier != null) {
-      if (projectile.speed) projectile.speed *= mods.projSpeedMultiplier;
+      if (projectile.speed) {
+        projectile.speed *= mods.projSpeedMultiplier;
+        if (projectile.velocity) {
+          projectile.velocity.normalize().multiplyScalar(projectile.speed);
+        }
+      }
     }
     if (mods.projSizeMultiplier != null) {
-      if (projectile.size) projectile.size *= mods.projSizeMultiplier;
-      if (projectile.scale) projectile.scale *= mods.projSizeMultiplier;
+      if (projectile.mesh) {
+        projectile.mesh.scale.setScalar(mods.projSizeMultiplier);
+      }
     }
     if (mods.rangeMultiplier != null) {
-      if (projectile.range) projectile.range *= mods.rangeMultiplier;
-      if (projectile.maxDistance) projectile.maxDistance *= mods.rangeMultiplier;
-      if (projectile.lifespan) projectile.lifespan *= mods.rangeMultiplier;
+      if (projectile.maxAge) projectile.maxAge *= mods.rangeMultiplier;
     }
 
     if (mods.pierceCount != null) {
