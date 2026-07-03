@@ -94,6 +94,9 @@ class Player {
     this.mesh.material.opacity = 1;
     this.mesh.material.depthWrite = true;
     this.mesh.material.depthTest = true;
+    this.mesh.material.color.setHex(this.color);
+    this.mesh.material.emissive.setHex(this.color);
+    this.mesh.material.emissiveIntensity = 0.3;
     this.mesh.visible = true;
     this.edgeMat.opacity = 0.4;
     this.edgeLine.visible = true;
@@ -102,6 +105,7 @@ class Player {
     this.outlineMat.opacity = 0.15;
     this.outlineLine.visible = true;
     this.deathFadeTimer = 0;
+    this.damageFlashTimer = 0;
   }
 
   spawn(halfExtent) {
