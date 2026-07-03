@@ -588,7 +588,9 @@ class Game {
     const cm = this.cheatManager;
     const lastPos = this.cheatValidator.getLastPosition(peerId);
     const dt = 0.05;
-    const maxSpeed = CONFIG.dashSpeed || CONFIG.playerSpeed;
+    const p = this.players.get(peerId);
+    const speedMult = p ? Math.max(p.moveSpeedMult || 1, p.dashSpeedMult || 1) : 1;
+    const maxSpeed = (CONFIG.dashSpeed || CONFIG.playerSpeed) * speedMult;
     let r = this.cheatValidator.validatePosition(data.pos, lastPos, dt, maxSpeed);
     if (!r.ok) {
       if (cm) cm.report(peerId, r.reason);
@@ -857,7 +859,7 @@ class Game {
     if (this.network.isHost) {
       if (this.cheatValidator && data.pos) {
         this.cheatValidator.recordPosition(data.id, data.pos, performance.now());
-        this.cheatValidator.initShadowHealth(data.id, CONFIG.maxHealth);
+        this.cheatValidator.initShadowHealth(data.id, p ? p.health : CONFIG.maxHealth);
       }
       this.network.broadcast(data);
       if (this.hostAuthority) {
@@ -2077,7 +2079,7 @@ class Game {
       this.hostAuthority.respawnedPeers.add(this.network.myId);
       if (this.network.isHost) {
         this.hostAuthority.refillAmmo(this.network.myId, lp.weapon);
-        if (this.cheatValidator) this.cheatValidator.initShadowHealth(this.network.myId, CONFIG.maxHealth);
+        if (this.cheatValidator) this.cheatValidator.initShadowHealth(this.network.myId, lp.health);
       }
     }
     if (this.effectManager) {

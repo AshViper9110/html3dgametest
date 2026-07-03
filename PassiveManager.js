@@ -77,7 +77,12 @@ class PassiveManager {
       const oldMax = player.maxHealth;
       player.maxHealth = CONFIG.maxHealth + mods.maxHealthFlat;
       const diff = player.maxHealth - oldMax;
-      if (diff > 0) player.health = Math.min(player.health + diff, player.maxHealth);
+      if (diff > 0) {
+        player.health = Math.min(player.health + diff, player.maxHealth);
+        if (this.game.cheatValidator && this.game.network.isHost) {
+          this.game.cheatValidator.trackRegen(playerId, player.health);
+        }
+      }
     }
     player.moveSpeedMult = mods.moveSpeed || 1;
     player.dashSpeedMult = mods.dashSpeed || 1;
@@ -232,6 +237,9 @@ class PassiveManager {
       if (player && player.alive) {
         const heal = damage * mods.lifeSteal;
         player.health = Math.min(player.health + heal, player.maxHealth);
+        if (this.game.cheatValidator && this.game.network.isHost) {
+          this.game.cheatValidator.trackRegen(shooterId, player.health);
+        }
         if (shooterId === this.game.network.myId) {
           this.game.updateHealthUI();
         }
@@ -282,6 +290,9 @@ class PassiveManager {
       this.regenTimers.set(playerId, newTimer - interval);
       if (player.health < player.maxHealth) {
         player.health = Math.min(player.health + 1, player.maxHealth);
+        if (this.game.cheatValidator && this.game.network.isHost) {
+          this.game.cheatValidator.trackRegen(playerId, player.health);
+        }
         if (playerId === this.game.network.myId) {
           this.game.updateHealthUI();
         }
