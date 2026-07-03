@@ -1420,12 +1420,6 @@ class Game {
       if (id !== hostId) this.clientReady.delete(id);
     });
     this.clientReady.set(hostId, true);
-    this.clientWeapons.forEach((v, id) => {
-      if (id !== hostId) this.clientWeapons.delete(id);
-    });
-    this.clientPassives.forEach((v, id) => {
-      if (id !== hostId) this.clientPassives.delete(id);
-    });
     this.network.sendTimer = CONFIG.stateSendRate;
     document.getElementById('kill-count').textContent = '0';
     document.getElementById('death-count').textContent = '0';
