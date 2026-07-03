@@ -444,15 +444,9 @@ class Game {
         }
         break;
       case 'beam_fire':
-        if (this.network.isHost) {
-          if (this.hostAuthority && conn) {
-            const peerId = conn.peer;
-            const cm = this.cheatManager;
-            const tsResult = this.cheatValidator ? this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId) : null;
-            if (!tsResult || !tsResult.ok) { if (cm && tsResult) cm.report(peerId, tsResult.reason); break; }
-            if (data.inputId === undefined) break;
-            this.hostAuthority.handleBeamFireRequest(data, peerId, peerId + '_' + data.inputId);
-          }
+        if (this.network.isHost && this.hostAuthority && conn) {
+          if (data.inputId === undefined) break;
+          this.hostAuthority.handleBeamFireRequest(data, conn.peer, conn.peer + '_' + data.inputId);
         }
         break;
       case 'beam_effect':
@@ -559,63 +553,14 @@ class Game {
   _handleState(data, conn) {
     const p = this.players.get(data.id);
     if (!p) return;
-    if (this.network.isHost && this.cheatValidator && data.id !== this.network.myId) {
-      if (!this._validatePlayerState(data, conn)) return;
-    }
     p.targetPosition.set(data.pos.x, data.pos.y, data.pos.z);
     p.targetRotation = data.rot;
     if (data.alive !== undefined) p.alive = data.alive;
-    if (data.health !== undefined) {
-      if (this.network.isHost && this.cheatManager && this.cheatValidator &&
-          data.id !== this.network.myId) {
-        const hr = this.cheatValidator.validateShadowHealth(data.id, data.health);
-        if (!hr.ok) {
-          this.cheatManager.report(data.id, hr.reason);
-          return;
-        }
-        this.cheatValidator.trackRegen(data.id, data.health);
-      }
-      p.health = data.health;
-    }
+    if (data.health !== undefined) p.health = data.health;
     if (data.weapon !== undefined) p.weapon = data.weapon;
     if (this.network.isHost) {
       this.network.broadcast(data, this._findConn(data.id));
     }
-  }
-
-  _validatePlayerState(data, conn) {
-    const peerId = conn.peer;
-    const cm = this.cheatManager;
-    const lastPos = this.cheatValidator.getLastPosition(peerId);
-    const dt = 0.05;
-    const p = this.players.get(peerId);
-    const speedMult = p ? Math.max(p.moveSpeedMult || 1, p.dashSpeedMult || 1) : 1;
-    const maxSpeed = (CONFIG.dashSpeed || CONFIG.playerSpeed) * speedMult;
-    let r = this.cheatValidator.validatePosition(data.pos, lastPos, dt, maxSpeed);
-    if (!r.ok) {
-      if (cm) cm.report(peerId, r.reason);
-      if (lastPos) {
-        this.network.sendTo(peerId, {
-          type: 'player_correct', id: peerId,
-          pos: { x: lastPos.x, y: 0, z: lastPos.z },
-        });
-      }
-      return false;
-    }
-    if (lastPos) {
-      const warpDist = (this.arenaMap ? this.arenaMap.size : 40) * 2;
-      r = this.cheatValidator.validateNoWarp(data.pos, lastPos, warpDist);
-      if (!r.ok) {
-        if (cm) cm.report(peerId, r.reason);
-        this.network.sendTo(peerId, {
-          type: 'player_correct', id: peerId,
-          pos: { x: lastPos.x, y: 0, z: lastPos.z },
-        });
-        return false;
-      }
-    }
-    this.cheatValidator.recordPosition(peerId, data.pos, data.timestamp || performance.now());
-    return true;
   }
 
   _findConn(playerId) {
@@ -623,26 +568,9 @@ class Game {
   }
 
   _handleFireRequest(data, conn) {
-    console.log('[Fire Received] weapon=%s peerId=%s inputId=%s',
-      data.weapon, conn ? conn.peer : '?', data.inputId);
-    if (!this.hostAuthority) { console.log('[Fire Received] BLOCKED: no hostAuthority'); return; }
-    if (!this.cheatValidator) { console.log('[Fire Received] BLOCKED: no cheatValidator'); return; }
-    const peerId = conn.peer;
-    const cm = this.cheatManager;
-    const tsResult = this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId);
-    if (!tsResult.ok) {
-      console.log('[Fire Received] BLOCKED: validateTimestamp failed');
-      if (cm) cm.report(peerId, tsResult.reason);
-      return;
-    }
-    console.log('[Fire Received] validateTimestamp OK');
-    if (data.inputId === undefined) {
-      console.log('[Fire Received] BLOCKED: inputId undefined');
-      return;
-    }
-    console.log('[Fire Received] → hostAuthority.handleFireRequest()');
-    console.log('[Projectile Spawn] enqueue weapon=%s peerId=%s', data.weapon, peerId);
-    this.hostAuthority.handleFireRequest(data, peerId, peerId + '_' + data.inputId);
+    if (!this.hostAuthority) return;
+    if (data.inputId === undefined) return;
+    this.hostAuthority.handleFireRequest(data, conn.peer, conn.peer + '_' + data.inputId);
   }
 
   _handleProjSpawn(data) {
@@ -857,10 +785,6 @@ class Game {
       );
     }
     if (this.network.isHost) {
-      if (this.cheatValidator && data.pos) {
-        this.cheatValidator.recordPosition(data.id, data.pos, performance.now());
-        this.cheatValidator.initShadowHealth(data.id, p ? p.health : CONFIG.maxHealth);
-      }
       this.network.broadcast(data);
       if (this.hostAuthority) {
         this.hostAuthority.refillAllAmmo(data.id);
@@ -2079,7 +2003,6 @@ class Game {
       this.hostAuthority.respawnedPeers.add(this.network.myId);
       if (this.network.isHost) {
         this.hostAuthority.refillAmmo(this.network.myId, lp.weapon);
-        if (this.cheatValidator) this.cheatValidator.initShadowHealth(this.network.myId, lp.health);
       }
     }
     if (this.effectManager) {

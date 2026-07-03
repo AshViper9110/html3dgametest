@@ -12,17 +12,9 @@ class HostAuthority {
     console.log('[Host Authority] handleFireRequest peerId=%s weapon=%s inputId=%s', peerId, data.weapon, inputId);
     const cv = this.game.cheatValidator;
     const cm = this.game.cheatManager;
-    if (!cv) { console.log('[Host Authority] BLOCKED: no cheatValidator'); return; }
 
-    let r = cv.validateWeapon(data.weapon);
-    if (!r.ok) { console.log('[Host Authority] BLOCKED: validateWeapon'); if (cm) cm.report(peerId, r.reason); return; }
-    console.log('[Host Authority] validateWeapon OK');
-    r = cv.validateFireRate(peerId, data.weapon, data.timestamp || Date.now());
+    const r = cv.validateFireRate(peerId, data.weapon, data.timestamp || Date.now());
     if (!r.ok) { console.log('[Host Authority] BLOCKED: validateFireRate'); if (cm) cm.report(peerId, r.reason); return; }
-    console.log('[Host Authority] validateFireRate OK');
-    r = cv.isReplayAttack(inputId);
-    if (!r.ok) { console.log('[Host Authority] BLOCKED: isReplayAttack'); if (cm) cm.report(peerId, r.reason); return; }
-    console.log('[Host Authority] isReplayAttack OK');
     if (this.respawnedPeers.has(peerId)) {
       console.log('[Host Authority] respawnedPeers → refillAllAmmo');
       this.refillAllAmmo(peerId);
@@ -154,7 +146,6 @@ class HostAuthority {
     const dmgReduction = passive ? passive.getDamageReduction(victimId, 'projectile') : 1;
     damage *= dmgReduction;
     const killed = victim.takeDamage(damage);
-    if (this.game.cheatValidator) this.game.cheatValidator.trackDamage(victimId, damage);
 
     if (passive) {
       passive.onDamageDealt(killerId, victimId, damage, weapon);
@@ -211,7 +202,6 @@ class HostAuthority {
           expDamage *= passive.getDamageReduction(id, 'explosion');
         }
         const killed = victim.takeDamage(expDamage);
-        if (this.game.cheatValidator) this.game.cheatValidator.trackDamage(id, expDamage);
 
         const hitMsg = {
           type: 'hit',
@@ -349,12 +339,7 @@ class HostAuthority {
   handleBeamFireRequest(data, peerId, inputId) {
     const cv = this.game.cheatValidator;
     const cm = this.game.cheatManager;
-    if (!cv) return;
-    let r = cv.validateWeapon(data.weapon);
-    if (!r.ok) { if (cm) cm.report(peerId, r.reason); return; }
-    r = cv.validateFireRate(peerId, data.weapon, data.timestamp || 0);
-    if (!r.ok) { if (cm) cm.report(peerId, r.reason); return; }
-    r = cv.isReplayAttack(inputId);
+    const r = cv.validateFireRate(peerId, data.weapon, data.timestamp || 0);
     if (!r.ok) { if (cm) cm.report(peerId, r.reason); return; }
 
     if (this.respawnedPeers.has(peerId)) {
@@ -392,7 +377,6 @@ class HostAuthority {
         let beamDmg = passive ? passive.getBeamDamage(peerId, wp.damage) : wp.damage;
         if (passive) beamDmg *= passive.getDamageReduction(result.hitPlayer, 'beam');
         const killed = victim.takeDamage(beamDmg);
-        if (this.game.cheatValidator) this.game.cheatValidator.trackDamage(result.hitPlayer, beamDmg);
 
         const hitMsg = {
           type: 'hit',

@@ -54,19 +54,6 @@ class NetworkManager {
   _setupConn(conn) {
     console.log('[Network] _setupConn peerId=%s isHost=%s conn.open=%s', conn.peer, this.isHost, conn.open);
     conn.on('data', (data) => {
-      if (this.isHost && this.game.cheatValidator) {
-        const peerId = conn.peer;
-        const result = this.game.cheatValidator.validatePacket(data, peerId);
-        if (!result.ok) {
-          if (this.game.cheatManager) {
-            this.game.cheatManager.report(peerId, result.reason);
-          }
-          if (this.game.cheatValidator.isSpamming(peerId)) {
-            this._disconnectPeer(conn);
-          }
-          return;
-        }
-      }
       this.game.handleMessage(data, conn);
     });
     conn.on('close', () => {

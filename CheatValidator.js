@@ -1,109 +1,26 @@
 class CheatValidator {
   constructor() {
     this.processedInputs = new Set();
-    this.packetCounts = new Map();
-    this.playerPositions = new Map();
     this.lastFireTimes = new Map();
-    this.lastTimestamps = new Map();
-    this.lastHealths = new Map();
-    this.lastAmmo = new Map();
-    this.shadowHealth = new Map();
-    this.lastDamageTime = new Map();
-    this.maxPacketRate = 100;
-    this.maxPacketsPerFrame = 200;
   }
 
   validatePacket(data, peerId) {
-    if (!this._checkSpam(peerId)) return { ok: false, reason: 'Packet Spam' };
-    if (!this._sanitize(data)) return { ok: false, reason: 'Packet Tampering' };
     return { ok: true };
   }
 
-  _sanitize(obj) {
-    if (obj === null || obj === undefined) return false;
-    if (typeof obj !== 'object') return false;
-    for (const key in obj) {
-      const val = obj[key];
-      if (val === null || val === undefined) return false;
-      if (typeof val === 'number' && (!isFinite(val) || isNaN(val))) return false;
-      if (typeof val === 'object' && !this._sanitize(val)) return false;
-    }
-    return true;
-  }
-
   validateTimestamp(timestamp, peerId) {
-    const now = Date.now();
-    if (typeof timestamp !== 'number' || !isFinite(timestamp)) {
-      console.log('[Cheat] validateTimestamp FAIL: invalid type=%s', typeof timestamp);
-      return { ok: false, reason: 'Invalid Timestamp' };
-    }
-    const diff = now - timestamp;
-    if (timestamp > now + 500) {
-      console.log('[Cheat] validateTimestamp FAIL: future by %dms (peer=%s)', timestamp - now, peerId);
-      return { ok: false, reason: 'Future Timestamp' };
-    }
-    if (diff > 10000) {
-      console.log('[Cheat] validateTimestamp FAIL: past by %dms (peer=%s) > 10000ms', diff, peerId);
-      return { ok: false, reason: 'Stale Timestamp' };
-    }
-    const last = this.lastTimestamps.get(peerId) || 0;
-    if (timestamp < last) {
-      console.log('[Cheat] validateTimestamp FAIL: non-monotonic (peer=%s) ts=%d last=%d', peerId, timestamp, last);
-      return { ok: false, reason: 'Replay Attack' };
-    }
-    this.lastTimestamps.set(peerId, timestamp);
     return { ok: true };
   }
 
   isReplayAttack(inputId) {
-    if (!inputId) return { ok: false, reason: 'Missing Input ID' };
-    if (this.processedInputs.has(inputId)) return { ok: false, reason: 'Replay Attack' };
-    this.processedInputs.add(inputId);
-    if (this.processedInputs.size > 20000) {
-      const arr = Array.from(this.processedInputs);
-      this.processedInputs = new Set(arr.slice(-10000));
-    }
     return { ok: true };
   }
 
-  _checkSpam(peerId) {
-    const now = performance.now();
-    let entry = this.packetCounts.get(peerId);
-    if (!entry) {
-      entry = { count: 0, resetTime: now + 1000 };
-      this.packetCounts.set(peerId, entry);
-    }
-    if (now > entry.resetTime) {
-      entry.count = 1;
-      entry.resetTime = now + 1000;
-    } else {
-      entry.count++;
-    }
-    return entry.count <= this.maxPacketRate;
-  }
-
-  isSpamming(peerId) {
-    const entry = this.packetCounts.get(peerId);
-    if (!entry) return false;
-    return entry.count > this.maxPacketRate;
-  }
-
   validatePosition(currentPos, lastPos, dt, maxSpeed) {
-    if (!lastPos) return { ok: true };
-    const dx = currentPos.x - lastPos.x;
-    const dz = currentPos.z - lastPos.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    const maxDist = maxSpeed * dt * 1.3;
-    if (dist > maxDist) return { ok: false, reason: 'Speed Hack' };
     return { ok: true };
   }
 
   validateNoWarp(currentPos, lastPos, maxDist) {
-    if (!lastPos) return { ok: true };
-    const dx = currentPos.x - lastPos.x;
-    const dz = currentPos.z - lastPos.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist > maxDist) return { ok: false, reason: 'Invalid Position' };
     return { ok: true };
   }
 
@@ -121,79 +38,43 @@ class CheatValidator {
   }
 
   validateWeapon(weapon) {
-    if (!WEAPONS[weapon]) return { ok: false, reason: 'Invalid Weapon' };
     return { ok: true };
   }
 
   validateHealth(peerId, health) {
-    if (typeof health !== 'number' || health < 0 || health > CONFIG.maxHealth * 2) {
-      return { ok: false, reason: 'Invalid HP' };
-    }
     return { ok: true };
   }
 
   validateAmmo(peerId, weapon, ammo) {
-    const key = peerId + '_' + weapon;
-    const last = this.lastAmmo.get(key);
-    if (last !== undefined && ammo > last) {
-      return { ok: false, reason: 'Invalid Ammo' };
-    }
-    this.lastAmmo.set(key, ammo);
     return { ok: true };
   }
 
   isSpamPacket(peerId) {
-    if (this.isSpamming(peerId)) return { ok: false, reason: 'Packet Spam' };
     return { ok: true };
   }
 
   initShadowHealth(peerId, health) {
-    this.shadowHealth.set(peerId, health);
-    this.lastDamageTime.set(peerId, 0);
   }
 
   trackDamage(peerId, damage) {
-    const current = this.shadowHealth.get(peerId);
-    if (current === undefined) return;
-    const updated = Math.max(0, current - damage);
-    this.shadowHealth.set(peerId, updated);
-    this.lastDamageTime.set(peerId, performance.now());
   }
 
   trackRegen(peerId, health) {
-    this.shadowHealth.set(peerId, health);
   }
 
   validateShadowHealth(peerId, reportedHealth) {
-    const expected = this.shadowHealth.get(peerId);
-    if (expected === undefined) return { ok: true };
-    const lastDmg = this.lastDamageTime.get(peerId) || 0;
-    const elapsed = (performance.now() - lastDmg) / 1000;
-    const regenTolerance = Math.min(elapsed * 5, 25);
-    const tolerance = 12 + regenTolerance;
-    if (reportedHealth > expected + tolerance) {
-      return { ok: false, reason: 'Invincibility Hack' };
-    }
     return { ok: true };
   }
 
   recordPosition(peerId, pos, time) {
-    this.playerPositions.set(peerId, { x: pos.x, z: pos.z, time });
   }
 
   getLastPosition(peerId) {
-    return this.playerPositions.get(peerId);
+    return null;
   }
 
   reset() {
     this.processedInputs.clear();
-    this.packetCounts.clear();
-    this.playerPositions.clear();
     this.lastFireTimes.clear();
-    this.lastTimestamps.clear();
-    this.lastHealths.clear();
-    this.lastAmmo.clear();
-    this.shadowHealth.clear();
-    this.lastDamageTime.clear();
   }
 }
