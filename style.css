@@ -1210,6 +1210,29 @@ textarea:focus {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+#respawn-btn {
+  display: block;
+  margin: 16px auto 0;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1em, 0.8em + 0.8vw, 1.2em);
+  font-weight: 700;
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #00c8ff, #0077ff);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  text-shadow: 0 0 10px rgba(0,200,255,0.5);
+  box-shadow: 0 0 20px rgba(0,200,255,0.3);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+#respawn-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(0,200,255,0.5);
+}
+#respawn-btn:active {
+  transform: scale(0.95);
+}
 
 /* === チート検出 === */
 #cheat-detected-screen {

@@ -135,6 +135,14 @@ function setupPassiveNav(containerId) {
 setupPassiveNav('lobby-passive-selector');
 setupPassiveNav('death-passive-selector');
 
+/* リスポーンボタン */
+document.getElementById('respawn-btn').addEventListener('click', () => {
+  if (game.respawnReady && !game.respawnRequested) {
+    _uiSound('ui_click')();
+    game._requestRespawn();
+  }
+});
+
 /* マップ変更（左右矢印 / Hostのみ） */
 document.getElementById('map-prev').addEventListener('click', () => {
   if (game.network.isHost) game._changeMap('prev');
