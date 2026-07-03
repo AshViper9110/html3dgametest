@@ -522,6 +522,7 @@ class Game {
       case 'return_lobby': this._handleReturnLobby(data); break;
       case 'kill_feed': this._handleKillFeed(data); break;
       case 'cheat_detected': this._handleCheatDetected(data); break;
+      case 'gravity_zone': this._handleGravityZone(data); break;
     }
   }
 
@@ -639,6 +640,10 @@ class Game {
     const proj = new Projectile(this.scene, origin, dir,
       data.ownerId, data.pid, data.color, data.weapon, mapHalf);
     proj.isRemote = true;
+    if (data.homing) {
+      proj.isHoming = true;
+      proj.homingTargetId = data.homingTarget || null;
+    }
     this.projectiles.push(proj);
     const owner = this.players.get(data.ownerId);
     if (owner) {
@@ -769,6 +774,14 @@ class Game {
     if (dist < 15) {
       this.cameraEffectManager.explosionShake(12 - dist * 0.5);
     }
+  }
+
+  _handleGravityZone(data) {
+    const pos = new THREE.Vector3(data.pos.x, 0, data.pos.z);
+    if (this.effectManager) {
+      this.effectManager.spawnExplosion(pos.clone(), data.color || 0x2200aa);
+    }
+    this.cameraEffectManager.explosionShake(4);
   }
 
   _handleAmmoUpdate(data) {
@@ -1059,10 +1072,10 @@ class Game {
     if (roomId) {
       el.textContent = roomId;
     } else {
-      el.textContent = this.network.isHost ? 'Creating...' : 'Connecting...';
+      el.textContent = this.network.isHost ? '作成中...' : '接続中...';
     }
     if (roleEl) {
-      roleEl.textContent = this.network.isHost ? 'Host' : 'Joined Room';
+      roleEl.textContent = this.network.isHost ? 'ホスト' : '参加済み';
     }
   }
 
@@ -1095,10 +1108,10 @@ class Game {
     const descEl = document.getElementById('lobby-map-desc');
     const recEl = document.getElementById('lobby-map-rec');
     const diffEl = document.getElementById('lobby-map-diff');
-    if (nameEl) nameEl.textContent = map.name;
-    if (descEl) descEl.textContent = map.desc;
-    if (recEl) recEl.innerHTML = `Recommended<br>${map.recommendedPlayers} Players`;
-    if (diffEl) diffEl.innerHTML = `Difficulty<br>${'★'.repeat(map.difficulty)}${'☆'.repeat(5 - map.difficulty)}`;
+    if (nameEl) nameEl.textContent = map.nameJa || map.name;
+    if (descEl) descEl.textContent = map.descJa || map.desc;
+    if (recEl) recEl.innerHTML = `推奨人数<br>${map.recommendedPlayers}`;
+    if (diffEl) diffEl.innerHTML = `難易度<br>${'★'.repeat(map.difficulty)}${'☆'.repeat(5 - map.difficulty)}`;
   }
 
   _updateLobbyStatus() {
@@ -1119,11 +1132,12 @@ class Game {
     if (readyEl) readyEl.textContent = `${readyCount} / ${total}`;
     if (statusEl) {
       if (total === 0) {
-        statusEl.textContent = 'Waiting for players...';
+        statusEl.textContent = 'プレイヤーを待機中...';
       } else if (total >= 2 && readyCount >= total - 1) {
-        statusEl.textContent = 'Ready to start!';
+        statusEl.textContent = '準備完了！';
       } else {
-        statusEl.textContent = readyCount >= total - 1 ? 'Waiting for host...' : `Waiting for ${total - 1 - readyCount} player(s)...`;
+        const need = total - 1 - readyCount;
+        statusEl.textContent = need <= 0 ? 'ホストの開始を待機中...' : `${need}人のプレイヤーを待機中...`;
       }
     }
   }
@@ -1171,7 +1185,7 @@ class Game {
     ctx.fillStyle = 'rgba(0, 240, 255, 0.4)';
     ctx.font = '10px Orbitron, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(map.name, W / 2, H - 4);
+    ctx.fillText(map.nameJa || map.name, W / 2, H - 4);
   }
 
   _drawGuestMapPreview(mapKey) {
@@ -1211,7 +1225,7 @@ class Game {
     ctx.fillStyle = 'rgba(0, 240, 255, 0.3)';
     ctx.font = '8px Orbitron, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(map.name, W / 2, H - 3);
+    ctx.fillText(map.nameJa || map.name, W / 2, H - 3);
   }
 
   _updateWeaponSelectorUI(target) {
@@ -1222,7 +1236,7 @@ class Game {
     const statsEl = document.getElementById(target + '-ws-stats');
     if (nameEl) {
       const beamIcon = w && w.weaponType === 'beam' ? '⚡ ' : '';
-      nameEl.textContent = w ? beamIcon + w.displayName : '?';
+      nameEl.textContent = w ? beamIcon + (w.displayNameJa || w.displayName) : '?';
     }
     if (statsEl) statsEl.innerHTML = w ? WEAPON_REGISTRY.statsLines(wp).join('<br>') : '';
   }
@@ -1282,9 +1296,10 @@ class Game {
     const iconEl = document.getElementById(target + '-ps-icon');
     const descEl = document.getElementById(target + '-ps-desc');
     const rarityEl = document.getElementById(target + '-ps-rarity');
-    if (nameEl) nameEl.textContent = p.displayName || this.loadoutPassive;
+    const detail = PassiveRegistry.getDetail(this.loadoutPassive);
+    if (nameEl) nameEl.textContent = (detail && detail.displayNameJa) || p.displayName || this.loadoutPassive;
     if (iconEl) iconEl.textContent = p.icon || '';
-    if (descEl) descEl.textContent = p.description || '';
+    if (descEl) descEl.textContent = (detail && detail.descriptionJa) || p.description || '';
     if (rarityEl) {
       const rarColors = { common: '#8888aa', uncommon: '#00ff88', rare: '#00aaff', epic: '#aa44ff' };
       rarityEl.textContent = p.rarity ? p.rarity.toUpperCase() : '';
@@ -1742,18 +1757,23 @@ class Game {
         }
       }
     } else {
-      const projDir = baseDir.clone();
-      const spreadMult = this.passiveManager ? this.passiveManager.getSpreadMultiplier(this.localId) : 1;
-      if (wp.spread > 0) {
-        projDir.x += (Math.random() - 0.5) * wp.spread * 0.5 * spreadMult;
-        projDir.z += (Math.random() - 0.5) * wp.spread * 0.5 * spreadMult;
-        projDir.normalize();
-      }
       const mapHalf = 60;
-      const proj = new Projectile(this.scene, lp.position, projDir,
-        this.localId, this.inputIdCounter++, lp.color, lp.weapon, mapHalf);
-      proj.isTraining = true;
-      this.projectiles.push(proj);
+      const spreadMult = this.passiveManager ? this.passiveManager.getSpreadMultiplier(this.localId) : 1;
+      for (let i = 0; i < pellets; i++) {
+        const projDir = baseDir.clone();
+        if (i > 0 && wp.spread > 0) {
+          projDir.x += (Math.random() - 0.5) * wp.spread * spreadMult;
+          projDir.z += (Math.random() - 0.5) * wp.spread * spreadMult;
+          projDir.normalize();
+        }
+        const proj = new Projectile(this.scene, lp.position, projDir,
+          this.localId, this.inputIdCounter++, lp.color, lp.weapon, mapHalf);
+        proj.isTraining = true;
+        proj._gravityWell = (lp.weapon === 'black_hole_launcher');
+        proj._isDrone = (lp.weapon === 'missile_drone');
+        proj._droneTimer = 2.0;
+        this.projectiles.push(proj);
+      }
     }
 
     if (this.effectManager) {
@@ -2018,12 +2038,73 @@ class Game {
       p.update(dt);
     });
 
+    const targets = this.trainingManager && this.trainingManager.targets ? this.trainingManager.targets.targets : null;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       if (!p.alive) { this.projectiles.splice(i, 1); continue; }
       p.update(dt);
-      if (p.alive && this.trainingManager && this.trainingManager.targets) {
+
+      /* Black Hole: spawn gravity zone on death */
+      if (!p.alive && p._gravityWell) {
+        if (this.effectManager) {
+          this.effectManager.spawnExplosion(p.mesh.position.clone(), 0x2200aa);
+        }
+        if (!this._trainingGravityZones) this._trainingGravityZones = [];
+        this._trainingGravityZones.push({ pos: p.mesh.position.clone(), timer: 4 });
+      }
+
+      /* Missile Drone: hover and auto-fire */
+      if (p.alive && p._isDrone) {
+        if (p.age > 0.5 && p.velocity.lengthSq() > 0.01) {
+          p.velocity.set(0, 0, 0);
+        }
+        if (p.age > 0.5 && targets) {
+          p._droneTimer -= dt;
+          if (p._droneTimer <= 0) {
+            p._droneTimer = 1.5;
+            let nearest = null, nearDist = Infinity;
+            for (const t of targets) {
+              if (!t.alive) continue;
+              const d = p.mesh.position.distanceTo(t.group.position);
+              if (d < nearDist) { nearDist = d; nearest = t; }
+            }
+            if (nearest) {
+              this.trainingManager.recordHit(20);
+              this.trainingManager.targets.flashTarget(nearest.id);
+              if (this.effectManager) {
+                this.effectManager.spawnHitEffect(nearest.group.position.clone(), 0xff4444);
+              }
+            }
+          }
+        }
+      }
+
+      if (p.alive && targets) {
         this._checkProjectileTargetHit(p);
+      }
+    }
+
+    /* Update training gravity zones */
+    if (this._trainingGravityZones) {
+      for (let i = this._trainingGravityZones.length - 1; i >= 0; i--) {
+        const gz = this._trainingGravityZones[i];
+        gz.timer -= dt;
+        if (gz.timer <= 0) {
+          this._trainingGravityZones.splice(i, 1);
+          continue;
+        }
+        if (targets) {
+          for (const t of targets) {
+            if (!t.alive) continue;
+            const dir = new THREE.Vector3().copy(gz.pos).sub(t.group.position);
+            const dist = dir.length();
+            if (dist < 8 && dist > 0.5) {
+              const pullStrength = 8 * dt * (1 - dist / 8);
+              dir.normalize().multiplyScalar(pullStrength);
+              t.group.position.add(dir);
+            }
+          }
+        }
       }
     }
 

@@ -7,6 +7,9 @@ class HostAuthority {
     this.heatStates = new Map();
     this.playerStats = new Map();
     this.respawnedPeers = new Set();
+    this._gravityZones = [];
+    this._drones = new Map();
+    this._projIdCounter = 0;
   }
 
   handleFireRequest(data, peerId, inputId) {
@@ -311,6 +314,110 @@ class HostAuthority {
     });
   }
 
+  _spawnGravityZone(pos, ownerId, color) {
+    const zone = {
+      position: pos.clone(),
+      ownerId,
+      color: color || 0x2200aa,
+      age: 0,
+      duration: 4,
+      radius: 8,
+      pullStrength: 8,
+      damageTick: 5,
+      tickInterval: 1,
+      lastTick: 0,
+    };
+    this._gravityZones.push(zone);
+    this.game.network.broadcast({
+      type: 'gravity_zone',
+      pos: { x: pos.x, y: 0, z: pos.z },
+      color: zone.color,
+      duration: zone.duration,
+      radius: zone.radius,
+    });
+    if (AUDIO) AUDIO.play('explosion', { position: pos });
+    this.game.effectManager.spawnExplosion(pos.clone(), zone.color);
+  }
+
+  _fireDroneMissile(droneProj) {
+    const target = this._findNearestEnemy(droneProj.mesh.position, droneProj.ownerId);
+    if (!target) return;
+    const origin = droneProj.mesh.position.clone();
+    const toTarget = new THREE.Vector3(
+      target.position.x - origin.x, 0, target.position.z - origin.z
+    ).normalize();
+    const pid = 'drone_' + (this._projIdCounter++);
+    const wp = WEAPONS.missile_drone;
+    const missile = new Projectile(this.game.scene, origin, toTarget, droneProj.ownerId, pid, 0xff4444, 'missile_drone');
+    missile.speed = 30;
+    missile.velocity.copy(toTarget).multiplyScalar(30);
+    missile.isHoming = true;
+    missile.homingTargetId = target.id;
+    missile.wp.damage = 20;
+    missile.wp.hitRadius = 0.6;
+    missile.wp.projLifetime = 5;
+    missile.isHostProjectile = true;
+    this.hostProjectiles.push(missile);
+    this.game.network.broadcast({
+      type: 'proj_spawn',
+      ownerId: droneProj.ownerId, pid,
+      weapon: 'missile_drone',
+      pos: { x: origin.x, y: 0, z: origin.z },
+      dir: { x: toTarget.x, y: 0, z: toTarget.z },
+      color: 0xff4444,
+      inputId: pid,
+      homing: true,
+      homingTarget: target.id,
+    });
+  }
+
+  _findNearestEnemy(pos, ownerId) {
+    let nearest = null, nearDist = Infinity;
+    this.game.players.forEach((p, id) => {
+      if (id === ownerId || !p.alive) return;
+      const d = pos.distanceTo(p.position);
+      if (d < nearDist) { nearDist = d; nearest = p; }
+    });
+    return nearest;
+  }
+
+  _updateGravityZones(dt) {
+    for (let i = this._gravityZones.length - 1; i >= 0; i--) {
+      const z = this._gravityZones[i];
+      z.age += dt;
+      if (z.age >= z.duration) { this._gravityZones.splice(i, 1); continue; }
+
+      z.lastTick += dt;
+      const tickDamage = z.lastTick >= z.tickInterval;
+
+      this.game.players.forEach((p, id) => {
+        if (id === z.ownerId || !p.alive) return;
+        const dx = z.position.x - p.position.x;
+        const dz = z.position.z - p.position.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < z.radius && dist > 0.1) {
+          const force = z.pullStrength * (1 - dist / z.radius) * dt;
+          p.position.x += (dx / dist) * force;
+          p.position.z += (dz / dist) * force;
+          p.targetPosition.copy(p.position);
+
+          if (tickDamage) {
+            z.lastTick = 0;
+            p.takeDamage(z.damageTick);
+            if (!p.alive) {
+              const killer = this.game.players.get(z.ownerId);
+              this._trackKill(z.ownerId, id, 'black_hole_launcher');
+            }
+          }
+        }
+      });
+    }
+  }
+
+  _updateDrones(dt) {
+    /* Cleanup only — timer managed in handleHostProjectiles */
+  }
+
   handleHostProjectiles(dt) {
     /* Heat dissipation for all tracked heat states */
     this.heatStates.forEach((state) => {
@@ -322,12 +429,59 @@ class HostAuthority {
       }
     });
 
+    this._updateGravityZones(dt);
+    this._updateDrones(dt);
+
     const projs = this.hostProjectiles;
     for (let i = projs.length - 1; i >= 0; i--) {
       const proj = projs[i];
-      if (!proj.alive) { projs.splice(i, 1); continue; }
+      if (!proj.alive) {
+        if (proj.weapon === 'missile_drone') this._drones.delete(proj.id);
+        projs.splice(i, 1);
+        continue;
+      }
 
       proj.update(dt);
+
+      /* Black Hole Launcher: spawn gravity zone on death */
+      if (!proj.alive && proj.weapon === 'black_hole_launcher') {
+        this._spawnGravityZone(proj.mesh.position, proj.ownerId, proj.color);
+      }
+
+      /* Homing: adjust velocity toward target */
+      if (proj.alive && proj.isHoming && proj.homingTargetId) {
+        const target = this.game.players.get(proj.homingTargetId);
+        if (target && target.alive) {
+          const toTarget = new THREE.Vector3(
+            target.position.x - proj.mesh.position.x, 0,
+            target.position.z - proj.mesh.position.z
+          );
+          const dist = toTarget.length();
+          if (dist > 0.5) {
+            toTarget.normalize();
+            proj.velocity.lerp(toTarget.multiplyScalar(proj.speed), dt * proj.homingStrength);
+            proj.velocity.y = 0;
+          }
+        } else {
+          proj.homingTargetId = null;
+        }
+      }
+
+      /* Missile Drone: deploy and fire homing missiles */
+      if (proj.alive && proj.weapon === 'missile_drone' && !proj.isHoming) {
+        if (proj.age > 0.5 && proj.velocity.lengthSq() > 0.01) {
+          proj.velocity.set(0, 0, 0);
+          this._drones.set(proj.id, { fireTimer: 1.5 });
+        }
+        const drone = this._drones.get(proj.id);
+        if (drone) {
+          drone.fireTimer -= dt;
+          if (drone.fireTimer <= 0) {
+            drone.fireTimer = 1.5;
+            this._fireDroneMissile(proj);
+          }
+        }
+      }
 
       const map = this.game.arenaMap;
       if (map) {
@@ -582,5 +736,8 @@ class HostAuthority {
     this.heatStates.clear();
     this.playerStats.clear();
     this.respawnedPeers.clear();
+    this._gravityZones = [];
+    this._drones.clear();
+    this._projIdCounter = 0;
   }
 }

@@ -39,6 +39,9 @@ class Projectile {
     this.pierceCount = 0;
     this.passiveSizeMult = 1;
     this.ricocheted = false;
+    this.isHoming = false;
+    this.homingTargetId = null;
+    this.homingStrength = 3;
   }
 
   update(dt) {

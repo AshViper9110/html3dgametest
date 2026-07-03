@@ -48,16 +48,16 @@
 
       <!-- Room ID -->
       <div id="lobby-room-id-section">
-        <div class="lobby-section-label">ROOM ID</div>
+        <div class="lobby-section-label">ルームID</div>
         <div id="lobby-room-id">---</div>
         <div id="lobby-room-role" class="lobby-room-role">Host</div>
-        <button class="btn btn-small" id="lobby-copy-room">📋 Copy</button>
-        <span id="lobby-copy-feedback" style="display:none;color:#00ff88;font-size:0.8em;margin-left:8px;">Copied!</span>
+        <button class="btn btn-small" id="lobby-copy-room">📋 コピー</button>
+        <span id="lobby-copy-feedback" style="display:none;color:#00ff88;font-size:0.8em;margin-left:8px;">コピー完了!</span>
       </div>
 
       <!-- Weapon -->
       <div class="lobby-section">
-        <div class="lobby-section-title">WEAPON</div>
+        <div class="lobby-section-title">武器</div>
         <div id="lobby-weapon-selector" class="ws-container">
           <div class="ws-row">
             <button class="ws-btn ws-prev" data-target="lobby">◀</button>
@@ -72,7 +72,7 @@
 
       <!-- Passive -->
       <div class="lobby-section">
-        <div class="lobby-section-title">PASSIVE</div>
+        <div class="lobby-section-title">パッシブ</div>
         <div id="lobby-passive-selector" class="ps-container">
           <div class="ps-row">
             <button class="ps-btn ps-prev">◀</button>
@@ -94,7 +94,7 @@
 
       <!-- Current Map -->
       <div class="lobby-section">
-        <div class="lobby-section-title">CURRENT MAP</div>
+        <div class="lobby-section-title">マップ</div>
         <div id="lobby-map-selector" class="ms-container">
           <div class="ms-row">
             <button class="ms-btn ms-prev" id="map-prev">&#8249;</button>
@@ -119,35 +119,35 @@
 
       <!-- Controls -->
       <div id="lobby-controls-host" style="display:none;">
-        <button class="btn btn-primary" id="btn-start-game" disabled>▶ START GAME</button>
+        <button class="btn btn-primary" id="btn-start-game" disabled>▶ ゲーム開始</button>
       </div>
       <div id="lobby-controls-client" style="display:none;">
-        <button class="btn btn-secondary" id="btn-ready">▶ READY</button>
+        <button class="btn btn-secondary" id="btn-ready">▶ 準備完了</button>
       </div>
 
       <!-- Status -->
       <div id="lobby-status-section">
         <div class="lobby-status-row">
-          <span class="lobby-status-label">Players</span>
+          <span class="lobby-status-label">プレイヤー</span>
           <span class="lobby-status-value" id="lobby-player-count">0 / 8</span>
         </div>
         <div class="lobby-status-row">
-          <span class="lobby-status-label">Ready</span>
+          <span class="lobby-status-label">準備</span>
           <span class="lobby-status-value" id="lobby-ready-count">0 / 1</span>
         </div>
-        <div id="lobby-status-text" class="lobby-status-text">Waiting for players...</div>
+        <div id="lobby-status-text" class="lobby-status-text">プレイヤーを待機中...</div>
       </div>
 
       <!-- Settings Toggle -->
-      <button class="btn btn-small" id="btn-settings">⚙ SETTINGS</button>
+      <button class="btn btn-small" id="btn-settings">⚙ 設定</button>
 
       <!-- Leave -->
-      <button class="btn btn-small" id="btn-leave-lobby">✕ LEAVE LOBBY</button>
+      <button class="btn btn-small" id="btn-leave-lobby">✕ 退出</button>
     </div>
 
     <!-- ===== 右カラム: プレイヤー一覧 ===== -->
     <div id="lobby-right">
-      <div class="lobby-section-title">PLAYERS</div>
+      <div class="lobby-section-title">プレイヤー</div>
       <div id="player-list"></div>
     </div>
 

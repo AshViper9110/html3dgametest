@@ -685,10 +685,50 @@ textarea:focus {
 .ws-desc {
   color: #8888bb;
   font-style: italic;
-  font-size: 0.9em;
-  margin-bottom: 6px;
-  padding-bottom: 6px;
+  font-size: 0.85em;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ws-meta {
+  color: #555599;
+  font-size: 0.7em;
+  letter-spacing: 0.3px;
+  margin-bottom: 3px;
+  padding: 1px 4px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 3px;
+  text-align: center;
+}
+.ws-sgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 6px;
+  margin: 3px 0;
+}
+.ws-scell {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1px 4px;
+  font-size: 0.72em;
+  background: rgba(0,0,0,0.06);
+  border-radius: 2px;
+}
+.ws-slbl {
+  color: #5555aa;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 0.85em;
+}
+.ws-sval {
+  color: #ccccee;
+  font-size: 0.9em;
+}
+.ws-sval-num {
+  color: #ddddf8;
+  font-weight: 600;
+  margin-left: 2px;
 }
 .stat-row {
   display: flex;
@@ -719,6 +759,26 @@ textarea:focus {
   color: #ccccff;
   max-height: 200px;
   overflow-y: auto;
+}
+#death-screen .ws-scell {
+  background: rgba(255,68,68,0.04);
+}
+#death-screen .ws-meta {
+  background: rgba(255,68,68,0.06);
+}
+.ws-difficulty {
+  color: #ff44aa;
+  font-size: 0.7em;
+  margin-top: 3px;
+  text-align: center;
+}
+.ws-playstyle {
+  color: #44aaff;
+  font-size: 0.7em;
+  text-align: center;
+}
+.ws-playstyle strong {
+  color: #88ddff;
 }
 #death-screen .ws-btn {
   border-color: rgba(255,68,68,0.3);
