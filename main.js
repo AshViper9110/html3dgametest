@@ -31,6 +31,10 @@ document.getElementById('btn-host').addEventListener('click', async () => {
     game.addPlayer(roomId, PLAYER_COLORS[0], name);
     const me = game.players.get(roomId);
     if (me) { me.weapon = game.loadoutWeapon; me.lastFireTime = 0; }
+    game.clientPassives.set(roomId, game.loadoutPassive);
+    if (game.passiveManager) {
+      game.passiveManager.setPassive(roomId, game.loadoutPassive);
+    }
     document.getElementById('room-id-display').textContent = roomId;
     document.getElementById('host-status').textContent = 'Waiting for players to join...';
     document.getElementById('title-status').textContent = 'Room created! Share the ID above';
@@ -117,6 +121,19 @@ function setupWeaponNav(containerId) {
 }
 setupWeaponNav('lobby-weapon-selector');
 setupWeaponNav('death-weapon-selector');
+
+function setupPassiveNav(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ps-btn');
+    if (!btn) return;
+    const dir = btn.classList.contains('ps-prev') ? 'prev' : 'next';
+    game._changePassive(dir);
+  });
+}
+setupPassiveNav('lobby-passive-selector');
+setupPassiveNav('death-passive-selector');
 
 /* マップ変更（左右矢印 / Hostのみ） */
 document.getElementById('map-prev').addEventListener('click', () => {

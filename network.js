@@ -172,6 +172,10 @@ class NetworkManager {
     this.send({ type: NetMsg.WEAPON_CHANGE, weapon });
   }
 
+  sendPassiveChange(passiveId) {
+    this.send({ type: 'passive_change', passiveId });
+  }
+
   sendNameChange(name) {
     this.send({ type: NetMsg.NAME_CHANGE, name });
   }

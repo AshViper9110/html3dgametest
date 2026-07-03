@@ -92,6 +92,23 @@
         </div>
       </div>
 
+      <!-- Passive -->
+      <div class="lobby-section">
+        <div class="lobby-section-title">PASSIVE</div>
+        <div id="lobby-passive-selector" class="ps-container">
+          <div class="ps-row">
+            <button class="ps-btn ps-prev">◀</button>
+            <div class="ps-info">
+              <div id="lobby-ps-name" class="ps-name">Runner</div>
+              <div id="lobby-ps-icon" class="ps-icon">🏃</div>
+              <div id="lobby-ps-desc" class="ps-desc"></div>
+              <div id="lobby-ps-rarity" class="ps-rarity"></div>
+            </div>
+            <button class="ps-btn ps-next">▶</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Controls -->
       <div id="lobby-controls-host" style="display:none;">
         <button class="btn btn-primary" id="btn-start-game" disabled>▶ START GAME</button>
@@ -214,7 +231,18 @@
         <button class="ws-btn ws-next" data-target="death">▶</button>
       </div>
     </div>
-    <div class="death-hint">Change weapon for next spawn</div>
+    <div id="death-passive-selector" class="ps-container" style="margin-top:8px;">
+      <div class="ps-row">
+        <button class="ps-btn ps-prev">◀</button>
+        <div class="ps-info">
+          <div id="death-ps-name" class="ps-name">Runner</div>
+          <div id="death-ps-icon" class="ps-icon">🏃</div>
+          <div id="death-ps-desc" class="ps-desc"></div>
+        </div>
+        <button class="ps-btn ps-next">▶</button>
+      </div>
+    </div>
+    <div class="death-hint">Change weapon & passive for next spawn</div>
   </div>
 </div>
 
@@ -254,6 +282,8 @@
 <script src="network.js?v=2"></script>
 <script src="MatchStatsManager.js"></script>
 <script src="KillFeedManager.js"></script>
+<script src="PassiveRegistry.js"></script>
+<script src="PassiveManager.js"></script>
 <script src="game.js?v=2"></script>
 <script src="main.js?v=2"></script>
 </body>

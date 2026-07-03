@@ -21,6 +21,19 @@ class Player {
     this.reloadTimer = 0;
     this.onReloadComplete = null;
     this.deathFadeTimer = 0;
+    this.passiveId = null;
+    this.moveSpeedMult = 1;
+    this.dashSpeedMult = 1;
+    this.damageMult = 1;
+    this.fireRateMult = 1;
+    this.reloadMult = 1;
+    this.recoilMult = 1;
+    this.spreadMult = 1;
+    this.damageReduction = 1;
+    this.postRespawnTimer = 0;
+    this.respawnRegenMult = 1;
+    this.lastDamageTime = 0;
+    this.activePassiveMods = {};
 
     const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
     const mat = new THREE.MeshStandardMaterial({
@@ -97,8 +110,14 @@ class Player {
     this.reloadTimer = 0;
   }
 
-  takeDamage(amount) {
-    this.health = Math.max(0, this.health - amount);
+  takeDamage(amount, damageType) {
+    this.lastDamageTime = Date.now();
+    let reduction = this.damageReduction || 1;
+    if (damageType === 'explosion' && this.activePassiveMods && this.activePassiveMods.explosionDamageReduction) {
+      reduction *= this.activePassiveMods.explosionDamageReduction;
+    }
+    const dmg = amount * reduction;
+    this.health = Math.max(0, this.health - dmg);
     this.damageFlashTimer = 0.1;
     if (this.health <= 0 && this.alive) {
       this.alive = false;

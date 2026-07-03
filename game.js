@@ -57,6 +57,8 @@ class Game {
     this.isHost = false;
     this.clientReady = new Map();
     this.clientWeapons = new Map();
+    this.loadoutPassive = PASSIVE_IDS[0] || 'runner';
+    this.clientPassives = new Map();
 
     this._lastPreviewedMap = null;
     this._spawnIndex = 0;
@@ -68,6 +70,7 @@ class Game {
     this.cameraEffectManager = null;
     this.matchStats = null;
     this.killFeedManager = null;
+    this.passiveManager = null;
   }
 
   get localPlayer() { return this.players.get(this.localId); }
@@ -144,6 +147,7 @@ class Game {
     this.beamManager = new BeamManager(this.scene);
     this.matchStats = new MatchStatsManager(this);
     this.killFeedManager = new KillFeedManager();
+    this.passiveManager = new PassiveManager(this);
 
     this._wireReloadCallback();
     this._setupInputEvents();
@@ -432,6 +436,7 @@ class Game {
       /* 新規メッセージ */
       case 'ready': if (this.network.isHost) this._handleReady(data, conn); break;
       case 'weapon_change': this._handleWeaponChange(data, conn); break;
+      case 'passive_change': this._handlePassiveChange(data, conn); break;
       case 'name_change': this._handleNameChange(data, conn); break;
       case 'lobby_state': this._handleLobbyState(data); break;
       case 'countdown_sync': this._handleCountdownSync(data); break;
@@ -452,8 +457,12 @@ class Game {
     this.clientReady.set(peerId, false);
     const defaultWeapon = WEAPON_REGISTRY.getAll()[0] || 'pistol';
     this.clientWeapons.set(peerId, defaultWeapon);
+    this.clientPassives.set(peerId, PASSIVE_IDS[0]);
     if (!this.clientWeapons.has(this.network.myId)) {
       this.clientWeapons.set(this.network.myId, this.loadoutWeapon);
+    }
+    if (!this.clientPassives.has(this.network.myId)) {
+      this.clientPassives.set(this.network.myId, this.loadoutPassive);
     }
     this.network.connected = true;
     console.log('[Player Init] _handleJoin peerId=%s name=%s weapon=%s playerCount=%d',
@@ -466,6 +475,7 @@ class Game {
       type: 'welcome',
       players: Array.from(this.players.entries()).map(([id, p]) => ({
         id, name: p.name, color: p.color, weapon: this.clientWeapons.get(id) || defaultWeapon,
+        passive: this.clientPassives.get(id) || PASSIVE_IDS[0],
         ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
       })),
       yourId: peerId,
@@ -473,7 +483,7 @@ class Game {
     });
     this.network.broadcast({
       type: 'player_joined', id: peerId, name, color,
-      weapon: defaultWeapon, ready: false
+      weapon: defaultWeapon, passive: PASSIVE_IDS[0], ready: false
     }, conn);
     this._updateLobbyUI();
     this._syncLobbyState();
@@ -486,8 +496,10 @@ class Game {
     data.players.forEach(p => {
       this.addPlayer(p.id, p.color, p.name);
       this.clientWeapons.set(p.id, p.weapon || defaultWeapon);
+      this.clientPassives.set(p.id, p.passive || PASSIVE_IDS[0]);
       if (p.id === data.yourId) {
         this.loadoutWeapon = p.weapon || defaultWeapon;
+        this.loadoutPassive = p.passive || PASSIVE_IDS[0];
       }
       this.clientReady.set(p.id, p.ready || false);
     });
@@ -513,6 +525,7 @@ class Game {
     this.addPlayer(data.id, data.color, data.name);
     this.clientReady.set(data.id, data.ready !== undefined ? data.ready : false);
     this.clientWeapons.set(data.id, data.weapon || WEAPON_REGISTRY.getAll()[0]);
+    this.clientPassives.set(data.id, data.passive || PASSIVE_IDS[0]);
     this._updateLobbyUI();
     this.addKillFeed(`${data.name} joined`);
   }
@@ -637,6 +650,7 @@ class Game {
     document.getElementById('death-weapon-name').textContent = this.killCamWeapon;
     document.getElementById('respawn-countdown').textContent = '3';
     this._updateWeaponSelectorUI('death');
+    this._updatePassiveSelectorUI('death');
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
@@ -747,6 +761,10 @@ class Game {
     if (p) {
       p.health = CONFIG.maxHealth;
       p.alive = true;
+      if (this.passiveManager && this.network.isHost) {
+        this.passiveManager.applyToPlayer(data.id);
+        this.passiveManager.onRespawn(data.id);
+      }
       if (data.pos) {
         p.position.set(data.pos.x, data.pos.y, data.pos.z);
         p.targetPosition.copy(p.position);
@@ -822,6 +840,25 @@ class Game {
     }
   }
 
+  _handlePassiveChange(data, conn) {
+    const peerId = this.network.isHost ? conn.peer : data.id;
+    this.clientPassives.set(peerId, data.passiveId);
+    if (peerId === this.localId) {
+      this.loadoutPassive = data.passiveId;
+      if (this.passiveManager) {
+        this.passiveManager.setPassive(peerId, data.passiveId);
+        this.passiveManager.invalidate(peerId);
+        if (this.gameState === GameState.PLAYING && this.localPlayer && this.localPlayer.alive) {
+          this.passiveManager.applyToPlayer(peerId);
+        }
+      }
+    }
+    if (this.gameState === GameState.LOBBY || this.gameState === GameState.RESULT) this._updateLobbyUI();
+    if (this.network.isHost) {
+      this._syncLobbyState();
+    }
+  }
+
   _handleNameChange(data, conn) {
     const peerId = this.network.isHost ? conn.peer : data.id;
     const p = this.players.get(peerId);
@@ -841,9 +878,14 @@ class Game {
       data.players.forEach(p => {
         this.clientReady.set(p.id, p.ready);
         this.clientWeapons.set(p.id, p.weapon);
+        this.clientPassives.set(p.id, p.passive || PASSIVE_IDS[0]);
         if (p.id === this.localId) {
           this.loadoutWeapon = p.weapon;
           this.weaponManager.set(p.weapon);
+          this.loadoutPassive = p.passive || PASSIVE_IDS[0];
+          if (this.passiveManager) {
+            this.passiveManager.setPassive(p.id, this.loadoutPassive);
+          }
         }
         const player = this.players.get(p.id);
         if (player && p.name) player.name = p.name;
@@ -936,6 +978,7 @@ class Game {
     this._renderPlayerList();
     this._updateStartButton();
     this._updateWeaponSelectorUI('lobby');
+    this._updatePassiveSelectorUI('lobby');
     this._updateLobbyStatus();
     if (this._lastPreviewedMap !== this.selectedMap) {
       this._lastPreviewedMap = this.selectedMap;
@@ -1083,6 +1126,7 @@ class Game {
 
   _updateDeathWeaponSelector() {
     this._updateWeaponSelectorUI('death');
+    this._updatePassiveSelectorUI('death');
   }
 
   _changeWeapon(direction) {
@@ -1102,6 +1146,44 @@ class Game {
     this.network.sendWeaponChange(this.loadoutWeapon);
     if (this.network.isHost) {
       this._syncLobbyState();
+    }
+  }
+
+  _changePassive(direction) {
+    if (AUDIO) AUDIO.play('ui_weapon_change');
+    if (direction === 'next') {
+      this.loadoutPassive = PassiveRegistry.next(this.loadoutPassive);
+    } else {
+      this.loadoutPassive = PassiveRegistry.prev(this.loadoutPassive);
+    }
+    this.clientPassives.set(this.network.myId, this.loadoutPassive);
+    if (this.passiveManager) {
+      this.passiveManager.setPassive(this.network.myId, this.loadoutPassive);
+      this.passiveManager.invalidate(this.network.myId);
+    }
+    this._updatePassiveSelectorUI('lobby');
+    this._updatePassiveSelectorUI('death');
+    this.network.sendPassiveChange(this.loadoutPassive);
+    if (this.network.isHost) {
+      this._syncLobbyState();
+    }
+  }
+
+  _updatePassiveSelectorUI(target) {
+    target = target || 'lobby';
+    const p = PassiveRegistry.get(this.loadoutPassive);
+    if (!p) return;
+    const nameEl = document.getElementById(target + '-ps-name');
+    const iconEl = document.getElementById(target + '-ps-icon');
+    const descEl = document.getElementById(target + '-ps-desc');
+    const rarityEl = document.getElementById(target + '-ps-rarity');
+    if (nameEl) nameEl.textContent = p.displayName || this.loadoutPassive;
+    if (iconEl) iconEl.textContent = p.icon || '';
+    if (descEl) descEl.textContent = p.description || '';
+    if (rarityEl) {
+      const rarColors = { common: '#8888aa', uncommon: '#00ff88', rare: '#00aaff', epic: '#aa44ff' };
+      rarityEl.textContent = p.rarity ? p.rarity.toUpperCase() : '';
+      rarityEl.style.color = rarColors[p.rarity] || '#8888aa';
     }
   }
 
@@ -1167,7 +1249,22 @@ class Game {
         readyEl.textContent = isReady ? 'READY' : 'NOT READY';
       }
 
+      const passiveEl = document.createElement('span');
+      passiveEl.className = 'pl-card-passive';
+      const passiveId = this.clientPassives.get(id) || PASSIVE_IDS[0];
+      const pData = PASSIVES[passiveId];
+      if (pData) {
+        const pIcon = document.createElement('span');
+        pIcon.className = 'pl-card-passive-icon';
+        pIcon.textContent = pData.icon || '';
+        passiveEl.appendChild(pIcon);
+        passiveEl.appendChild(document.createTextNode(pData.displayName || passiveId));
+      } else {
+        passiveEl.textContent = passiveId;
+      }
+
       meta.appendChild(weaponEl);
+      meta.appendChild(passiveEl);
       meta.appendChild(readyEl);
       info.appendChild(nameRow);
       info.appendChild(meta);
@@ -1211,6 +1308,7 @@ class Game {
       players.push({
         id, name: p.name, ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
         weapon: this.clientWeapons.get(id) || WEAPON_REGISTRY.getAll()[0],
+        passive: this.clientPassives.get(id) || PASSIVE_IDS[0],
       });
     });
     this.network.broadcast({
@@ -1291,6 +1389,13 @@ class Game {
       const weapon = this.clientWeapons.get(p.id) || WEAPON_REGISTRY.getAll()[0];
       p.weapon = weapon;
       p.refillAmmo();
+      const passiveId = this.clientPassives.get(p.id) || PASSIVE_IDS[0];
+      if (this.passiveManager) {
+        this.passiveManager.setPassive(p.id, passiveId);
+        this.passiveManager.invalidate(p.id);
+        this.passiveManager.applyToPlayer(p.id);
+        this.passiveManager.reloadPlayerAmmo(p.id);
+      }
       const sp = this._getSpawnPosition(spawnIdx++);
       p.position.copy(sp);
       p.targetPosition.copy(sp);
@@ -1298,12 +1403,12 @@ class Game {
       if (p.id === this.localId) {
         p.onReloadComplete = this._onReloadComplete;
       }
-      console.log('[Weapon Init] player=%s weapon=%s ammo=%d/%d alive=%s', p.id, weapon, p.ammo, p.maxAmmo, p.alive);
+      console.log('[Weapon Init] player=%s weapon=%s passive=%s ammo=%d/%d alive=%s', p.id, weapon, passiveId, p.ammo, p.maxAmmo, p.alive);
     });
     const lp = this.localPlayer;
     if (lp) {
       lp.weapon = this.loadoutWeapon;
-      lp.refillAmmo();
+      this.passiveManager.reloadPlayerAmmo(this.network.myId);
       this.updateAmmoUI();
       this.updateHealthUI();
     }
@@ -1528,6 +1633,9 @@ class Game {
     if (this.gameState === GameState.PLAYING) {
       this.network.sendState(dt);
     }
+    if (this.passiveManager) {
+      this.passiveManager.updateAll(dt);
+    }
     this._updateCamera(dt);
   }
 
@@ -1647,9 +1755,9 @@ class Game {
         if (AUDIO) AUDIO.play('player_dash', { position: lp.position });
       }
 
-      let speed = CONFIG.playerSpeed;
+      let speed = CONFIG.playerSpeed * (lp.moveSpeedMult || 1);
       if (this.dashTimer > 0) {
-        speed = CONFIG.dashSpeed;
+        speed = CONFIG.dashSpeed * (lp.dashSpeedMult || 1);
         this.dashTimer -= dt;
         if (this.dashTimer <= 0) {
           this.dashTimer = 0;
@@ -1811,6 +1919,13 @@ class Game {
     lp.lastFireTime = 0;
     lp.weapon = this.loadoutWeapon;
     lp.refillAmmo();
+    if (this.passiveManager) {
+      this.passiveManager.setPassive(this.network.myId, this.loadoutPassive);
+      this.passiveManager.invalidate(this.network.myId);
+      this.passiveManager.applyToPlayer(this.network.myId);
+      this.passiveManager.reloadPlayerAmmo(this.network.myId);
+      this.passiveManager.onRespawn(this.network.myId);
+    }
     this.mouseDown = false;
     this.mouseClicked = false;
     console.log('[Respawn] after reset: mouseDown=%s mouseClicked=%s pointerLocked=%s',
@@ -1935,6 +2050,9 @@ class Game {
       }
       if (this.hostAuthority && this.network.isHost) {
         this.hostAuthority.refillAmmo(shooterId, this.localPlayer ? this.localPlayer.weapon : 'pistol');
+      }
+      if (this.passiveManager) {
+        this.passiveManager.onKill(shooterId, targetId, weapon);
       }
     }
 
@@ -2071,6 +2189,12 @@ class Game {
       p.updateMesh();
     });
 
+    if (this.passiveManager) {
+      this.passiveManager.resetAll();
+      this.players.forEach((p, id) => {
+        this.passiveManager.clearPassive(id);
+      });
+    }
     if (this.killFeedManager) this.killFeedManager.clear();
     document.getElementById('kill-announcement').innerHTML = '';
 

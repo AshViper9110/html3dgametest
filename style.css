@@ -685,6 +685,106 @@ textarea:focus {
   background: rgba(255,68,68,0.2);
   box-shadow: 0 0 24px rgba(255,68,68,0.3);
 }
+/* === パッシブセレクタ（左右矢印式） === */
+.ps-container {
+  display: flex;
+  justify-content: center;
+}
+.ps-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1vw, 12px);
+  width: 100%;
+}
+.ps-btn {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1em, 1.2vw, 1.3em);
+  padding: clamp(6px, 0.6vw, 8px) clamp(10px, 1vw, 14px);
+  border: 1px solid rgba(255,215,0,0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(0,0,0,0.4);
+  color: #ffd700;
+  flex: 0 0 auto;
+  min-width: 36px;
+  text-align: center;
+  user-select: none;
+}
+.ps-btn:hover {
+  border-color: #ffd700;
+  background: rgba(255,215,0,0.12);
+  box-shadow: 0 0 16px rgba(255,215,0,0.2);
+  transform: scale(1.05);
+}
+.ps-btn:active {
+  transform: scale(0.92);
+  background: rgba(255,215,0,0.2);
+  box-shadow: 0 0 24px rgba(255,215,0,0.3);
+}
+.ps-info {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+.ps-name {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.7em, 0.6em + 0.3vw, 0.85em);
+  letter-spacing: 1px;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255,215,0,0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ps-icon {
+  font-size: clamp(1.2em, 1em + 0.5vw, 1.8em);
+  margin: 4px 0;
+}
+.ps-desc {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.6em;
+  color: #aaaacc;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+  margin-top: 2px;
+  white-space: pre;
+}
+.ps-rarity {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.5em;
+  letter-spacing: 2px;
+  margin-top: 3px;
+  color: #8888cc;
+}
+#death-screen .ps-name {
+  font-size: 0.9em;
+}
+#death-screen .ps-desc {
+  font-size: 0.55em;
+  color: #ccccee;
+}
+#death-screen .ps-btn {
+  border-color: rgba(255,215,0,0.3);
+  color: #ffd700;
+}
+#death-screen .ps-btn:hover {
+  border-color: #ffd700;
+  box-shadow: 0 0 16px rgba(255,215,0,0.2);
+}
+
+/* === プレイヤーリストのパッシブ表示 === */
+.pl-card-passive {
+  font-size: 0.65em;
+  color: #ffd700;
+  letter-spacing: 1px;
+  margin-top: 1px;
+}
+.pl-card-passive-icon {
+  font-size: 0.75em;
+  margin-right: 3px;
+}
+
 /* 旧式セレクタ（互換性維持） */
 .weapon-selector {
   display: flex;

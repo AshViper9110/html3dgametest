@@ -52,6 +52,9 @@ class HostAuthority {
       const pid = peerId + '_h' + (this.projIdCounter++);
 
       const proj = new Projectile(this.game.scene, spawnPos, dir, peerId, pid, data.color || 0xffffff, data.weapon, mapHalf);
+      if (this.game.passiveManager) {
+        this.game.passiveManager.applyToProjectile(proj, peerId);
+      }
       proj.isHostProjectile = true;
       this.hostProjectiles.push(proj);
 
@@ -80,14 +83,18 @@ class HostAuthority {
 
   _consumeAmmo(peerId, weapon) {
     const state = this.getAmmoState(peerId, weapon);
-    if (state) state.ammo = Math.max(0, state.ammo - 1);
+    if (!state) return;
+    const cost = this.game.passiveManager ? this.game.passiveManager.getAmmoCost(peerId, 1) : 1;
+    state.ammo = Math.max(0, state.ammo - cost);
   }
 
   getAmmoState(peerId, weapon) {
     const key = peerId + '_' + weapon;
     if (!this.ammoStates.has(key)) {
       const wp = WEAPONS[weapon];
-      this.ammoStates.set(key, { ammo: wp ? wp.maxAmmo : 10, weapon });
+      const baseAmmo = wp ? wp.maxAmmo : 10;
+      const ammo = this.game.passiveManager ? this.game.passiveManager.getMagazineSize(peerId, baseAmmo) : baseAmmo;
+      this.ammoStates.set(key, { ammo, weapon });
     }
     return this.ammoStates.get(key);
   }
@@ -96,7 +103,8 @@ class HostAuthority {
     const key = peerId + '_' + weapon;
     const wp = WEAPONS[weapon];
     if (wp) {
-      this.ammoStates.set(key, { ammo: wp.maxAmmo, weapon });
+      const ammo = this.game.passiveManager ? this.game.passiveManager.getMagazineSize(peerId, wp.maxAmmo) : wp.maxAmmo;
+      this.ammoStates.set(key, { ammo, weapon });
     }
     this._sendAmmoUpdate(peerId, weapon);
   }
@@ -130,13 +138,29 @@ class HostAuthority {
       return;
     }
 
-    const killed = victim.takeDamage(wp.damage);
+    let damage = wp.damage;
+    const passive = this.game.passiveManager;
+    if (passive) {
+      damage *= passive.getDamageMultiplier(killerId);
+      if (passive.isCritical(killerId)) {
+        damage *= passive.getCriticalDamageMultiplier(killerId);
+      }
+      const expMult = passive.getExplosionDamageMultiplier(killerId);
+      if (proj.wp && proj.wp.explosive) {
+        damage *= expMult;
+      }
+    }
+    const killed = victim.takeDamage(damage);
+
+    if (passive) {
+      passive.onDamageDealt(killerId, victimId, damage, weapon);
+    }
 
     const hitMsg = {
       type: 'hit',
       shooterId: killerId,
       targetId: victimId,
-      damage: wp.damage,
+      damage,
       shooterName: killer ? killer.name : '?',
       targetName: victim.name,
       lethal: killed,
@@ -160,6 +184,8 @@ class HostAuthority {
   processExplosion(proj, hitPlayers) {
     const wp = proj.wp || WEAPONS[proj.weapon] || WEAPONS.pistol;
     const pos = proj.mesh.position.clone();
+    const passive = this.game.passiveManager;
+    const radiusMult = passive ? passive.getExplosionRadius(proj.ownerId, 1) : 1;
 
     this.game.players.forEach((victim, id) => {
       if (id === proj.ownerId || !victim.alive) return;
@@ -168,13 +194,13 @@ class HostAuthority {
 
       if (id === this.game.network.myId && this.game.invincibleTimer > 0) return;
 
-      const hitDist = CONFIG.playerSize * 0.5 + (wp.hitRadius || 2.5);
+      const hitDist = (CONFIG.playerSize * 0.5 + (wp.hitRadius || 2.5)) * radiusMult;
       const vPos = new THREE.Vector3(victim.position.x, CONFIG.playerHeight / 2, victim.position.z);
       const dist = pos.distanceTo(vPos);
 
       if (dist < hitDist) {
         const killer = this.game.players.get(proj.ownerId);
-        const killed = victim.takeDamage(wp.damage);
+        const killed = victim.takeDamage(wp.damage, 'explosion');
 
         const hitMsg = {
           type: 'hit',
@@ -245,8 +271,22 @@ class HostAuthority {
           const wHalfX = w.s[0] / 2 + pr;
           const wHalfZ = w.s[2] / 2 + pr;
           if (Math.abs(proj.mesh.position.x - wx) < wHalfX && Math.abs(proj.mesh.position.z - wz) < wHalfZ) {
-            this._explodeProjectile(proj);
-            proj.destroy();
+            if (proj.ricochetCount > 0) {
+              proj.ricochetCount--;
+              proj.ricocheted = true;
+              const overlapX = wHalfX - Math.abs(proj.mesh.position.x - wx);
+              const overlapZ = wHalfZ - Math.abs(proj.mesh.position.z - wz);
+              if (overlapX < overlapZ) {
+                proj.velocity.x *= -1;
+                proj.mesh.position.x += (proj.mesh.position.x > wx ? 1 : -1) * overlapX;
+              } else {
+                proj.velocity.z *= -1;
+                proj.mesh.position.z += (proj.mesh.position.z > wz ? 1 : -1) * overlapZ;
+              }
+            } else {
+              this._explodeProjectile(proj);
+              proj.destroy();
+            }
             break;
           }
         }
@@ -257,7 +297,7 @@ class HostAuthority {
       const vPos = new THREE.Vector3();
       this.game.players.forEach((victim, id) => {
         if (id === proj.ownerId || !victim.alive || proj.hitPlayers.has(id)) return;
-        const hitDist = CONFIG.playerSize * 0.5 + ((proj.wp && proj.wp.hitRadius) || 0.8);
+        const hitDist = (CONFIG.playerSize * 0.5 + ((proj.wp && proj.wp.hitRadius) || 0.8)) * (proj.passiveSizeMult || 1);
         vPos.set(victim.position.x, CONFIG.playerHeight / 2, victim.position.z);
         if (proj.mesh.position.distanceTo(vPos) < hitDist) {
           proj.hitPlayers.add(id);
@@ -278,7 +318,11 @@ class HostAuthority {
               pid: proj.id,
             });
           }
-          proj.destroy();
+          if (proj.pierceCount > 0) {
+            proj.pierceCount--;
+          } else {
+            proj.destroy();
+          }
         }
       });
     }
@@ -309,10 +353,12 @@ class HostAuthority {
     const wp = WEAPONS[data.weapon];
     const origin = new THREE.Vector3(data.origin.x, 0, data.origin.z);
     const dir = new THREE.Vector3(data.direction.x, 0, data.direction.z).normalize();
-    const maxRange = wp.range || 40;
+    const passive = this.game.passiveManager;
+    const maxRange = passive ? passive.getBeamRange(peerId, wp.range || 40) : (wp.range || 40);
     const map = this.game.arenaMap;
 
-    const result = this._beamRaycast(origin, dir, maxRange, map, peerId, wp);
+    const beamHitRadius = passive ? passive.getBeamWidth(peerId, wp.hitRadius || 0.8) : (wp.hitRadius || 0.8);
+    const result = this._beamRaycast(origin, dir, maxRange, map, peerId, wp, beamHitRadius);
 
     const beamMsg = {
       type: 'beam_effect',
@@ -328,13 +374,14 @@ class HostAuthority {
       if (victim && victim.alive) {
         const killerId = peerId;
         const killer = this.game.players.get(killerId);
-        const killed = victim.takeDamage(wp.damage);
+        const beamDmg = passive ? passive.getBeamDamage(peerId, wp.damage) : wp.damage;
+        const killed = victim.takeDamage(beamDmg);
 
         const hitMsg = {
           type: 'hit',
           shooterId: killerId,
           targetId: result.hitPlayer,
-          damage: wp.damage,
+          damage: beamDmg,
           shooterName: killer ? killer.name : '?',
           targetName: victim.name,
           lethal: killed,
@@ -365,9 +412,9 @@ class HostAuthority {
     this._sendAmmoUpdate(peerId, data.weapon);
   }
 
-  _beamRaycast(origin, dir, maxRange, map, ownerId, wp) {
+  _beamRaycast(origin, dir, maxRange, map, ownerId, wp, customHitRadius) {
     const endPos = { x: origin.x + dir.x * maxRange, z: origin.z + dir.z * maxRange };
-    const hitRadius = wp.hitRadius || 0.8;
+    const hitRadius = customHitRadius || wp.hitRadius || 0.8;
     let closestDist = maxRange;
     let hitPlayer = null;
 
