@@ -810,6 +810,32 @@ class Game {
         p.spawn(this._spawnHalfExtent());
       }
       p.updateMesh();
+      if (data.id === this.network.myId) {
+        const lp = p;
+        lp.weapon = this.loadoutWeapon;
+        lp.refillAmmo();
+        lp.reloading = false;
+        lp.reloadTimer = 0;
+        lp.lastFireTime = 0;
+        this.mouseDown = false;
+        this.mouseClicked = false;
+        this.invincibleTimer = CONFIG.invincibleTime;
+        lp.onReloadComplete = this._onReloadComplete;
+        this.updateAmmoUI();
+        this.updateHealthUI();
+        this.killCountThisLife = 0;
+        this.killStreak = 0;
+        this.killCamKillerId = null;
+        this.respawnReady = false;
+        this.respawnRequested = false;
+        document.getElementById('death-screen').classList.remove('show');
+        document.getElementById('respawn-countdown').style.display = '';
+        document.getElementById('respawn-prompt').style.display = 'none';
+        if (this.matchStats && lp) {
+          this.matchStats.killStreaks.set(this.network.myId, 0);
+          lp.currentKillStreak = 0;
+        }
+      }
     }
     if (this.effectManager && data.pos) {
       this.effectManager.spawnRespawnEffect(
@@ -818,7 +844,7 @@ class Game {
       );
     }
     if (this.network.isHost) {
-      this.network.broadcast(data, this._findConn(data.id));
+      this.network.broadcast(data);
       if (this.hostAuthority) {
         this.hostAuthority.refillAllAmmo(data.id);
         this.hostAuthority.respawnedPeers.add(data.id);
