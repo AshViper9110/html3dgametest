@@ -565,7 +565,18 @@ class Game {
     p.targetPosition.set(data.pos.x, data.pos.y, data.pos.z);
     p.targetRotation = data.rot;
     if (data.alive !== undefined) p.alive = data.alive;
-    if (data.health !== undefined) p.health = data.health;
+    if (data.health !== undefined) {
+      if (this.network.isHost && this.cheatManager && this.cheatValidator &&
+          data.id !== this.network.myId) {
+        const hr = this.cheatValidator.validateShadowHealth(data.id, data.health);
+        if (!hr.ok) {
+          this.cheatManager.report(data.id, hr.reason);
+          return;
+        }
+        this.cheatValidator.trackRegen(data.id, data.health);
+      }
+      p.health = data.health;
+    }
     if (data.weapon !== undefined) p.weapon = data.weapon;
     if (this.network.isHost) {
       this.network.broadcast(data, this._findConn(data.id));
@@ -846,6 +857,7 @@ class Game {
     if (this.network.isHost) {
       if (this.cheatValidator && data.pos) {
         this.cheatValidator.recordPosition(data.id, data.pos, performance.now());
+        this.cheatValidator.initShadowHealth(data.id, CONFIG.maxHealth);
       }
       this.network.broadcast(data);
       if (this.hostAuthority) {
@@ -2065,6 +2077,7 @@ class Game {
       this.hostAuthority.respawnedPeers.add(this.network.myId);
       if (this.network.isHost) {
         this.hostAuthority.refillAmmo(this.network.myId, lp.weapon);
+        if (this.cheatValidator) this.cheatValidator.initShadowHealth(this.network.myId, CONFIG.maxHealth);
       }
     }
     if (this.effectManager) {

@@ -7,6 +7,8 @@ class CheatValidator {
     this.lastTimestamps = new Map();
     this.lastHealths = new Map();
     this.lastAmmo = new Map();
+    this.shadowHealth = new Map();
+    this.lastDamageTime = new Map();
     this.maxPacketRate = 100;
     this.maxPacketsPerFrame = 200;
   }
@@ -145,6 +147,32 @@ class CheatValidator {
     return { ok: true };
   }
 
+  initShadowHealth(peerId, health) {
+    this.shadowHealth.set(peerId, health);
+    this.lastDamageTime.set(peerId, 0);
+  }
+
+  trackDamage(peerId, damage) {
+    const current = this.shadowHealth.get(peerId);
+    if (current === undefined) return;
+    const updated = Math.max(0, current - damage);
+    this.shadowHealth.set(peerId, updated);
+    this.lastDamageTime.set(peerId, performance.now());
+  }
+
+  trackRegen(peerId, health) {
+    this.shadowHealth.set(peerId, health);
+  }
+
+  validateShadowHealth(peerId, reportedHealth) {
+    const expected = this.shadowHealth.get(peerId);
+    if (expected === undefined) return { ok: true };
+    if (reportedHealth > expected + 5) {
+      return { ok: false, reason: 'Invincibility Hack' };
+    }
+    return { ok: true };
+  }
+
   recordPosition(peerId, pos, time) {
     this.playerPositions.set(peerId, { x: pos.x, z: pos.z, time });
   }
@@ -161,5 +189,7 @@ class CheatValidator {
     this.lastTimestamps.clear();
     this.lastHealths.clear();
     this.lastAmmo.clear();
+    this.shadowHealth.clear();
+    this.lastDamageTime.clear();
   }
 }

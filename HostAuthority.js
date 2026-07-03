@@ -154,6 +154,7 @@ class HostAuthority {
     const dmgReduction = passive ? passive.getDamageReduction(victimId, 'projectile') : 1;
     damage *= dmgReduction;
     const killed = victim.takeDamage(damage);
+    if (this.game.cheatValidator) this.game.cheatValidator.trackDamage(victimId, damage);
 
     if (passive) {
       passive.onDamageDealt(killerId, victimId, damage, weapon);
@@ -210,6 +211,7 @@ class HostAuthority {
           expDamage *= passive.getDamageReduction(id, 'explosion');
         }
         const killed = victim.takeDamage(expDamage);
+        if (this.game.cheatValidator) this.game.cheatValidator.trackDamage(id, expDamage);
 
         const hitMsg = {
           type: 'hit',
@@ -390,6 +392,7 @@ class HostAuthority {
         let beamDmg = passive ? passive.getBeamDamage(peerId, wp.damage) : wp.damage;
         if (passive) beamDmg *= passive.getDamageReduction(result.hitPlayer, 'beam');
         const killed = victim.takeDamage(beamDmg);
+        if (this.game.cheatValidator) this.game.cheatValidator.trackDamage(result.hitPlayer, beamDmg);
 
         const hitMsg = {
           type: 'hit',
