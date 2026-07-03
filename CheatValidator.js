@@ -167,7 +167,11 @@ class CheatValidator {
   validateShadowHealth(peerId, reportedHealth) {
     const expected = this.shadowHealth.get(peerId);
     if (expected === undefined) return { ok: true };
-    if (reportedHealth > expected + 5) {
+    const lastDmg = this.lastDamageTime.get(peerId) || 0;
+    const elapsed = (performance.now() - lastDmg) / 1000;
+    const regenTolerance = Math.min(elapsed * 5, 25);
+    const tolerance = 12 + regenTolerance;
+    if (reportedHealth > expected + tolerance) {
       return { ok: false, reason: 'Invincibility Hack' };
     }
     return { ok: true };
