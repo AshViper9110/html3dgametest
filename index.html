@@ -43,6 +43,11 @@
     <!-- ===== 左カラム: ゲーム情報 & 操作 ===== -->
     <div id="lobby-left">
 
+    </div>
+
+    <!-- ===== 左カラム: ROOM ID + SELECT ===== -->
+    <div id="lobby-left">
+
       <!-- Room ID -->
       <div id="lobby-room-id-section">
         <div class="lobby-section-label">ROOM ID</div>
@@ -50,31 +55,6 @@
         <div id="lobby-room-role" class="lobby-room-role">Host</div>
         <button class="btn btn-small" id="lobby-copy-room">📋 Copy</button>
         <span id="lobby-copy-feedback" style="display:none;color:#00ff88;font-size:0.8em;margin-left:8px;">Copied!</span>
-      </div>
-
-      <!-- Current Map -->
-      <div class="lobby-section">
-        <div class="lobby-section-title">CURRENT MAP</div>
-        <div id="lobby-map-selector" class="ms-container">
-          <div class="ms-row">
-            <button class="ms-btn ms-prev" id="map-prev">&#8249;</button>
-            <div class="ms-info">
-              <div id="lobby-map-name" class="ms-name">NEON GRID</div>
-            </div>
-            <button class="ms-btn ms-next" id="map-next">&#8250;</button>
-          </div>
-        </div>
-        <div id="map-preview-container">
-          <canvas id="map-preview-canvas" width="280" height="200"></canvas>
-        </div>
-        <div id="guest-map-preview-container" style="display:none;">
-          <canvas id="guest-map-preview-canvas" width="280" height="200"></canvas>
-        </div>
-        <div id="lobby-map-meta" class="ms-meta">
-          <div id="lobby-map-desc" class="ms-desc"></div>
-          <div id="lobby-map-rec" class="ms-rec"></div>
-          <div id="lobby-map-diff" class="ms-diff"></div>
-        </div>
       </div>
 
       <!-- Weapon -->
@@ -106,6 +86,36 @@
             </div>
             <button class="ps-btn ps-next">▶</button>
           </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== 中央カラム: MAP + CONTROLS + STATUS ===== -->
+    <div id="lobby-middle">
+
+      <!-- Current Map -->
+      <div class="lobby-section">
+        <div class="lobby-section-title">CURRENT MAP</div>
+        <div id="lobby-map-selector" class="ms-container">
+          <div class="ms-row">
+            <button class="ms-btn ms-prev" id="map-prev">&#8249;</button>
+            <div class="ms-info">
+              <div id="lobby-map-name" class="ms-name">NEON GRID</div>
+            </div>
+            <button class="ms-btn ms-next" id="map-next">&#8250;</button>
+          </div>
+        </div>
+        <div id="map-preview-container">
+          <canvas id="map-preview-canvas" width="280" height="200"></canvas>
+        </div>
+        <div id="guest-map-preview-container" style="display:none;">
+          <canvas id="guest-map-preview-canvas" width="280" height="200"></canvas>
+        </div>
+        <div id="lobby-map-meta" class="ms-meta">
+          <div id="lobby-map-desc" class="ms-desc"></div>
+          <div id="lobby-map-rec" class="ms-rec"></div>
+          <div id="lobby-map-diff" class="ms-diff"></div>
         </div>
       </div>
 

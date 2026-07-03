@@ -2311,12 +2311,6 @@ class Game {
       if (id !== hostId) this.clientReady.delete(id);
     });
     this.clientReady.set(hostId, true);
-    this.clientWeapons.forEach((v, id) => {
-      if (id !== hostId) this.clientWeapons.delete(id);
-    });
-    this.clientPassives.forEach((v, id) => {
-      if (id !== hostId) this.clientPassives.delete(id);
-    });
     this.projectiles.forEach(p => p.destroy());
     this.projectiles = [];
     if (this.hostAuthority) this.hostAuthority.reset();
