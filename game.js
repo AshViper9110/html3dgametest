@@ -54,6 +54,7 @@ class Game {
     this.countdownValue = 0;
     this.countdownTimer = 0;
     this.resultTimer = 0;
+    this.cheatDetectedTimer = 0;
     this.isHost = false;
     this.clientReady = new Map();
     this.clientWeapons = new Map();
@@ -111,6 +112,13 @@ class Game {
         document.getElementById('instructions').classList.add('hidden');
         document.getElementById('death-screen').classList.remove('show');
         break;
+      case GameState.CHEAT_DETECTED:
+        document.getElementById('cheat-detected-screen').classList.add('show');
+        document.getElementById('hud').style.display = 'none';
+        document.getElementById('instructions').classList.add('hidden');
+        document.getElementById('death-screen').classList.remove('show');
+        document.getElementById('respawn-prompt').style.display = 'none';
+        break;
     }
   }
 
@@ -122,6 +130,7 @@ class Game {
     document.getElementById('instructions').classList.add('hidden');
     document.getElementById('death-screen').classList.remove('show');
     document.getElementById('result-screen').classList.remove('show');
+    document.getElementById('cheat-detected-screen').classList.remove('show');
   }
 
   /* ----------------------------------------------------------
@@ -140,6 +149,7 @@ class Game {
     document.getElementById('game-container').appendChild(this.renderer.domElement);
 
     this.cheatValidator = new CheatValidator();
+    this.cheatManager = new CheatManager(this);
     this.hostAuthority = new HostAuthority(this);
     this.hitValidator = new HitValidator(this);
     this.effectManager = new EffectManager(this.scene, this.camera);
@@ -174,10 +184,18 @@ class Game {
     document.addEventListener('keydown', (e) => {
       this.keys[e.key.toLowerCase()] = true;
       if (e.key.toLowerCase() === 'r' && this.gameState === GameState.PLAYING) this.reload();
+      if ((e.key === ' ' || e.key === 'Space') && this.respawnReady && !this.respawnRequested) {
+        e.preventDefault();
+        this._requestRespawn();
+      }
     });
     document.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
     this.renderer.domElement.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
+        if (this.respawnReady && !this.respawnRequested) {
+          this._requestRespawn();
+          return;
+        }
         console.log('[Fire] Mouse mousedown PLAYING=%s respawnTimer=%s pointerLocked=%s connected=%s',
           this.gameState === GameState.PLAYING, this.respawnTimer, this.pointerLocked, this.network.connected);
         this.mouseDown = true;
@@ -333,6 +351,8 @@ class Game {
     this.projectiles.forEach(p => p.destroy());
     this.projectiles = [];
     if (this.hostAuthority) this.hostAuthority.reset();
+    if (this.cheatValidator) this.cheatValidator.reset();
+    if (this.cheatManager) this.cheatManager.reset();
     if (this.effectManager) this.effectManager.clear();
     if (this.beamManager) this.beamManager.clear();
     document.getElementById('kill-feed').innerHTML = '';
@@ -412,6 +432,9 @@ class Game {
       case 'ammo_update': this._handleAmmoUpdate(data); break;
       case 'player_correct': this._handlePlayerCorrect(data); break;
       case 'respawn': this._handleRemoteRespawn(data); break;
+      case 'respawn_request':
+        if (this.network.isHost) this._handleRespawnRequest(data, conn);
+        break;
       case 'game_start': this._handleGameStart(data); break;
       case 'map_select': this._handleMapSelect(data); break;
       case 'game_over': this._handleGameOver(data); break;
@@ -424,7 +447,9 @@ class Game {
         if (this.network.isHost) {
           if (this.hostAuthority && conn) {
             const peerId = conn.peer;
-            if (!this.cheatValidator || !this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId)) break;
+            const cm = this.cheatManager;
+            const tsResult = this.cheatValidator ? this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId) : null;
+            if (!tsResult || !tsResult.ok) { if (cm && tsResult) cm.report(peerId, tsResult.reason); break; }
             if (data.inputId === undefined) break;
             this.hostAuthority.handleBeamFireRequest(data, peerId, peerId + '_' + data.inputId);
           }
@@ -444,6 +469,7 @@ class Game {
       case 'player_left': this._handlePlayerLeft(data); break;
       case 'return_lobby': this._handleReturnLobby(data); break;
       case 'kill_feed': this._handleKillFeed(data); break;
+      case 'cheat_detected': this._handleCheatDetected(data); break;
     }
   }
 
@@ -548,10 +574,13 @@ class Game {
 
   _validatePlayerState(data, conn) {
     const peerId = conn.peer;
+    const cm = this.cheatManager;
     const lastPos = this.cheatValidator.getLastPosition(peerId);
     const dt = 0.05;
     const maxSpeed = CONFIG.dashSpeed || CONFIG.playerSpeed;
-    if (!this.cheatValidator.validatePosition(data.pos, lastPos, dt, maxSpeed)) {
+    let r = this.cheatValidator.validatePosition(data.pos, lastPos, dt, maxSpeed);
+    if (!r.ok) {
+      if (cm) cm.report(peerId, r.reason);
       if (lastPos) {
         this.network.sendTo(peerId, {
           type: 'player_correct', id: peerId,
@@ -562,7 +591,9 @@ class Game {
     }
     if (lastPos) {
       const warpDist = (this.arenaMap ? this.arenaMap.size : 40) * 2;
-      if (!this.cheatValidator.validateNoWarp(data.pos, lastPos, warpDist)) {
+      r = this.cheatValidator.validateNoWarp(data.pos, lastPos, warpDist);
+      if (!r.ok) {
+        if (cm) cm.report(peerId, r.reason);
         this.network.sendTo(peerId, {
           type: 'player_correct', id: peerId,
           pos: { x: lastPos.x, y: 0, z: lastPos.z },
@@ -584,8 +615,11 @@ class Game {
     if (!this.hostAuthority) { console.log('[Fire Received] BLOCKED: no hostAuthority'); return; }
     if (!this.cheatValidator) { console.log('[Fire Received] BLOCKED: no cheatValidator'); return; }
     const peerId = conn.peer;
-    if (!this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId)) {
+    const cm = this.cheatManager;
+    const tsResult = this.cheatValidator.validateTimestamp(data.timestamp || 0, peerId);
+    if (!tsResult.ok) {
       console.log('[Fire Received] BLOCKED: validateTimestamp failed');
+      if (cm) cm.report(peerId, tsResult.reason);
       return;
     }
     console.log('[Fire Received] validateTimestamp OK');
@@ -640,6 +674,8 @@ class Game {
   _showDeathScreen(data) {
     this.respawnTimer = 3;
     this.respawnCountdownValue = 3;
+    this.respawnReady = false;
+    this.respawnRequested = false;
     this.killCamKillerId = data.shooterId;
     this.killCamKillerName = data.shooterName || 'Unknown';
     const wpData = data.weapon ? WEAPONS[data.weapon] : null;
@@ -649,6 +685,7 @@ class Game {
     document.getElementById('death-killer-name').textContent = `Killed By ${this.killCamKillerName}`;
     document.getElementById('death-weapon-name').textContent = this.killCamWeapon;
     document.getElementById('respawn-countdown').textContent = '3';
+    document.getElementById('respawn-prompt').style.display = 'none';
     this._updateWeaponSelectorUI('death');
     this._updatePassiveSelectorUI('death');
     if (document.pointerLockElement) document.exitPointerLock();
@@ -761,6 +798,7 @@ class Game {
     if (p) {
       p.health = CONFIG.maxHealth;
       p.alive = true;
+      p.resetVisualState();
       if (this.passiveManager && this.network.isHost) {
         this.passiveManager.applyToPlayer(data.id);
         this.passiveManager.onRespawn(data.id);
@@ -786,6 +824,19 @@ class Game {
         this.hostAuthority.respawnedPeers.add(data.id);
       }
     }
+  }
+
+  _handleRespawnRequest(data, conn) {
+    const peerId = conn.peer;
+    const p = this.players.get(peerId);
+    if (!p || p.alive) return;
+    console.log('[Host] respawn_request from %s', peerId);
+    const spawnPos = this._getSpawnPosition();
+    const msg = {
+      type: 'respawn', id: peerId,
+      pos: { x: spawnPos.x, y: 0, z: spawnPos.z },
+    };
+    this._handleRemoteRespawn(msg);
   }
 
   _handleGameStart(data) {
@@ -918,6 +969,18 @@ class Game {
 
   _handleReturnLobby(data) {
     this._returnToLobby();
+  }
+
+  _handleCheatDetected(data) {
+    console.log('[CheatDetected] player=%s reason=%s', data.playerName, data.reason);
+    this.gameStarted = false;
+    this.gameOver = true;
+    this.respawnReady = false;
+    this.respawnRequested = false;
+    document.getElementById('cheat-detected-player').textContent = 'Player: ' + (data.playerName || data.playerId);
+    document.getElementById('cheat-detected-reason').textContent = 'Reason: ' + (data.reason || 'Unknown');
+    this.cheatDetectedTimer = 3;
+    this.setState(GameState.CHEAT_DETECTED);
   }
 
   _handleKillFeed(data) {
@@ -1630,6 +1693,9 @@ class Game {
     if (this.gameState === GameState.RESULT) {
       this._updateResult(dt);
     }
+    if (this.gameState === GameState.CHEAT_DETECTED) {
+      this._updateCheatDetected(dt);
+    }
     if (this.gameState === GameState.PLAYING) {
       this.network.sendState(dt);
     }
@@ -1658,7 +1724,7 @@ class Game {
   }
 
   _updatePlaying(dt) {
-    if (!this.gameStarted || this.gameOver) {
+    if (!this.gameStarted || this.gameOver || this.gameState === GameState.CHEAT_DETECTED) {
       if (!this.gameStarted) console.log('[Update] _updatePlaying: gameStarted=false');
       if (this.gameOver) console.log('[Update] _updatePlaying: gameOver=true');
       return;
@@ -1680,11 +1746,11 @@ class Game {
         lp.mesh.material.transparent = true;
         lp.mesh.material.opacity = blink ? 0.3 : 1;
         lp.edgeLine.material.opacity = blink ? 0.1 : 0.4;
+        lp.glowRing.material.opacity = blink ? 0.03 : 0.1;
+        lp.outlineMat.opacity = blink ? 0.04 : 0.15;
       }
       if (this.invincibleTimer <= 0 && lp) {
-        lp.mesh.material.transparent = false;
-        lp.mesh.material.opacity = 1;
-        lp.edgeLine.material.opacity = 0.4;
+        lp.resetVisualState();
       }
     }
 
@@ -1850,15 +1916,11 @@ class Game {
       if (now !== prev && now > 0) {
         document.getElementById('respawn-countdown').textContent = String(now);
       }
-      if (this.respawnTimer <= 0) {
+      if (this.respawnTimer <= 0 && !this.respawnReady) {
         this.respawnTimer = 0;
-        this.killCamKillerId = null;
-        document.getElementById('death-screen').classList.remove('show');
-        this.mouseDown = false;
-        this.dashTimer = 0;
-        this.dashCooldown = 0;
-        this.killStreak = 0;
-        this._respawnLocal();
+        this.respawnReady = true;
+        document.getElementById('respawn-countdown').style.display = 'none';
+        document.getElementById('respawn-prompt').style.display = '';
       }
     }
   }
@@ -1883,6 +1945,19 @@ class Game {
     }
   }
 
+  _updateCheatDetected(dt) {
+    if (this.gameOver && this.cheatDetectedTimer > 0) {
+      this.cheatDetectedTimer -= dt;
+      if (this.cheatDetectedTimer <= 0) {
+        this.cheatDetectedTimer = 0;
+        if (this.network.isHost) {
+          this.network.broadcast({ type: NetMsg.RETURN_LOBBY });
+        }
+        this._returnToLobby();
+      }
+    }
+  }
+
   /* ----------------------------------------------------------
      リスポーン
      ---------------------------------------------------------- */
@@ -1901,6 +1976,24 @@ class Game {
     return new THREE.Vector3(
       (Math.random() - 0.5) * half * 2, 0, (Math.random() - 0.5) * half * 2
     );
+  }
+
+  _requestRespawn() {
+    if (this.respawnRequested || !this.respawnReady) return;
+    this.respawnRequested = true;
+    document.getElementById('respawn-prompt').style.display = 'none';
+    if (this.network.isHost) {
+      this.killCamKillerId = null;
+      this.mouseDown = false;
+      this.dashTimer = 0;
+      this.dashCooldown = 0;
+      this.killStreak = 0;
+      document.getElementById('death-screen').classList.remove('show');
+      document.getElementById('respawn-countdown').style.display = '';
+      this._respawnLocal();
+    } else {
+      this.network.send({ type: 'respawn_request' });
+    }
   }
 
   _respawnLocal() {
@@ -2179,6 +2272,9 @@ class Game {
     this.dashCooldown = 0;
     this.invincibleTimer = 0;
     this.respawnTimer = 0;
+    this.respawnReady = false;
+    this.respawnRequested = false;
+    this.cheatDetectedTimer = 0;
     this.killCamKillerId = null;
 
     if (this.matchStats) this.matchStats.resetAll();
@@ -2206,6 +2302,8 @@ class Game {
     this.projectiles.forEach(p => p.destroy());
     this.projectiles = [];
     if (this.hostAuthority) this.hostAuthority.reset();
+    if (this.cheatValidator) this.cheatValidator.reset();
+    if (this.cheatManager) this.cheatManager.reset();
     if (this.effectManager) this.effectManager.clear();
     if (this.beamManager) this.beamManager.clear();
     document.getElementById('kill-feed').innerHTML = '';

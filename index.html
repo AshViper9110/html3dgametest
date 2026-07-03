@@ -221,6 +221,10 @@
       <div id="death-weapon-name"></div>
     </div>
     <div id="respawn-countdown">3</div>
+    <div id="respawn-prompt" style="display:none;">
+      <div id="respawn-prompt-text">Respawn Ready</div>
+      <div id="respawn-prompt-sub">Press SPACE or Click to Respawn</div>
+    </div>
     <div id="death-weapon-selector" class="ws-container">
       <div class="ws-row">
         <button class="ws-btn ws-prev" data-target="death">◀</button>
@@ -257,6 +261,16 @@
   </div>
 </div>
 
+<!-- ========== チート検出オーバーレイ ========== -->
+<div id="cheat-detected-screen">
+  <div id="cheat-detected-inner">
+    <div id="cheat-detected-title">⚠ CHEAT DETECTED ⚠</div>
+    <div id="cheat-detected-player"></div>
+    <div id="cheat-detected-reason"></div>
+    <div id="cheat-detected-sub">Match Cancelled</div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="config.js"></script>
@@ -267,6 +281,7 @@
 <script src="SoundRegistry.js"></script>
 <script src="AudioManager.js"></script>
 <script src="CheatValidator.js"></script>
+<script src="CheatManager.js"></script>
 <script src="ObjectPool.js"></script>
 <script src="ParticlePool.js"></script>
 <script src="LightPool.js"></script>

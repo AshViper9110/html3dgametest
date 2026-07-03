@@ -11,16 +11,17 @@ class HostAuthority {
   handleFireRequest(data, peerId, inputId) {
     console.log('[Host Authority] handleFireRequest peerId=%s weapon=%s inputId=%s', peerId, data.weapon, inputId);
     const cv = this.game.cheatValidator;
+    const cm = this.game.cheatManager;
     if (!cv) { console.log('[Host Authority] BLOCKED: no cheatValidator'); return; }
 
-    if (!cv.validateWeapon(data.weapon)) { console.log('[Host Authority] BLOCKED: validateWeapon'); return; }
+    let r = cv.validateWeapon(data.weapon);
+    if (!r.ok) { console.log('[Host Authority] BLOCKED: validateWeapon'); if (cm) cm.report(peerId, r.reason); return; }
     console.log('[Host Authority] validateWeapon OK');
-    if (!cv.validateFireRate(peerId, data.weapon, data.timestamp || Date.now())) {
-      console.log('[Host Authority] BLOCKED: validateFireRate');
-      return;
-    }
+    r = cv.validateFireRate(peerId, data.weapon, data.timestamp || Date.now());
+    if (!r.ok) { console.log('[Host Authority] BLOCKED: validateFireRate'); if (cm) cm.report(peerId, r.reason); return; }
     console.log('[Host Authority] validateFireRate OK');
-    if (cv.isReplayAttack(inputId)) { console.log('[Host Authority] BLOCKED: isReplayAttack'); return; }
+    r = cv.isReplayAttack(inputId);
+    if (!r.ok) { console.log('[Host Authority] BLOCKED: isReplayAttack'); if (cm) cm.report(peerId, r.reason); return; }
     console.log('[Host Authority] isReplayAttack OK');
     if (this.respawnedPeers.has(peerId)) {
       console.log('[Host Authority] respawnedPeers → refillAllAmmo');
@@ -345,10 +346,14 @@ class HostAuthority {
 
   handleBeamFireRequest(data, peerId, inputId) {
     const cv = this.game.cheatValidator;
+    const cm = this.game.cheatManager;
     if (!cv) return;
-    if (!cv.validateWeapon(data.weapon)) return;
-    if (!cv.validateFireRate(peerId, data.weapon, data.timestamp || 0)) return;
-    if (cv.isReplayAttack(inputId)) return;
+    let r = cv.validateWeapon(data.weapon);
+    if (!r.ok) { if (cm) cm.report(peerId, r.reason); return; }
+    r = cv.validateFireRate(peerId, data.weapon, data.timestamp || 0);
+    if (!r.ok) { if (cm) cm.report(peerId, r.reason); return; }
+    r = cv.isReplayAttack(inputId);
+    if (!r.ok) { if (cm) cm.report(peerId, r.reason); return; }
 
     if (this.respawnedPeers.has(peerId)) {
       this.refillAllAmmo(peerId);

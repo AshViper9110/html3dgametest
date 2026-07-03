@@ -56,7 +56,11 @@ class NetworkManager {
     conn.on('data', (data) => {
       if (this.isHost && this.game.cheatValidator) {
         const peerId = conn.peer;
-        if (!this.game.cheatValidator.validatePacket(data, peerId)) {
+        const result = this.game.cheatValidator.validatePacket(data, peerId);
+        if (!result.ok) {
+          if (this.game.cheatManager) {
+            this.game.cheatManager.report(peerId, result.reason);
+          }
           if (this.game.cheatValidator.isSpamming(peerId)) {
             this._disconnectPeer(conn);
           }

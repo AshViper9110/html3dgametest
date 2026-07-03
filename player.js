@@ -70,6 +70,7 @@ class Player {
       new THREE.BoxGeometry(CONFIG.playerSize * 1.3, CONFIG.playerHeight * 1.3, CONFIG.playerSize * 1.3)
     );
     this.outlineLine = new THREE.LineSegments(outlineGeo, this.outlineMat);
+    this.outlineLine.renderOrder = 1;
     this.scene.add(this.outlineLine);
 
     this.position = new THREE.Vector3();
@@ -88,6 +89,21 @@ class Player {
     this.currentKillStreak = 0;
   }
 
+  resetVisualState() {
+    this.mesh.material.transparent = false;
+    this.mesh.material.opacity = 1;
+    this.mesh.material.depthWrite = true;
+    this.mesh.material.depthTest = true;
+    this.mesh.visible = true;
+    this.edgeMat.opacity = 0.4;
+    this.edgeLine.visible = true;
+    this.glowRing.material.opacity = 0.1;
+    this.glowRing.visible = true;
+    this.outlineMat.opacity = 0.15;
+    this.outlineLine.visible = true;
+    this.deathFadeTimer = 0;
+  }
+
   spawn(halfExtent) {
     const half = (typeof halfExtent === 'number' && halfExtent > 0) ? halfExtent : 20;
     this.position.set(
@@ -99,6 +115,7 @@ class Player {
     this.health = CONFIG.maxHealth;
     this.alive = true;
     this.refillAmmo();
+    this.resetVisualState();
     this.updateMesh();
   }
 
@@ -170,6 +187,8 @@ class Player {
       return;
     }
     this.mesh.visible = true;
+    this.mesh.material.transparent = false;
+    this.mesh.material.opacity = 1;
     this.edgeLine.visible = true;
     this.glowRing.visible = true;
     this.outlineLine.visible = true;

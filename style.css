@@ -1189,6 +1189,81 @@ textarea:focus {
   margin-top: 8px;
 }
 
+#respawn-prompt {
+  margin: 16px 0;
+  animation: respawnBlink 0.8s ease-in-out infinite;
+}
+#respawn-prompt-text {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.2em, 1em + 1vw, 1.8em);
+  font-weight: 700;
+  color: #00f0ff;
+  text-shadow: 0 0 30px rgba(0,240,255,0.5);
+  margin-bottom: 4px;
+}
+#respawn-prompt-sub {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.8em, 0.6em + 0.8vw, 1em);
+  color: #8899bb;
+}
+@keyframes respawnBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* === チート検出 === */
+#cheat-detected-screen {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 300;
+  display: none;
+  align-items: center; justify-content: center;
+  background: rgba(5,5,15,0.95);
+  backdrop-filter: blur(10px);
+}
+#cheat-detected-screen.show { display: flex; }
+#cheat-detected-inner {
+  text-align: center;
+  background: rgba(30,5,5,0.95);
+  border: 2px solid rgba(255,0,0,0.4);
+  border-radius: 16px;
+  padding: clamp(30px, 4vw, 50px) clamp(30px, 4vw, 60px);
+  box-shadow: 0 0 80px rgba(255,0,0,0.2);
+  max-width: 500px;
+  width: min(90%, 500px);
+}
+#cheat-detected-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.6em, 1.2em + 2vw, 2.4em);
+  font-weight: 900;
+  color: #ff0000;
+  text-shadow: 0 0 60px rgba(255,0,0,0.5);
+  margin-bottom: 20px;
+  letter-spacing: 4px;
+}
+#cheat-detected-player {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.2em, 0.8em + 1.5vw, 1.6em);
+  color: #ff4444;
+  margin-bottom: 12px;
+}
+#cheat-detected-reason {
+  font-family: 'Courier New', monospace;
+  font-size: clamp(1em, 0.7em + 1vw, 1.3em);
+  color: #ff8888;
+  margin-bottom: 20px;
+  padding: 8px 16px;
+  background: rgba(255,0,0,0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(255,0,0,0.2);
+}
+#cheat-detected-sub {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.9em, 0.6em + 0.8vw, 1.1em);
+  color: #666688;
+  letter-spacing: 3px;
+}
+
 /* === キルメッセージ === */
 .kill-center-msg {
   position: fixed;

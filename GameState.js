@@ -9,6 +9,7 @@ const GameState = Object.freeze({
   COUNTDOWN: 'COUNTDOWN',
   PLAYING: 'PLAYING',
   RESULT: 'RESULT',
+  CHEAT_DETECTED: 'CHEAT_DETECTED',
 });
 
 /* ネットワーク経由で同期するメッセージタイプ一覧 */
@@ -40,4 +41,6 @@ const NetMsg = Object.freeze({
   RESULT_SYNC: 'result_sync',
   RETURN_LOBBY: 'return_lobby',
   KILL_FEED: 'kill_feed',
+  RESPAWN_REQUEST: 'respawn_request',
+  CHEAT_DETECTED: 'cheat_detected',
 });
