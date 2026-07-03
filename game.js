@@ -844,6 +844,9 @@ class Game {
       );
     }
     if (this.network.isHost) {
+      if (this.cheatValidator && data.pos) {
+        this.cheatValidator.recordPosition(data.id, data.pos, performance.now());
+      }
       this.network.broadcast(data);
       if (this.hostAuthority) {
         this.hostAuthority.refillAllAmmo(data.id);
