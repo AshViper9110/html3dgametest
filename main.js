@@ -33,7 +33,7 @@ document.getElementById('btn-host').addEventListener('click', async () => {
     if (me) { me.weapon = game.loadoutWeapon; me.lastFireTime = 0; }
     game.clientPassives.set(roomId, game.loadoutPassive);
     if (game.passiveManager) {
-      game.passiveManager.setPassive(roomId, game.loadoutPassive);
+      game.passiveManager.assignPassive(roomId, game.loadoutPassive);
     }
     document.getElementById('room-id-display').textContent = roomId;
     document.getElementById('host-status').textContent = 'Waiting for players to join...';
@@ -168,6 +168,19 @@ document.getElementById('lobby-copy-room').addEventListener('click', () => {
   const fb = document.getElementById('lobby-copy-feedback');
   fb.style.display = 'inline';
   setTimeout(() => { fb.style.display = 'none'; }, 2000);
+});
+
+/* ---- トレーニング ---- */
+
+document.getElementById('btn-training').addEventListener('click', () => {
+  _uiSound('ui_click')();
+  if (game.gameState === GameState.TRAINING) return;
+  game.network.connected = false;
+  game.isHost = false;
+  game.localId = 'training';
+  document.getElementById('host-section').style.display = 'none';
+  document.getElementById('join-section').style.display = 'none';
+  game.setState(GameState.TRAINING);
 });
 
 /* ロビー退出 */

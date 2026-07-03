@@ -38,12 +38,6 @@ class Projectile {
     this.ricochetCount = 0;
     this.pierceCount = 0;
     this.passiveSizeMult = 1;
-    this.passiveSpeedMult = 1;
-    this.passiveDamageMult = 1;
-    this.passiveCritChance = 0;
-    this.passiveCritDamage = 2;
-    this.passiveLifeSteal = 0;
-    this.ownerPassiveMods = {};
     this.ricocheted = false;
   }
 

@@ -21,19 +21,14 @@ class Player {
     this.reloadTimer = 0;
     this.onReloadComplete = null;
     this.deathFadeTimer = 0;
-    this.passiveId = null;
     this.moveSpeedMult = 1;
     this.dashSpeedMult = 1;
-    this.damageMult = 1;
-    this.fireRateMult = 1;
-    this.reloadMult = 1;
-    this.recoilMult = 1;
-    this.spreadMult = 1;
-    this.damageReduction = 1;
-    this.postRespawnTimer = 0;
-    this.respawnRegenMult = 1;
+    this.healthRegen = 0;
     this.lastDamageTime = 0;
-    this.activePassiveMods = {};
+    this.heat = 0;
+    this.maxHeat = 0;
+    this.coolingSpeed = 0;
+    this.overheated = false;
 
     const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
     const mat = new THREE.MeshStandardMaterial({
@@ -129,6 +124,10 @@ class Player {
     this.ammo = wp.maxAmmo;
     this.reloading = false;
     this.reloadTimer = 0;
+    this.heat = 0;
+    this.overheated = false;
+    this.maxHeat = wp.heatCapacity || 0;
+    this.coolingSpeed = wp.coolingSpeed || 0;
   }
 
   takeDamage(amount) {

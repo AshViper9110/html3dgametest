@@ -98,6 +98,11 @@ class KillFeedManager {
     }
     if (wp.category === 'Shotgun' || wp.fireMode === 'Shotgun') return '🔫';
     if (wp.category === 'Sniper Rifle') return '🎯';
+    if (wp.weaponType === 'energy') return '⚡';
+    if (wp.weaponType === 'special') return '✦';
+    if (wp.weaponType === 'summon') return '🛸';
+    if (wp.category === 'Experimental') return '✦';
+    if (wp.category === 'Drone') return '🛸';
     return '🔫';
   }
 }

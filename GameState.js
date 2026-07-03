@@ -10,6 +10,7 @@ const GameState = Object.freeze({
   PLAYING: 'PLAYING',
   RESULT: 'RESULT',
   CHEAT_DETECTED: 'CHEAT_DETECTED',
+  TRAINING: 'TRAINING',
 });
 
 /* ネットワーク経由で同期するメッセージタイプ一覧 */

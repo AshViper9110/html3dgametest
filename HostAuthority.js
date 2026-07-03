@@ -4,6 +4,7 @@ class HostAuthority {
     this.hostProjectiles = [];
     this.projIdCounter = 0;
     this.ammoStates = new Map();
+    this.heatStates = new Map();
     this.playerStats = new Map();
     this.respawnedPeers = new Set();
   }
@@ -35,11 +36,12 @@ class HostAuthority {
     const spawnPos = new THREE.Vector3(data.position.x, 0, data.position.z);
     const mapHalf = this.game.arenaMap ? this.game.arenaMap.size / 2 : 40;
 
+    const spreadMult = this.game.passiveManager ? this.game.passiveManager.getSpreadMultiplier(peerId) : 1;
     for (let i = 0; i < pellets; i++) {
       const dir = new THREE.Vector3(data.direction.x, 0, data.direction.z);
       if (i > 0 && wp.spread > 0) {
-        dir.x += (Math.random() - 0.5) * wp.spread;
-        dir.z += (Math.random() - 0.5) * wp.spread;
+        dir.x += (Math.random() - 0.5) * wp.spread * spreadMult;
+        dir.z += (Math.random() - 0.5) * wp.spread * spreadMult;
         dir.normalize();
       }
       const pid = peerId + '_h' + (this.projIdCounter++);
@@ -70,15 +72,54 @@ class HostAuthority {
   }
 
   _hasAmmo(peerId, weapon) {
+    const wp = WEAPONS[weapon];
+    if (wp && wp.weaponType === 'energy') {
+      const heatState = this._getHeatState(peerId, weapon);
+      return !heatState.overheated;
+    }
+    if (wp && wp.weaponType === 'beam') {
+      const heatState = this._getHeatState(peerId, weapon);
+      if (heatState.overheated) return false;
+      const state = this.getAmmoState(peerId, weapon);
+      return state && state.ammo > 0;
+    }
     const state = this.getAmmoState(peerId, weapon);
     return state && state.ammo > 0;
   }
 
   _consumeAmmo(peerId, weapon) {
+    const wp = WEAPONS[weapon];
+    if (wp && (wp.weaponType === 'energy' || wp.weaponType === 'beam')) {
+      const heatState = this._getHeatState(peerId, weapon);
+      const heatPerShot = Math.max(1, Math.ceil((wp.heatCapacity || 40) * (wp.fireRate || 0.25) / 1.5));
+      heatState.heat = Math.min(heatState.maxHeat, heatState.heat + heatPerShot);
+      if (heatState.heat >= heatState.maxHeat) {
+        heatState.overheated = true;
+      }
+      if (wp.weaponType === 'beam') {
+        const state = this.getAmmoState(peerId, weapon);
+        if (state) state.ammo = Math.max(0, state.ammo - 1);
+      }
+      return;
+    }
     const state = this.getAmmoState(peerId, weapon);
     if (!state) return;
     const cost = this.game.passiveManager ? this.game.passiveManager.getAmmoCost(peerId, 1) : 1;
     state.ammo = Math.max(0, state.ammo - cost);
+  }
+
+  _getHeatState(peerId, weapon) {
+    const key = peerId + '_' + weapon;
+    if (!this.heatStates.has(key)) {
+      const wp = WEAPONS[weapon];
+      this.heatStates.set(key, {
+        heat: 0,
+        maxHeat: wp ? (wp.heatCapacity || 0) : 0,
+        coolingSpeed: wp ? (wp.coolingSpeed || 0) : 0,
+        overheated: false,
+      });
+    }
+    return this.heatStates.get(key);
   }
 
   getAmmoState(peerId, weapon) {
@@ -98,6 +139,14 @@ class HostAuthority {
     if (wp) {
       const ammo = this.game.passiveManager ? this.game.passiveManager.getMagazineSize(peerId, wp.maxAmmo) : wp.maxAmmo;
       this.ammoStates.set(key, { ammo, weapon });
+      /* Reset heat for energy/beam weapons */
+      if (wp.heatCapacity) {
+        this.heatStates.set(key, {
+          heat: 0, maxHeat: wp.heatCapacity,
+          coolingSpeed: wp.coolingSpeed || 0,
+          overheated: false,
+        });
+      }
     }
     this._sendAmmoUpdate(peerId, weapon);
   }
@@ -138,17 +187,23 @@ class HostAuthority {
       if (passive.isCritical(killerId)) {
         damage *= passive.getCriticalDamageMultiplier(killerId);
       }
-      const expMult = passive.getExplosionDamageMultiplier(killerId);
-      if (proj.wp && proj.wp.explosive) {
-        damage *= expMult;
-      }
     }
     const dmgReduction = passive ? passive.getDamageReduction(victimId, 'projectile') : 1;
     damage *= dmgReduction;
+
+    /* Executioner: bonus damage to low HP targets */
+    if (proj.executionerThreshold && victim.health > 0 && (victim.health / victim.maxHealth) < proj.executionerThreshold) {
+      damage *= proj.executionerDamageMult || 1.3;
+    }
+
     const killed = victim.takeDamage(damage);
 
-    if (passive) {
-      passive.onDamageDealt(killerId, victimId, damage, weapon);
+    /* Life steal from projectile */
+    if (proj.lifeSteal) {
+      const shooter = this.game.players.get(killerId);
+      if (shooter && shooter.alive) {
+        shooter.health = Math.min(shooter.health + damage * proj.lifeSteal, shooter.maxHealth);
+      }
     }
 
     const hitMsg = {
@@ -180,7 +235,17 @@ class HostAuthority {
     const wp = proj.wp || WEAPONS[proj.weapon] || WEAPONS.pistol;
     const pos = proj.mesh.position.clone();
     const passive = this.game.passiveManager;
-    const radiusMult = passive ? passive.getExplosionRadius(proj.ownerId, 1) : 1;
+
+    /* Apply explosion passives via applyToExplosion */
+    const explosionData = {
+      damage: wp.damage,
+      radius: wp.explosionRadius || 2.5,
+    };
+    if (passive) {
+      passive.applyToExplosion(explosionData, proj.ownerId);
+    }
+
+    const radiusMult = explosionData.radius / (wp.explosionRadius || 2.5);
 
     this.game.players.forEach((victim, id) => {
       if (id === proj.ownerId || !victim.alive) return;
@@ -195,10 +260,8 @@ class HostAuthority {
 
       if (dist < hitDist) {
         const killer = this.game.players.get(proj.ownerId);
-        let expDamage = wp.damage;
+        let expDamage = explosionData.damage;
         if (passive) {
-          const expMult = passive.getExplosionDamageMultiplier(proj.ownerId);
-          expDamage *= expMult;
           expDamage *= passive.getDamageReduction(id, 'explosion');
         }
         const killed = victim.takeDamage(expDamage);
@@ -249,6 +312,16 @@ class HostAuthority {
   }
 
   handleHostProjectiles(dt) {
+    /* Heat dissipation for all tracked heat states */
+    this.heatStates.forEach((state) => {
+      if (state.heat > 0) {
+        state.heat = Math.max(0, state.heat - (state.coolingSpeed || 15) * dt);
+        if (state.overheated && state.heat <= 0) {
+          state.overheated = false;
+        }
+      }
+    });
+
     const projs = this.hostProjectiles;
     for (let i = projs.length - 1; i >= 0; i--) {
       const proj = projs[i];
@@ -354,10 +427,26 @@ class HostAuthority {
     const origin = new THREE.Vector3(data.origin.x, 0, data.origin.z);
     const dir = new THREE.Vector3(data.direction.x, 0, data.direction.z).normalize();
     const passive = this.game.passiveManager;
-    const maxRange = passive ? passive.getBeamRange(peerId, wp.range || 40) : (wp.range || 40);
     const map = this.game.arenaMap;
 
-    const beamHitRadius = passive ? passive.getBeamWidth(peerId, wp.hitRadius || 0.8) : (wp.hitRadius || 0.8);
+    /* Apply beam passives via applyToBeam */
+    const beamData = {
+      range: wp.range || 40,
+      width: wp.hitRadius || 0.8,
+      damage: wp.damage,
+      spread: 0,
+      cooldown: 0,
+      reflectCount: 0,
+      plasmaBoomRadius: 0,
+      criticalChance: 0,
+      criticalDamageMultiplier: 2,
+    };
+    if (passive) {
+      passive.applyToBeam(beamData, peerId);
+    }
+
+    const maxRange = beamData.range;
+    const beamHitRadius = beamData.width;
     const result = this._beamRaycast(origin, dir, maxRange, map, peerId, wp, beamHitRadius);
 
     const beamMsg = {
@@ -374,7 +463,10 @@ class HostAuthority {
       if (victim && victim.alive) {
         const killerId = peerId;
         const killer = this.game.players.get(killerId);
-        let beamDmg = passive ? passive.getBeamDamage(peerId, wp.damage) : wp.damage;
+        let beamDmg = beamData.damage;
+        if (beamData.criticalChance && Math.random() < beamData.criticalChance) {
+          beamDmg *= beamData.criticalDamageMultiplier || 2;
+        }
         if (passive) beamDmg *= passive.getDamageReduction(result.hitPlayer, 'beam');
         const killed = victim.takeDamage(beamDmg);
 
@@ -487,6 +579,7 @@ class HostAuthority {
     this.hostProjectiles = [];
     this.projIdCounter = 0;
     this.ammoStates.clear();
+    this.heatStates.clear();
     this.playerStats.clear();
     this.respawnedPeers.clear();
   }

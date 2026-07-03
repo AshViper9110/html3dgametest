@@ -1172,6 +1172,48 @@ textarea:focus {
   text-align: center;
 }
 
+/* === ヒートバー === */
+.heat-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  justify-content: center;
+}
+.heat-bar-bg {
+  width: 120px;
+  height: 6px;
+  background: rgba(20,20,35,0.9);
+  border: 1px solid rgba(255,100,0,0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.heat-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #4466ff, #ffaa00, #ff2200);
+  border-radius: 3px;
+  transition: width 0.1s ease;
+  box-shadow: 0 0 8px rgba(255,100,0,0.3);
+}
+.heat-bar-fill.overheated {
+  background: #ff0000;
+  box-shadow: 0 0 16px rgba(255,0,0,0.6);
+  animation: heatPulse 0.3s ease infinite alternate;
+}
+.heat-bar-overheated {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.6em;
+  letter-spacing: 2px;
+  color: #ff0000;
+  text-shadow: 0 0 12px rgba(255,0,0,0.6);
+  animation: heatPulse 0.3s ease infinite alternate;
+}
+@keyframes heatPulse {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
 /* === デス画面 === */
 #death-screen {
   position: fixed;
@@ -1654,5 +1696,588 @@ textarea:focus {
   justify-content: center;
 }
 
+/* === 射撃場 === */
+#training-screen {
+  display: none !important;
+}
+
+#training-overlays {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#training-left-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 280px;
+  max-height: calc(100vh - 20px);
+  background: rgba(10, 10, 18, 0.92);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow-y: auto;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+#training-left-panel.closed {
+  display: none;
+}
+
+.training-panel-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.85em;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #00f0ff;
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+}
+
+.training-section {
+  margin-bottom: 12px;
+}
+
+.training-section-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #8888aa;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(136, 136, 170, 0.2);
+}
+
+#training-weapon-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.tw-category {
+  margin-bottom: 4px;
+}
+
+.tw-category-title {
+  font-size: 0.65em;
+  font-weight: 700;
+  color: #666688;
+  letter-spacing: 1px;
+  padding: 2px 4px;
+  text-transform: uppercase;
+}
+
+.tw-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+  font-size: 0.78em;
+}
+
+.tw-item:hover {
+  background: rgba(0, 240, 255, 0.08);
+}
+
+.tw-item.selected {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00f0ff;
+}
+
+.tw-item-name {
+  font-weight: 500;
+}
+
+.tw-item-dmg {
+  color: #ff6600;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+#training-weapon-info {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 4px;
+}
+
+.training-wp-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.75em;
+  color: #00f0ff;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.training-wp-stats .stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65em;
+  padding: 1px 0;
+}
+
+.training-wp-stats .stat-lbl {
+  color: #666688;
+}
+
+.training-wp-stats .stat-val {
+  color: #aaaacc;
+}
+
+#training-passive-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tp-category {
+  margin-bottom: 4px;
+}
+
+.tp-category-title {
+  font-size: 0.65em;
+  font-weight: 700;
+  color: #666688;
+  letter-spacing: 1px;
+  padding: 2px 4px;
+  text-transform: uppercase;
+}
+
+.tp-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+  font-size: 0.75em;
+}
+
+.tp-item:hover {
+  background: rgba(0, 240, 255, 0.08);
+}
+
+.tp-item.selected {
+  background: rgba(170, 68, 255, 0.15);
+  color: #aa44ff;
+}
+
+.tp-check {
+  font-family: monospace;
+  font-size: 1em;
+  width: 14px;
+  text-align: center;
+}
+
+.tp-icon {
+  font-size: 0.85em;
+}
+
+.tp-name {
+  font-weight: 500;
+}
+
+.training-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(136, 136, 170, 0.2);
+}
+
+.training-actions .btn {
+  flex: 1;
+  min-width: 60px;
+  font-size: 0.7em;
+  padding: 6px 8px;
+}
+
+#training-stats-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  background: rgba(10, 10, 18, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.training-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.72em;
+}
+
+.training-stat-label {
+  color: #666688;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.training-stat-value {
+  color: #00f0ff;
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.3);
+}
+
+.training-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(136, 136, 170, 0.4);
+  font-family: 'Orbitron', monospace;
+  font-size: 0.6em;
+  letter-spacing: 2px;
+  z-index: 15;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* === ロードアウト開閉ボタン === */
+.training-toggle-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 25;
+  pointer-events: auto;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 0.75em;
+  letter-spacing: 2px;
+  padding: 8px 16px;
+  background: rgba(10, 10, 18, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 6px;
+  color: #00f0ff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.training-toggle-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: rgba(0, 240, 255, 0.4);
+}
+
+/* === Training Range ボタン（タイトル）=== */
+.btn-training {
+  background: linear-gradient(135deg, #1a0033, #330066) !important;
+  border-color: #aa44ff !important;
+  color: #cc88ff !important;
+  font-size: 0.85em !important;
+  padding: 10px 24px !important;
+}
+
+.btn-training:hover {
+  background: linear-gradient(135deg, #330066, #5500aa) !important;
+  box-shadow: 0 0 20px rgba(170, 68, 255, 0.3) !important;
+}
+
 /* === トランジション === */
 .hidden { display: none !important; }
+
+/* スクロールバーカスタマイズ */
+#training-weapon-list::-webkit-scrollbar,
+#training-passive-list::-webkit-scrollbar,
+#training-left-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+#training-weapon-list::-webkit-scrollbar-track,
+#training-passive-list::-webkit-scrollbar-track,
+#training-left-panel::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+#training-weapon-list::-webkit-scrollbar-thumb,
+#training-passive-list::-webkit-scrollbar-thumb,
+#training-left-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.3);
+  border-radius: 2px;
+}
+
+/* Collapsible category */
+.tw-category-title { cursor: pointer; }
+.tw-category-title .tw-cat-arrow { margin-right: 4px; font-size: 0.8em; color: #8888aa; }
+.tw-category-title .tw-cat-count { color: #555577; font-size: 0.85em; margin-left: 4px; }
+
+/* Star rating rows */
+.tw-stat-row {
+  display: flex;
+  align-items: center;
+  font-size: 0.62em;
+  padding: 1px 0;
+  gap: 4px;
+}
+.tw-stat-label {
+  color: #666688;
+  width: 55px;
+  flex-shrink: 0;
+}
+.tw-stat-stars {
+  flex: 1;
+  color: #ffcc00;
+  font-size: 0.9em;
+  letter-spacing: 1px;
+}
+.tw-stat-val {
+  color: #aaaacc;
+  width: 50px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.tw-dps-row {
+  font-size: 0.7em;
+  color: #ff6600;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Weapon description and playstyle */
+.training-wp-desc {
+  font-size: 0.62em;
+  color: #8888aa;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+.training-wp-playstyle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.6em;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.training-wp-playstyle .ws-difficulty {
+  color: #ff44aa;
+}
+.training-wp-playstyle .ws-playstyle {
+  color: #44aaff;
+}
+.training-wp-playstyle .ws-playstyle strong {
+  color: #88ddff;
+}
+
+/* ========== Training: Right Detail Panel ========== */
+.td-panel {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 340px;
+  max-height: calc(100vh - 120px);
+  background: rgba(10, 10, 20, 0.92);
+  border: 1px solid rgba(0, 200, 255, 0.25);
+  border-radius: 8px;
+  z-index: 35;
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  font-size: 0.7em;
+}
+.td-scroll {
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+.td-scroll::-webkit-scrollbar { width: 4px; }
+.td-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+.td-scroll::-webkit-scrollbar-thumb { background: rgba(0,200,255,0.3); border-radius: 2px; }
+
+.td-header { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.td-name { font-size: 1.2em; font-weight: 700; color: #ffffff; letter-spacing: 0.5px; }
+.td-category { font-size: 0.75em; color: #44aaff; margin-top: 1px; }
+.td-stars { font-size: 0.75em; color: #ffcc00; margin-top: 2px; }
+.td-rarity { font-size: 0.7em; font-weight: 700; margin-top: 2px; }
+.td-effect { font-size: 0.8em; color: #88ddff; margin-top: 4px; font-style: italic; }
+.td-desc { font-size: 0.7em; color: #8888aa; margin-top: 4px; line-height: 1.4; }
+.td-section { margin-top: 10px; }
+.td-section-title {
+  font-size: 0.7em;
+  font-weight: 700;
+  color: #44aaff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(68,170,255,0.15);
+  padding-bottom: 3px;
+}
+
+/* Detail panel stat rows */
+.td-stats .tw-stat-row {
+  font-size: 0.95em;
+  padding: 2px 0;
+}
+.td-stats .tw-stat-label {
+  min-width: 70px;
+}
+.td-stats .tw-stat-stars {
+  min-width: 65px;
+}
+.td-stats .tw-stat-val {
+  text-align: right;
+  min-width: 50px;
+}
+
+/* Comparison section */
+.td-compare { margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 4px; }
+.td-compare .td-subtitle { font-size: 0.65em; color: #ffcc00; margin-bottom: 4px; }
+.td-cmp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65em;
+  padding: 2px 0;
+}
+.td-cmp-label { min-width: 60px; color: #aaaacc; }
+.td-cmp-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.td-cmp-fill { display: block; height: 100%; border-radius: 3px; transition: width 0.3s; }
+.td-cmp-up .td-cmp-label { color: #44ff88; }
+.td-cmp-up .td-cmp-fill { background: linear-gradient(90deg, #22cc66, #44ff88); }
+.td-cmp-up .td-cmp-diff { color: #44ff88; }
+.td-cmp-down .td-cmp-label { color: #ff6644; }
+.td-cmp-down .td-cmp-fill { background: linear-gradient(90deg, #cc4422, #ff6644); }
+.td-cmp-down .td-cmp-diff { color: #ff6644; }
+.td-cmp-eq .td-cmp-label { color: #8888aa; }
+.td-cmp-eq .td-cmp-fill { background: rgba(255,255,255,0.1); }
+.td-cmp-eq .td-cmp-diff { color: #8888aa; }
+.td-cmp-diff { min-width: 50px; text-align: right; font-weight: 600; }
+
+/* Bullet lists */
+.td-list { margin-top: 4px; }
+.td-subtitle { font-size: 0.68em; color: #ffcc00; margin: 6px 0 3px; font-weight: 600; }
+.td-bullet { font-size: 0.65em; padding: 2px 0 2px 14px; position: relative; line-height: 1.3; color: #ccccee; }
+.td-bullet-plus::before { content: '+'; position: absolute; left: 0; color: #44ff88; font-weight: 700; }
+.td-bullet-minus::before { content: '−'; position: absolute; left: 0; color: #ff6644; font-weight: 700; }
+.td-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.td-tag {
+  display: inline-block;
+  font-size: 0.6em;
+  padding: 2px 8px;
+  background: rgba(68,170,255,0.12);
+  border: 1px solid rgba(68,170,255,0.2);
+  border-radius: 10px;
+  color: #88ccff;
+}
+.td-tag-wp { background: rgba(255,204,0,0.1); border-color: rgba(255,204,0,0.2); color: #ffdd66; }
+.td-tag-ps { background: rgba(255,68,170,0.1); border-color: rgba(255,68,170,0.2); color: #ff88cc; }
+
+/* ========== Tooltip ========== */
+.tt-container {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(5, 5, 15, 0.95);
+  border: 1px solid rgba(0, 200, 255, 0.3);
+  border-radius: 6px;
+  padding: 8px 14px;
+  z-index: 40;
+  max-width: 360px;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+.tt-name { font-size: 0.8em; font-weight: 700; color: #ffffff; margin-bottom: 2px; }
+.tt-stars { font-size: 0.7em; color: #ffcc00; margin-bottom: 2px; }
+.tt-desc { font-size: 0.65em; color: #8888aa; line-height: 1.3; }
+
+/* ========== Game Guide Modal ========== */
+.tgg-modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.tgg-content {
+  background: rgba(10, 10, 25, 0.97);
+  border: 1px solid rgba(0, 200, 255, 0.25);
+  border-radius: 10px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  padding: 20px 24px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.tgg-title {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: #44aaff;
+  text-align: center;
+  margin-bottom: 12px;
+  letter-spacing: 2px;
+}
+.tgg-scroll {
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 4px;
+}
+.tgg-scroll::-webkit-scrollbar { width: 4px; }
+.tgg-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+.tgg-scroll::-webkit-scrollbar-thumb { background: rgba(0,200,255,0.3); border-radius: 2px; }
+.tgg-section { margin-bottom: 14px; }
+.tgg-section-title {
+  font-size: 0.75em;
+  font-weight: 700;
+  color: #ffcc00;
+  margin-bottom: 4px;
+  padding-left: 6px;
+  border-left: 2px solid #ffcc00;
+}
+.tgg-text {
+  font-size: 0.65em;
+  color: #aaaacc;
+  line-height: 1.5;
+  padding-left: 8px;
+}
+.tgg-close-btn {
+  align-self: center;
+  margin-top: 12px;
+  min-width: 100px;
+}
+
+/* ========== Training bottom action bar ========== */
+.training-actions {
+  display: flex;
+  gap: 6px;
+  z-index: 30;
+}
+.training-hint {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.55em;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 1px;
+  z-index: 25;
+  pointer-events: none;
+  text-align: center;
+}
