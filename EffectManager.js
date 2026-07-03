@@ -8,25 +8,25 @@ class EffectManager {
     this.particleManager = new ParticleManager(scene);
     this.lightPool = new LightPool(scene);
     this.activeEffects = [];
-    this.ringGeo = new THREE.RingGeometry(0.1, 0.3, 16);
-    this.shockwaveRingGeo = new THREE.RingGeometry(0.5, 1.0, 24);
+    this.ringGeo = new THREE.RingGeometry(0.1, 0.3, 8);
+    this.shockwaveRingGeo = new THREE.RingGeometry(0.5, 1.0, 12);
     this.planeGeo = new THREE.PlaneGeometry(1, 1);
-    this.sphereGeo = new THREE.SphereGeometry(0.4, 8, 8);
-    this.sphereSmallGeo = new THREE.SphereGeometry(0.3, 6, 6);
-    this.sphereGlowGeo = new THREE.SphereGeometry(0.8, 8, 8);
+    this.sphereGeo = new THREE.SphereGeometry(0.4, 6, 6);
+    this.sphereSmallGeo = new THREE.SphereGeometry(0.3, 5, 5);
+    this.sphereGlowGeo = new THREE.SphereGeometry(0.8, 6, 6);
     this.cylinderGeo = new THREE.CylinderGeometry(0.02, 0.08, 1.5, 4);
-    this.hitRingGeo = new THREE.RingGeometry(0.1, 0.4, 16);
-    this.explosionFlashGeo = new THREE.SphereGeometry(0.5, 8, 8);
-    this.explosionBoomGeo = new THREE.SphereGeometry(0.8, 10, 10);
-    this.explosionRingGeo = new THREE.RingGeometry(0.3, 0.8, 24);
-    this.explosionRing2Geo = new THREE.RingGeometry(0.2, 0.5, 24);
-    this.explosionAfterglowGeo = new THREE.SphereGeometry(2, 10, 10);
-    this.killRingGeo = new THREE.RingGeometry(0.5, 1.5, 24);
-    this.respawnRingGeo = new THREE.RingGeometry(0.3, 0.8, 20);
-    this.respawnPillarGeo = new THREE.CylinderGeometry(0.05, 1.0, 3, 8);
-    this.landingRingGeo = new THREE.RingGeometry(0.3, 0.8, 16);
-    this.dashRingGeo = new THREE.RingGeometry(0.2, 0.5, 16);
-    this.jumpPadRingGeo = new THREE.RingGeometry(0.2, 0.6, 12);
+    this.hitRingGeo = new THREE.RingGeometry(0.1, 0.4, 8);
+    this.explosionFlashGeo = new THREE.SphereGeometry(0.5, 6, 6);
+    this.explosionBoomGeo = new THREE.SphereGeometry(0.8, 8, 8);
+    this.explosionRingGeo = new THREE.RingGeometry(0.3, 0.8, 12);
+    this.explosionRing2Geo = new THREE.RingGeometry(0.2, 0.5, 12);
+    this.explosionAfterglowGeo = new THREE.SphereGeometry(2, 8, 8);
+    this.killRingGeo = new THREE.RingGeometry(0.5, 1.5, 12);
+    this.respawnRingGeo = new THREE.RingGeometry(0.3, 0.8, 12);
+    this.respawnPillarGeo = new THREE.CylinderGeometry(0.05, 1.0, 3, 6);
+    this.landingRingGeo = new THREE.RingGeometry(0.3, 0.8, 8);
+    this.dashRingGeo = new THREE.RingGeometry(0.2, 0.5, 8);
+    this.jumpPadRingGeo = new THREE.RingGeometry(0.2, 0.6, 8);
   }
 
   _addEffect(mesh, mat, geo, maxLife, scaleSpeed) {
@@ -134,8 +134,8 @@ class EffectManager {
     ring2.position.copy(p);
     this._addEffect(ring2, ring2Mat, this.explosionRing2Geo, 0.5, 4);
 
-    this.particleManager.spawnExplosionParticles(p, c, 30);
-    this.particleManager.spawnSparks(p, 0xffffaa, 8);
+    this.particleManager.spawnExplosionParticles(p, c, 16);
+    this.particleManager.spawnSparks(p, 0xffffaa, 5);
 
     this.lightPool.get(0xff8800, p, 8, 20, 0.5);
     this.lightPool.get(c, p, 4, 12, 0.3);
@@ -192,7 +192,7 @@ class EffectManager {
     const p = _emV3.copy(pos);
     p.y = 0.5;
 
-    this.particleManager.spawnRespawnParticles(p, c, 20);
+    this.particleManager.spawnRespawnParticles(p, c, 12);
 
     const ringMat = new THREE.MeshBasicMaterial({
       color: c, transparent: true, opacity: 0.5, side: THREE.DoubleSide,
@@ -242,7 +242,7 @@ class EffectManager {
 
     this.particleManager.spawnNeonBurst(
       _emV3.set(pos.x, 0.5, pos.z),
-      0xff0044, 12
+      0xff0044, 8
     );
 
     this.lightPool.get(0xff0044, _emV3.set(pos.x, 0.5, pos.z), 6, 15, 0.4);

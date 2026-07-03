@@ -3,7 +3,7 @@ class LightPool {
     this.scene = scene;
     this.pool = [];
     this.active = [];
-    this.maxSize = 20;
+    this.maxSize = 10;
     this._defaultLife = 0.15;
   }
 

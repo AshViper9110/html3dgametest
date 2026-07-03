@@ -139,13 +139,12 @@ class Game {
   init() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a0a12);
-    this.scene.fog = new THREE.Fog(0x0a0a12, 30, 60);
+    this.scene.fog = new THREE.Fog(0x0a0a12, 20, 40);
     this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.toneMapping = THREE.NoToneMapping;
     document.getElementById('game-container').appendChild(this.renderer.domElement);
 
     this.cheatValidator = new CheatValidator();
@@ -396,13 +395,14 @@ class Game {
     this.removePlayer(peerId);
     this.clientReady.delete(peerId);
     this.clientWeapons.delete(peerId);
+    if (this.network.isHost) {
+      this.network.broadcast({ type: 'player_left', peerId });
+      if (this.gameState === GameState.LOBBY) {
+        this._syncLobbyState();
+      }
+    }
     if (this.gameState === GameState.LOBBY) {
       this._updateLobbyUI();
-      if (this.network.isHost) this._syncLobbyState();
-    } else if (this.gameState === GameState.PLAYING || this.gameState === GameState.COUNTDOWN) {
-      if (this.network.isHost) {
-        this.network.broadcast({ type: 'player_left', peerId });
-      }
     }
   }
 
@@ -893,7 +893,9 @@ class Game {
     this.mapIndex = MAP_REGISTRY.getIndex(this.selectedMap);
     this._lastPreviewedMap = null;
     if (data.players) {
+      const ids = new Set();
       data.players.forEach(p => {
+        ids.add(p.id);
         this.clientReady.set(p.id, p.ready);
         this.clientWeapons.set(p.id, p.weapon);
         this.clientPassives.set(p.id, p.passive || 'none');
@@ -904,9 +906,20 @@ class Game {
           if (this.passiveManager) {
             this.passiveManager.setPassive(p.id, this.loadoutPassive);
           }
+          const btn = document.getElementById('btn-ready');
+          if (btn) {
+            const isReady = !!p.ready;
+            btn.dataset.ready = isReady ? 'true' : 'false';
+            btn.textContent = isReady ? '✔ READY' : '▶ READY';
+          }
         }
         const player = this.players.get(p.id);
         if (player && p.name) player.name = p.name;
+      });
+      this.players.forEach((player, id) => {
+        if (!ids.has(id) && id !== this.localId) {
+          this.removePlayer(id);
+        }
       });
     }
     this._updateLobbyUI();
@@ -932,6 +945,9 @@ class Game {
 
   _handlePlayerLeft(data) {
     this.removePlayer(data.peerId);
+    if (this.gameState === GameState.LOBBY) {
+      this._updateLobbyUI();
+    }
   }
 
   _handleReturnLobby(data) {
@@ -1404,6 +1420,12 @@ class Game {
       if (id !== hostId) this.clientReady.delete(id);
     });
     this.clientReady.set(hostId, true);
+    this.clientWeapons.forEach((v, id) => {
+      if (id !== hostId) this.clientWeapons.delete(id);
+    });
+    this.clientPassives.forEach((v, id) => {
+      if (id !== hostId) this.clientPassives.delete(id);
+    });
     this.network.sendTimer = CONFIG.stateSendRate;
     document.getElementById('kill-count').textContent = '0';
     document.getElementById('death-count').textContent = '0';
@@ -1735,7 +1757,17 @@ class Game {
     if (this.teleportCooldown > 0) this.teleportCooldown -= dt;
 
     this.players.forEach(p => {
-      if (p.id !== this.network.myId) p.lerpToTarget(dt);
+      if (p.id !== this.network.myId) {
+        p.lerpToTarget(dt);
+        if (lp) {
+          const dist = p.position.distanceTo(lp.position);
+          const far = dist > 30;
+          p.mesh.visible = p.alive && !far;
+          p.edgeLine.visible = p.alive && !far;
+          p.outlineLine.visible = p.alive && !far;
+          p.glowRing.visible = p.alive && !far;
+        }
+      }
       p.update(dt);
     });
 
@@ -2257,6 +2289,12 @@ class Game {
     this.cheatDetectedTimer = 0;
     this.killCamKillerId = null;
 
+    const readyBtn = document.getElementById('btn-ready');
+    if (readyBtn) {
+      readyBtn.dataset.ready = 'false';
+      readyBtn.textContent = '\u25B6 READY';
+    }
+
     if (this.matchStats) this.matchStats.resetAll();
     this.players.forEach(p => {
       p.resetMatchStats();
@@ -2279,6 +2317,12 @@ class Game {
       if (id !== hostId) this.clientReady.delete(id);
     });
     this.clientReady.set(hostId, true);
+    this.clientWeapons.forEach((v, id) => {
+      if (id !== hostId) this.clientWeapons.delete(id);
+    });
+    this.clientPassives.forEach((v, id) => {
+      if (id !== hostId) this.clientPassives.delete(id);
+    });
     this.projectiles.forEach(p => p.destroy());
     this.projectiles = [];
     if (this.hostAuthority) this.hostAuthority.reset();

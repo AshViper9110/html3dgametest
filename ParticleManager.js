@@ -10,7 +10,7 @@ class ParticleManager {
     this.scene = scene;
     this.pool = [];
     this.active = [];
-    this.maxParticles = 400;
+    this.maxParticles = 200;
     this._geoCache = {};
   }
 

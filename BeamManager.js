@@ -39,7 +39,7 @@ class BeamManager {
       radius,
       radius,
       length,
-      12,
+      8,
       1,
       false
     );
@@ -74,7 +74,7 @@ class BeamManager {
       glowRadius,
       glowRadius,
       length,
-      12,
+      8,
       1,
       false
     );
