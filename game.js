@@ -2140,6 +2140,19 @@ class Game {
   _trackKill(shooterId, targetId, weapon) {
     if (!this.matchStats) return;
 
+    if (this.network.isHost && this.cheatManager) {
+      const now = performance.now();
+      if (!this._killTimestamps) this._killTimestamps = new Map();
+      const kills = this._killTimestamps.get(shooterId) || [];
+      kills.push(now);
+      const recent = kills.filter(t => now - t < 200);
+      this._killTimestamps.set(shooterId, recent);
+      if (recent.length > 3) {
+        this.cheatManager.report(shooterId, 'All-Kill Hack');
+        return;
+      }
+    }
+
     const result = this.matchStats.registerKill(shooterId, targetId, weapon || 'pistol');
 
     const shooter = this.players.get(shooterId);
@@ -2345,6 +2358,7 @@ class Game {
     this.killStreak = 0;
     this.multiKillTimer = 0;
     this.lastKillTime = 0;
+    this._killTimestamps = null;
     this.scoreboard.clear();
     this.gameTimer = CONFIG.gameTimeLimit;
     this.connectionHandled = false;
