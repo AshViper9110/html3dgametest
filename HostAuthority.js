@@ -150,6 +150,8 @@ class HostAuthority {
         damage *= expMult;
       }
     }
+    const dmgReduction = passive ? passive.getDamageReduction(victimId, 'projectile') : 1;
+    damage *= dmgReduction;
     const killed = victim.takeDamage(damage);
 
     if (passive) {
@@ -200,13 +202,19 @@ class HostAuthority {
 
       if (dist < hitDist) {
         const killer = this.game.players.get(proj.ownerId);
-        const killed = victim.takeDamage(wp.damage, 'explosion');
+        let expDamage = wp.damage;
+        if (passive) {
+          const expMult = passive.getExplosionDamageMultiplier(proj.ownerId);
+          expDamage *= expMult;
+          expDamage *= passive.getDamageReduction(id, 'explosion');
+        }
+        const killed = victim.takeDamage(expDamage);
 
         const hitMsg = {
           type: 'hit',
           shooterId: proj.ownerId,
           targetId: id,
-          damage: wp.damage,
+          damage: expDamage,
           shooterName: killer ? killer.name : '?',
           targetName: victim.name,
           lethal: killed,
@@ -374,7 +382,8 @@ class HostAuthority {
       if (victim && victim.alive) {
         const killerId = peerId;
         const killer = this.game.players.get(killerId);
-        const beamDmg = passive ? passive.getBeamDamage(peerId, wp.damage) : wp.damage;
+        let beamDmg = passive ? passive.getBeamDamage(peerId, wp.damage) : wp.damage;
+        if (passive) beamDmg *= passive.getDamageReduction(result.hitPlayer, 'beam');
         const killed = victim.takeDamage(beamDmg);
 
         const hitMsg = {

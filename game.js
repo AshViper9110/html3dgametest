@@ -57,7 +57,7 @@ class Game {
     this.isHost = false;
     this.clientReady = new Map();
     this.clientWeapons = new Map();
-    this.loadoutPassive = PASSIVE_IDS[0] || 'runner';
+    this.loadoutPassive = 'none';
     this.clientPassives = new Map();
 
     this._lastPreviewedMap = null;
@@ -457,7 +457,7 @@ class Game {
     this.clientReady.set(peerId, false);
     const defaultWeapon = WEAPON_REGISTRY.getAll()[0] || 'pistol';
     this.clientWeapons.set(peerId, defaultWeapon);
-    this.clientPassives.set(peerId, PASSIVE_IDS[0]);
+    this.clientPassives.set(peerId, 'none');
     if (!this.clientWeapons.has(this.network.myId)) {
       this.clientWeapons.set(this.network.myId, this.loadoutWeapon);
     }
@@ -475,7 +475,7 @@ class Game {
       type: 'welcome',
       players: Array.from(this.players.entries()).map(([id, p]) => ({
         id, name: p.name, color: p.color, weapon: this.clientWeapons.get(id) || defaultWeapon,
-        passive: this.clientPassives.get(id) || PASSIVE_IDS[0],
+        passive: this.clientPassives.get(id) || 'none',
         ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
       })),
       yourId: peerId,
@@ -483,7 +483,7 @@ class Game {
     });
     this.network.broadcast({
       type: 'player_joined', id: peerId, name, color,
-      weapon: defaultWeapon, passive: PASSIVE_IDS[0], ready: false
+      weapon: defaultWeapon, passive: 'none', ready: false
     }, conn);
     this._updateLobbyUI();
     this._syncLobbyState();
@@ -496,10 +496,10 @@ class Game {
     data.players.forEach(p => {
       this.addPlayer(p.id, p.color, p.name);
       this.clientWeapons.set(p.id, p.weapon || defaultWeapon);
-      this.clientPassives.set(p.id, p.passive || PASSIVE_IDS[0]);
+      this.clientPassives.set(p.id, p.passive || 'none');
       if (p.id === data.yourId) {
         this.loadoutWeapon = p.weapon || defaultWeapon;
-        this.loadoutPassive = p.passive || PASSIVE_IDS[0];
+        this.loadoutPassive = p.passive || 'none';
       }
       this.clientReady.set(p.id, p.ready || false);
     });
@@ -525,7 +525,7 @@ class Game {
     this.addPlayer(data.id, data.color, data.name);
     this.clientReady.set(data.id, data.ready !== undefined ? data.ready : false);
     this.clientWeapons.set(data.id, data.weapon || WEAPON_REGISTRY.getAll()[0]);
-    this.clientPassives.set(data.id, data.passive || PASSIVE_IDS[0]);
+    this.clientPassives.set(data.id, data.passive || 'none');
     this._updateLobbyUI();
     this.addKillFeed(`${data.name} joined`);
   }
@@ -878,11 +878,11 @@ class Game {
       data.players.forEach(p => {
         this.clientReady.set(p.id, p.ready);
         this.clientWeapons.set(p.id, p.weapon);
-        this.clientPassives.set(p.id, p.passive || PASSIVE_IDS[0]);
+        this.clientPassives.set(p.id, p.passive || 'none');
         if (p.id === this.localId) {
           this.loadoutWeapon = p.weapon;
           this.weaponManager.set(p.weapon);
-          this.loadoutPassive = p.passive || PASSIVE_IDS[0];
+          this.loadoutPassive = p.passive || 'none';
           if (this.passiveManager) {
             this.passiveManager.setPassive(p.id, this.loadoutPassive);
           }
@@ -1251,7 +1251,7 @@ class Game {
 
       const passiveEl = document.createElement('span');
       passiveEl.className = 'pl-card-passive';
-      const passiveId = this.clientPassives.get(id) || PASSIVE_IDS[0];
+      const passiveId = this.clientPassives.get(id) || 'none';
       const pData = PASSIVES[passiveId];
       if (pData) {
         const pIcon = document.createElement('span');
@@ -1308,7 +1308,7 @@ class Game {
       players.push({
         id, name: p.name, ready: id === this.network.myId ? true : (this.clientReady.get(id) || false),
         weapon: this.clientWeapons.get(id) || WEAPON_REGISTRY.getAll()[0],
-        passive: this.clientPassives.get(id) || PASSIVE_IDS[0],
+        passive: this.clientPassives.get(id) || 'none',
       });
     });
     this.network.broadcast({
@@ -1389,7 +1389,7 @@ class Game {
       const weapon = this.clientWeapons.get(p.id) || WEAPON_REGISTRY.getAll()[0];
       p.weapon = weapon;
       p.refillAmmo();
-      const passiveId = this.clientPassives.get(p.id) || PASSIVE_IDS[0];
+      const passiveId = this.clientPassives.get(p.id) || 'none';
       if (this.passiveManager) {
         this.passiveManager.setPassive(p.id, passiveId);
         this.passiveManager.invalidate(p.id);

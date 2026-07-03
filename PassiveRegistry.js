@@ -1,4 +1,14 @@
 const PASSIVES = Object.freeze({
+  none: {
+    id: "none",
+    displayName: "None",
+    description: "No passive skill",
+    category: "Basic",
+    icon: "⬜",
+    rarity: "common",
+    modifiers: {},
+    enabled: true,
+  },
   /* ==================================================
      Movement
      ================================================== */
@@ -162,16 +172,6 @@ const PASSIVES = Object.freeze({
     icon: "💎",
     rarity: "rare",
     modifiers: { ammoCostMultiplier: 0.9 },
-    enabled: true,
-  },
-  supplyPack: {
-    id: "supplyPack",
-    displayName: "Supply Pack",
-    description: "予備弾薬増加",
-    category: "Ammo",
-    icon: "🎒",
-    rarity: "common",
-    modifiers: { ammoMultiplier: 1.3 },
     enabled: true,
   },
   fastHands: {

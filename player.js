@@ -110,14 +110,9 @@ class Player {
     this.reloadTimer = 0;
   }
 
-  takeDamage(amount, damageType) {
+  takeDamage(amount) {
     this.lastDamageTime = Date.now();
-    let reduction = this.damageReduction || 1;
-    if (damageType === 'explosion' && this.activePassiveMods && this.activePassiveMods.explosionDamageReduction) {
-      reduction *= this.activePassiveMods.explosionDamageReduction;
-    }
-    const dmg = amount * reduction;
-    this.health = Math.max(0, this.health - dmg);
+    this.health = Math.max(0, this.health - amount);
     this.damageFlashTimer = 0.1;
     if (this.health <= 0 && this.alive) {
       this.alive = false;
