@@ -147,7 +147,7 @@ class HostAuthority {
     this.game.network.broadcast(hitMsg);
 
     if (killed) {
-      this._trackKill(killerId, victimId);
+      this._trackKill(killerId, victimId, weapon);
     }
 
     if (victimId === this.game.network.myId) {
@@ -192,7 +192,7 @@ class HostAuthority {
         this.game.network.broadcast(hitMsg);
 
         if (killed) {
-          this._trackKill(proj.ownerId, id);
+          this._trackKill(proj.ownerId, id, proj.weapon);
         }
 
         if (id === this.game.network.myId) {
@@ -202,8 +202,8 @@ class HostAuthority {
     });
   }
 
-  _trackKill(shooterId, victimId) {
-    this.game._trackKill(shooterId, victimId);
+  _trackKill(shooterId, victimId, weapon) {
+    this.game._trackKill(shooterId, victimId, weapon);
   }
 
   _explodeProjectile(proj) {
@@ -346,7 +346,7 @@ class HostAuthority {
         this.game.network.broadcast(hitMsg);
 
         if (killed) {
-          this._trackKill(killerId, result.hitPlayer);
+          this._trackKill(killerId, result.hitPlayer, data.weapon);
         }
 
         if (result.hitPlayer === this.game.network.myId) {

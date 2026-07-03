@@ -39,4 +39,5 @@ const NetMsg = Object.freeze({
   GAME_TIMER: 'game_timer',
   RESULT_SYNC: 'result_sync',
   RETURN_LOBBY: 'return_lobby',
+  KILL_FEED: 'kill_feed',
 });

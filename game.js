@@ -66,6 +66,8 @@ class Game {
     this.hitValidator = null;
     this.effectManager = null;
     this.cameraEffectManager = null;
+    this.matchStats = null;
+    this.killFeedManager = null;
   }
 
   get localPlayer() { return this.players.get(this.localId); }
@@ -140,6 +142,8 @@ class Game {
     this.effectManager = new EffectManager(this.scene, this.camera);
     this.cameraEffectManager = new CameraEffectManager(this.camera);
     this.beamManager = new BeamManager(this.scene);
+    this.matchStats = new MatchStatsManager(this);
+    this.killFeedManager = new KillFeedManager();
 
     this._wireReloadCallback();
     this._setupInputEvents();
@@ -434,6 +438,7 @@ class Game {
       case 'game_timer': this._handleGameTimerSync(data); break;
       case 'player_left': this._handlePlayerLeft(data); break;
       case 'return_lobby': this._handleReturnLobby(data); break;
+      case 'kill_feed': this._handleKillFeed(data); break;
     }
   }
 
@@ -635,6 +640,22 @@ class Game {
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
+  _playRemoteDeathEffect(victimId, data) {
+    const victim = this.players.get(victimId);
+    if (!victim) return;
+
+    victim.playDeathEffect();
+
+    if (this.effectManager) {
+      this.effectManager.spawnKillEffect(victim.position);
+      this.effectManager.spawnPlayerDamageFlash(victim);
+    }
+
+    if (AUDIO) {
+      AUDIO.play('player_death', { position: victim.position });
+    }
+  }
+
   _handleHit(data) {
     if (data.targetId === this.network.myId) {
       if (this.invincibleTimer > 0) return;
@@ -650,34 +671,17 @@ class Game {
       if (AUDIO) AUDIO.play(data.lethal ? 'player_kill' : 'hit');
     }
     if (data.lethal) {
-      this._trackKill(data.shooterId, data.targetId);
+      this._trackKill(data.shooterId, data.targetId, data.weapon);
+      if (data.targetId !== this.network.myId) {
+        this._playRemoteDeathEffect(data.targetId, data);
+      }
     }
-    this._addKillFeedMessage(data);
     if (this.network.isHost) {
       this.network.broadcast(data, this._findConn(data.shooterId));
     }
   }
 
-  _addKillFeedMessage(data) {
-    if (data.targetId === this.network.myId) return;
-    if (!data.lethal) return;
-    const wpData = data.weapon ? WEAPONS[data.weapon] : null;
-    const weaponName = wpData ? wpData.displayName : (data.weapon || '');
-    const icon = wpData && wpData.weaponType === 'beam' ? '⚡' : (wpData ? '🔫' : '');
-    const el = document.createElement('div');
-    el.className = 'kill-msg';
-    el.innerHTML = `<span class="killer">${this._escapeHtml(data.shooterName || '?')}</span>` +
-      `<span class="weapon-icon">${icon}</span>` +
-      `<span class="victim">${this._escapeHtml(data.targetName || '?')}</span>`;
-    document.getElementById('kill-feed').appendChild(el);
-    setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
-  }
 
-  _escapeHtml(text) {
-    const d = document.createElement('div');
-    d.textContent = text;
-    return d.innerHTML;
-  }
 
   _handleHitEffect(data) {
     const pos = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
@@ -872,6 +876,14 @@ class Game {
 
   _handleReturnLobby(data) {
     this._returnToLobby();
+  }
+
+  _handleKillFeed(data) {
+    if (this.gameState !== GameState.PLAYING && this.gameState !== GameState.RESULT) return;
+    // Non-host clients: display feed from host broadcast; host adds directly in _trackKill
+    if (!this.network.isHost && this.killFeedManager) {
+      this.killFeedManager.addEntry(data.killerName, data.victimName, data.weapon);
+    }
   }
 
   /* ----------------------------------------------------------
@@ -1252,6 +1264,13 @@ class Game {
     this.killStreak = 0;
     this.killCountThisLife = 0;
     this.multiKillTimer = 0;
+
+    if (this.matchStats) this.matchStats.resetAll();
+    this.players.forEach(p => p.resetMatchStats());
+
+    if (this.killFeedManager) this.killFeedManager.clear();
+    document.getElementById('kill-announcement').innerHTML = '';
+
     const hostId = this.network.myId;
     this.clientReady.forEach((v, id) => {
       if (id !== hostId) this.clientReady.delete(id);
@@ -1436,12 +1455,16 @@ class Game {
   }
 
   addKillFeed(msg) {
-    const feed = document.getElementById('kill-feed');
-    const el = document.createElement('div');
-    el.className = 'kill-msg';
-    el.textContent = msg;
-    feed.appendChild(el);
-    setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
+    if (this.killFeedManager) {
+      this.killFeedManager.addSystemMessage(msg);
+    } else {
+      const feed = document.getElementById('kill-feed');
+      const el = document.createElement('div');
+      el.className = 'kill-msg';
+      el.textContent = msg;
+      feed.appendChild(el);
+      setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
+    }
   }
 
   showKillMessage(text) {
@@ -1452,6 +1475,41 @@ class Game {
     el.textContent = text;
     document.body.appendChild(el);
     setTimeout(() => { if (el.parentNode) el.remove(); }, 800);
+  }
+
+  _showKillAnnouncement(streak) {
+    const container = document.getElementById('kill-announcement');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const scoreEl = document.createElement('div');
+    scoreEl.className = 'ka-score';
+    scoreEl.textContent = '+100';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'ka-label';
+    labelEl.textContent = 'KILL';
+
+    container.appendChild(scoreEl);
+    container.appendChild(labelEl);
+
+    container.style.animation = 'none';
+    void container.offsetWidth;
+    container.style.animation = 'kaAppear 0.3s ease forwards';
+
+    setTimeout(() => {
+      if (container.parentNode) {
+        container.style.animation = 'kaFadeOut 0.5s ease forwards';
+      }
+    }, 1200);
+
+    const streakName = this.matchStats ? this.matchStats.getStreakName(streak) : null;
+    if (streakName) {
+      setTimeout(() => {
+        this.showKillMessage(streakName);
+      }, 300);
+    }
   }
 
   /* ----------------------------------------------------------
@@ -1762,6 +1820,10 @@ class Game {
     this.updateAmmoUI();
     this.updateHealthUI();
     this.killCountThisLife = 0;
+    if (this.matchStats && lp) {
+      this.matchStats.killStreaks.set(this.network.myId, 0);
+      lp.currentKillStreak = 0;
+    }
     if (this.hostAuthority) {
       this.hostAuthority.respawnedPeers.add(this.network.myId);
       if (this.network.isHost) {
@@ -1838,54 +1900,47 @@ class Game {
   /* ----------------------------------------------------------
      キル追跡
      ---------------------------------------------------------- */
-  _trackKill(shooterId, targetId) {
-    if (!this.scoreboard.has(shooterId)) {
-      const p = this.players.get(shooterId);
-      this.scoreboard.set(shooterId, {
-        kills: 0, deaths: 0, name: p ? p.name : '?', color: p ? p.color : 0xffffff,
-      });
-    }
-    if (!this.scoreboard.has(targetId)) {
-      const p = this.players.get(targetId);
-      this.scoreboard.set(targetId, {
-        kills: 0, deaths: 0, name: p ? p.name : '?', color: p ? p.color : 0xffffff,
-      });
-    }
-    this.scoreboard.get(shooterId).kills++;
-    this.scoreboard.get(targetId).deaths++;
+  _trackKill(shooterId, targetId, weapon) {
+    if (!this.matchStats) return;
+
+    const result = this.matchStats.registerKill(shooterId, targetId, weapon || 'pistol');
+
     const shooter = this.players.get(shooterId);
-    if (shooter) shooter.kills++;
     const target = this.players.get(targetId);
+    if (shooter) shooter.kills++;
     if (target) target.deaths++;
+
+    if (this.network.isHost && this.killFeedManager) {
+      this.network.broadcast({
+        type: 'kill_feed',
+        killerName: result.killerName,
+        victimName: result.victimName,
+        weapon: weapon || 'pistol',
+      });
+    }
 
     if (shooterId === this.network.myId) {
       this.kills++;
       document.getElementById('kill-count').textContent = this.kills;
       this.cameraEffectManager.killSlowMo();
       this.cameraEffectManager.hitShake(5);
-      this.killStreak++;
-      this.killCountThisLife++;
-      const now = performance.now();
-      if (now - this.lastKillTime < 2000) {
-        this.multiKillTimer += 1;
-      } else {
-        this.multiKillTimer = 1;
-      }
-      this.lastKillTime = now;
-      this.showKillMessage('+1 KILL');
-      let killText = '';
-      if (this.multiKillTimer >= 5) killText = 'PENTA KILL';
-      else if (this.multiKillTimer >= 4) killText = 'QUADRA KILL';
-      else if (this.multiKillTimer >= 3) killText = 'TRIPLE KILL';
-      else if (this.multiKillTimer >= 2) killText = 'DOUBLE KILL';
-      if (killText) this.showKillMessage(killText);
+      this.killStreak = this.matchStats.getKillStreak(shooterId);
+      this.killCountThisLife = this.killStreak;
+
+      this._showKillAnnouncement(this.killStreak);
+
       if (this.effectManager && targetId) {
-        const target = this.players.get(targetId);
-        if (target) this.effectManager.spawnKillEffect(target.position);
+        const victim = this.players.get(targetId);
+        if (victim) this.effectManager.spawnKillEffect(victim.position);
       }
       if (this.hostAuthority && this.network.isHost) {
         this.hostAuthority.refillAmmo(shooterId, this.localPlayer ? this.localPlayer.weapon : 'pistol');
       }
+    }
+
+    // Host adds kill feed entry locally; clients receive via kill_feed broadcast
+    if (this.network.isHost && this.killFeedManager) {
+      this.killFeedManager.addEntry(result.killerName, result.victimName, weapon || 'pistol');
     }
   }
 
@@ -1920,10 +1975,7 @@ class Game {
     this.gameStarted = false;
     this.mouseDown = false;
     if (document.pointerLockElement) document.exitPointerLock();
-    const sb = [];
-    this.players.forEach((p, id) => {
-      sb.push({ id, name: p.name, kills: p.kills, deaths: p.deaths, color: p.color });
-    });
+    const sb = this.matchStats ? this.matchStats.getResults() : [];
     if (this.network.isHost) {
       this.network.broadcast({ type: 'game_over', scoreboard: sb });
     }
@@ -1932,10 +1984,18 @@ class Game {
 
   _showResultScreen(scoreboard) {
     this.setState(GameState.RESULT);
-    const sb = scoreboard || [];
-    sb.sort((a, b) => b.kills - a.kills);
-    const topKills = sb.length > 0 ? sb[0].kills : 0;
-    const winners = sb.filter(e => e.kills === topKills);
+
+    let sb = scoreboard || [];
+    if (this.matchStats) {
+      sb = this.matchStats.getResults();
+    } else {
+      sb.sort((a, b) => b.kills - a.kills);
+    }
+
+    const winnerData = this.matchStats ? this.matchStats.getWinner() : null;
+    const topKills = winnerData ? winnerData.topKills : (sb.length > 0 ? sb[0].kills : 0);
+    const winners = winnerData ? winnerData.winners : (topKills > 0 ? sb.filter(e => e.kills === topKills) : []);
+
     if (AUDIO) {
       const iWon = winners.some(w => w.id === this.network.myId);
       AUDIO.play(iWon ? 'game_victory' : 'game_defeat', { position: null });
@@ -2002,16 +2062,23 @@ class Game {
     this.invincibleTimer = 0;
     this.respawnTimer = 0;
     this.killCamKillerId = null;
+
+    if (this.matchStats) this.matchStats.resetAll();
+    this.players.forEach(p => {
+      p.resetMatchStats();
+      p.alive = true;
+      p.health = CONFIG.maxHealth;
+      p.updateMesh();
+    });
+
+    if (this.killFeedManager) this.killFeedManager.clear();
+    document.getElementById('kill-announcement').innerHTML = '';
+
     const hostId = this.network.myId;
     this.clientReady.forEach((v, id) => {
       if (id !== hostId) this.clientReady.delete(id);
     });
     this.clientReady.set(hostId, true);
-    this.players.forEach(p => {
-      p.alive = true;
-      p.health = CONFIG.maxHealth;
-      p.updateMesh();
-    });
     this.projectiles.forEach(p => p.destroy());
     this.projectiles = [];
     if (this.hostAuthority) this.hostAuthority.reset();

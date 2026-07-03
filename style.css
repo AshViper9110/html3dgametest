@@ -1112,38 +1112,7 @@ textarea:focus {
   100% { opacity: 0; transform: translate(-50%,-60%) scale(1); }
 }
 
-/* === キルフィード === */
-#kill-feed {
-  position: fixed;
-  top: max(80px, calc(env(safe-area-inset-top, 0px) + 60px));
-  right: max(20px, env(safe-area-inset-right, 0px));
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  pointer-events: none;
-}
-.kill-msg {
-  background: rgba(10,10,18,0.8);
-  border: 1px solid rgba(0,240,255,0.15);
-  border-radius: 4px;
-  padding: 5px 12px;
-  font-size: 0.75em;
-  font-weight: 500;
-  letter-spacing: 1px;
-  color: #aaaacc;
-  animation: feedIn 0.3s ease, feedOut 0.3s ease 2.7s forwards;
-  backdrop-filter: blur(4px);
-  white-space: nowrap;
-}
-.kill-msg .killer { color: #00f0ff; }
-.kill-msg .victim { color: #ff4444; }
-.kill-msg .weapon-icon {
-  color: #ffaa00;
-  margin: 0 4px;
-}
-@keyframes feedIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes feedOut { from { opacity: 1; } to { opacity: 0; } }
+
 
 /* === リザルト === */
 #result-screen {
@@ -1330,6 +1299,114 @@ textarea:focus {
 }
 #btn-settings-close {
   margin-top: 16px;
+}
+
+/* === キルアナウンス (中央) === */
+#kill-announcement {
+  position: fixed;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 70;
+  pointer-events: none;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.ka-score {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(3em, 2em + 3vw, 5em);
+  font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 40px rgba(255, 215, 0, 0.6), 0 0 80px rgba(255, 215, 0, 0.3);
+  letter-spacing: 4px;
+}
+.ka-label {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.5em, 1em + 1.5vw, 2.5em);
+  font-weight: 700;
+  color: #00f0ff;
+  text-shadow: 0 0 30px rgba(0, 240, 255, 0.5);
+  letter-spacing: 8px;
+}
+@keyframes kaAppear {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  60% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes kaFadeOut {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+}
+
+/* === キルログ (右上) === */
+#kill-feed {
+  position: fixed;
+  top: max(80px, calc(env(safe-area-inset-top, 0px) + 60px));
+  right: max(20px, env(safe-area-inset-right, 0px));
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+  min-width: 200px;
+  max-width: min(360px, 40vw);
+}
+.kf-entry {
+  background: rgba(10, 10, 18, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: clamp(0.65em, 0.55em + 0.3vw, 0.8em);
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: #aaaacc;
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.kf-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+.kf-fadeout {
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.kf-killer {
+  color: #00f0ff;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kf-icon {
+  color: #ffaa00;
+  flex-shrink: 0;
+}
+.kf-arrow {
+  color: #6666aa;
+  flex-shrink: 0;
+}
+.kf-victim {
+  color: #ff4444;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kf-system {
+  color: #8888aa;
+  text-align: center;
+  justify-content: center;
 }
 
 /* === トランジション === */

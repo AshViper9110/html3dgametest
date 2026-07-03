@@ -9,6 +9,10 @@ class Player {
     this.name = '';
     this.kills = 0;
     this.deaths = 0;
+    this.matchKills = 0;
+    this.matchDeaths = 0;
+    this.matchAssists = 0;
+    this.currentKillStreak = 0;
     this.weapon = 'pistol';
     this.lastFireTime = 0;
     this.ammo = 0;
@@ -16,6 +20,7 @@ class Player {
     this.reloading = false;
     this.reloadTimer = 0;
     this.onReloadComplete = null;
+    this.deathFadeTimer = 0;
 
     const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
     const mat = new THREE.MeshStandardMaterial({
@@ -61,6 +66,13 @@ class Player {
     this.damageFlashTimer = 0;
     this.emissivePulseTimer = 0;
     this.spawn();
+  }
+
+  resetMatchStats() {
+    this.matchKills = 0;
+    this.matchDeaths = 0;
+    this.matchAssists = 0;
+    this.currentKillStreak = 0;
   }
 
   spawn(halfExtent) {
@@ -123,10 +135,24 @@ class Player {
 
   update(dt) {
     if (!this.alive) {
-      this.mesh.visible = false;
-      this.edgeLine.visible = false;
-      this.glowRing.visible = false;
-      this.outlineLine.visible = false;
+      if (this.deathFadeTimer > 0) {
+        this.deathFadeTimer -= dt;
+        const t = Math.max(0, this.deathFadeTimer / 0.5);
+        this.mesh.material.transparent = true;
+        this.mesh.material.opacity = t;
+        this.edgeLine.material.opacity = t * 0.4;
+        this.glowRing.material.opacity = t * 0.1;
+        this.outlineLine.material.opacity = t * 0.15;
+        this.mesh.visible = true;
+        this.edgeLine.visible = true;
+        this.glowRing.visible = true;
+        this.outlineLine.visible = true;
+        if (this.deathFadeTimer <= 0) {
+          this._hideAll();
+        }
+      } else {
+        this._hideAll();
+      }
       return;
     }
     this.mesh.visible = true;
@@ -165,6 +191,22 @@ class Player {
     this.edgeMat.opacity = 0.3 + 0.15 * Math.sin(this.emissivePulseTimer);
 
     this.updateMesh();
+  }
+
+  _hideAll() {
+    this.mesh.visible = false;
+    this.edgeLine.visible = false;
+    this.glowRing.visible = false;
+    this.outlineLine.visible = false;
+  }
+
+  playDeathEffect() {
+    this.deathFadeTimer = 0.5;
+    this.mesh.material.color.setHex(0xff0000);
+    this.mesh.material.emissive.setHex(0xff0000);
+    this.mesh.material.emissiveIntensity = 1.0;
+    this.mesh.material.transparent = true;
+    this.mesh.material.opacity = 1.0;
   }
 
   destroy() {
