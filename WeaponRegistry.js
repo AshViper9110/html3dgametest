@@ -400,7 +400,7 @@ class WeaponRegistry {
       weaponType: "projectile",
       fireMode: "Shotgun", damage: 6, fireRate: 0.5,
       projSpeed: 52, magazineSize: 10, reloadTime: 2.8,
-      spread: 0.16, pellets: 16, projRadius: 0.14, range: 1,
+      spread: 0.16, pellets: 16, projRadius: 0.14,       range: 16,
       recoil: 1.0, hitRadius: 0.3, color: 0xff8833, mobility: 2,
       playstyle: "All-round", difficulty: 2,
     });

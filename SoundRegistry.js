@@ -203,6 +203,14 @@ const SOUNDS = {
     category: 'weapon', duration: 0.14,
     create: (ctx, out, p) => _oscNoise(ctx, out, 180, 'sawtooth', 0.14, 0.3 * p.volScale, p.now, p.noiseBuf, 0.4),
   },
+  burst_pistol: {
+    category: 'weapon', duration: 0.06,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 550, 'triangle', 0.06, 0.16 * p.volScale, p.now, p.noiseBuf, 0.18),
+  },
+  auto_pistol: {
+    category: 'weapon', duration: 0.04,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 600, 'triangle', 0.04, 0.13 * p.volScale, p.now, p.noiseBuf, 0.14),
+  },
 
   /* === Weapon: SMG === */
   smg: {
@@ -220,6 +228,10 @@ const SOUNDS = {
   mp7: {
     category: 'weapon', duration: 0.05,
     create: (ctx, out, p) => _oscNoise(ctx, out, 600, 'triangle', 0.05, 0.16 * p.volScale, p.now, p.noiseBuf, 0.2),
+  },
+  p90: {
+    category: 'weapon', duration: 0.04,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 550, 'triangle', 0.04, 0.14 * p.volScale, p.now, p.noiseBuf, 0.18),
   },
 
   /* === Weapon: Assault Rifles === */
@@ -271,6 +283,10 @@ const SOUNDS = {
   semi_auto_rifle: {
     category: 'weapon', duration: 0.07,
     create: (ctx, out, p) => _oscNoise(ctx, out, 580, 'triangle', 0.07, 0.18 * p.volScale, p.now, p.noiseBuf, 0.2),
+  },
+  scout_rifle: {
+    category: 'weapon', duration: 0.06,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 600, 'triangle', 0.06, 0.15 * p.volScale, p.now, p.noiseBuf, 0.18),
   },
 
   /* === Weapon: Shotguns === */
@@ -332,6 +348,10 @@ const SOUNDS = {
       return { stop: () => { result.stop(); try { o.stop(); o.disconnect(); og.disconnect(); } catch(e) {} } };
     },
   },
+  slug_shotgun: {
+    category: 'weapon', duration: 0.12,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 300, 'sawtooth', 0.12, 0.22 * p.volScale, p.now, p.noiseBuf, 0.3),
+  },
 
   /* === Weapon: LMG === */
   lmg: {
@@ -341,6 +361,14 @@ const SOUNDS = {
   minigun: {
     category: 'weapon', duration: 0.03,
     create: (ctx, out, p) => _oscNoise(ctx, out, 300, 'triangle', 0.03, 0.12 * p.volScale, p.now, p.noiseBuf, 0.25),
+  },
+  heavy_lmg: {
+    category: 'weapon', duration: 0.08,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 320, 'sawtooth', 0.08, 0.22 * p.volScale, p.now, p.noiseBuf, 0.32),
+  },
+  mobile_lmg: {
+    category: 'weapon', duration: 0.05,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 400, 'triangle', 0.05, 0.16 * p.volScale, p.now, p.noiseBuf, 0.2),
   },
 
   /* === Weapon: Snipers === */
@@ -393,6 +421,25 @@ const SOUNDS = {
       _scheduleGain(og.gain, now, 0.002, 0.02, 0.078, 0.2 * v);
       o.start(now); _safeStop(o, 0.1);
       return { stop: () => { result.stop(); try { o.stop(); o.disconnect(); og.disconnect(); f1.disconnect(); } catch(e) {} } };
+    },
+  },
+  anti_material_rifle: {
+    category: 'weapon', duration: 0.2,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const n = _noiseSrc(ctx, p.noiseBuf);
+      const ng = _gain(ctx, 0);
+      const f = _filter(ctx, 'lowpass', 1500);
+      n.connect(ng); ng.connect(f); f.connect(out);
+      _scheduleGain(ng.gain, now, 0.005, 0.08, 0.115, 0.35 * v);
+      n.start(now); _safeStop(n, 0.2);
+      const o = _osc(ctx, 150, 'sawtooth');
+      const og = _gain(ctx, 0);
+      o.connect(og); og.connect(out);
+      o.frequency.linearRampToValueAtTime(80, now + 0.15);
+      _scheduleGain(og.gain, now, 0.005, 0.06, 0.135, 0.22 * v);
+      o.start(now); _safeStop(o, 0.2);
+      return { stop: () => { try { n.stop(); o.stop(); n.disconnect(); o.disconnect(); ng.disconnect(); og.disconnect(); f.disconnect(); } catch(e) {} } };
     },
   },
 
@@ -449,6 +496,40 @@ const SOUNDS = {
     },
   },
 
+  /* === Weapon: Explosive (additional) === */
+  sticky_launcher: {
+    category: 'weapon', duration: 0.18,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const o = _osc(ctx, 200, 'sine');
+      const g = _gain(ctx, 0);
+      o.connect(g); g.connect(out);
+      o.frequency.linearRampToValueAtTime(140, now + 0.12);
+      _scheduleGain(g.gain, now, 0.005, 0.08, 0.095, 0.18 * v);
+      o.start(now); _safeStop(o, 0.18);
+      return { stop: () => { try { o.stop(); o.disconnect(); g.disconnect(); } catch(e) {} } };
+    },
+  },
+  cluster_launcher: {
+    category: 'weapon', duration: 0.2,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const n = _noiseSrc(ctx, p.noiseBuf);
+      const ng = _gain(ctx, 0);
+      const f = _filter(ctx, 'lowpass', 900);
+      n.connect(ng); ng.connect(f); f.connect(out);
+      _scheduleGain(ng.gain, now, 0.005, 0.1, 0.095, 0.28 * v);
+      n.start(now); _safeStop(n, 0.2);
+      const o = _osc(ctx, 110, 'sawtooth');
+      const og = _gain(ctx, 0);
+      o.connect(og); og.connect(out);
+      o.frequency.linearRampToValueAtTime(70, now + 0.14);
+      _scheduleGain(og.gain, now, 0.005, 0.08, 0.115, 0.16 * v);
+      o.start(now); _safeStop(o, 0.2);
+      return { stop: () => { try { n.stop(); o.stop(); n.disconnect(); o.disconnect(); ng.disconnect(); og.disconnect(); f.disconnect(); } catch(e) {} } };
+    },
+  },
+
   /* === Weapon: Energy === */
   laser_rifle: {
     category: 'weapon', duration: 0.1,
@@ -489,6 +570,38 @@ const SOUNDS = {
       return { stop: () => { try { o.stop(); n.stop(); o.disconnect(); n.disconnect(); f.disconnect(); g.disconnect(); ng.disconnect(); } catch(e) {} } };
     },
   },
+  beam_cannon: {
+    category: 'weapon', duration: 0.18,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const o = _osc(ctx, 200, 'sawtooth');
+      const f = _filter(ctx, 'lowpass', 500);
+      const g = _gain(ctx, 0);
+      o.connect(f); f.connect(g); g.connect(out);
+      o.frequency.linearRampToValueAtTime(100, now + 0.12);
+      _scheduleGain(g.gain, now, 0.005, 0.08, 0.095, 0.22 * v);
+      o.start(now); _safeStop(o, 0.18);
+      const n = _noiseSrc(ctx, p.noiseBuf);
+      const ng = _gain(ctx, 0);
+      n.connect(ng); ng.connect(out);
+      _scheduleGain(ng.gain, now, 0.003, 0.05, 0.127, 0.18 * v);
+      n.start(now); _safeStop(n, 0.18);
+      return { stop: () => { try { o.stop(); n.stop(); o.disconnect(); n.disconnect(); f.disconnect(); g.disconnect(); ng.disconnect(); } catch(e) {} } };
+    },
+  },
+  continuous_beam: {
+    category: 'weapon', duration: 0.06,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const o = _osc(ctx, 800, 'sine');
+      const g = _gain(ctx, 0);
+      o.connect(g); g.connect(out);
+      o.frequency.linearRampToValueAtTime(500, now + 0.04);
+      _scheduleGain(g.gain, now, 0.002, 0.02, 0.038, 0.12 * v);
+      o.start(now); _safeStop(o, 0.06);
+      return { stop: () => { try { o.stop(); o.disconnect(); g.disconnect(); } catch(e) {} } };
+    },
+  },
 
   /* === Beam Hums (loop while firing) === */
   laser_rifle_hum: {
@@ -524,6 +637,81 @@ const SOUNDS = {
           try { o.stop(); n.stop(); o.disconnect(); n.disconnect(); f.disconnect(); nf.disconnect(); g.disconnect(); ng.disconnect(); } catch(e) {}
         }
       };
+    },
+  },
+
+  /* === Weapon: Energy === */
+  plasma_smg: {
+    category: 'weapon', duration: 0.04,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 750, 'triangle', 0.04, 0.14 * p.volScale, p.now, p.noiseBuf, 0.12),
+  },
+  ion_rifle: {
+    category: 'weapon', duration: 0.12,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const o = _osc(ctx, 400, 'sine');
+      const g = _gain(ctx, 0);
+      o.connect(g); g.connect(out);
+      o.frequency.linearRampToValueAtTime(200, now + 0.08);
+      _scheduleGain(g.gain, now, 0.005, 0.04, 0.075, 0.2 * v);
+      o.start(now); _safeStop(o, 0.12);
+      const n = _noiseSrc(ctx, p.noiseBuf);
+      const ng = _gain(ctx, 0);
+      n.connect(ng); ng.connect(out);
+      _scheduleGain(ng.gain, now, 0.002, 0.02, 0.098, 0.1 * v);
+      n.start(now); _safeStop(n, 0.12);
+      return { stop: () => { try { o.stop(); n.stop(); o.disconnect(); n.disconnect(); g.disconnect(); ng.disconnect(); } catch(e) {} } };
+    },
+  },
+  arc_rifle: {
+    category: 'weapon', duration: 0.1,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const o = _osc(ctx, 2000, 'sawtooth');
+      const g = _gain(ctx, 0);
+      o.connect(g); g.connect(out);
+      o.frequency.linearRampToValueAtTime(500, now + 0.07);
+      _scheduleGain(g.gain, now, 0.002, 0.02, 0.078, 0.16 * v);
+      o.start(now); _safeStop(o, 0.1);
+      return { stop: () => { try { o.stop(); o.disconnect(); g.disconnect(); } catch(e) {} } };
+    },
+  },
+  pulse_carbine: {
+    category: 'weapon', duration: 0.05,
+    create: (ctx, out, p) => _oscNoise(ctx, out, 700, 'triangle', 0.05, 0.14 * p.volScale, p.now, p.noiseBuf, 0.14),
+  },
+
+  /* === Weapon: Special / Summon === */
+  black_hole_launcher: {
+    category: 'weapon', duration: 0.3,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const o = _osc(ctx, 60, 'sine');
+      const g = _gain(ctx, 0);
+      o.connect(g); g.connect(out);
+      o.frequency.linearRampToValueAtTime(30, now + 0.25);
+      _scheduleGain(g.gain, now, 0.01, 0.15, 0.14, 0.2 * v);
+      o.start(now); _safeStop(o, 0.3);
+      const n = _noiseSrc(ctx, p.noiseBuf);
+      const ng = _gain(ctx, 0);
+      const f = _filter(ctx, 'lowpass', 400);
+      n.connect(ng); ng.connect(f); f.connect(out);
+      _scheduleGain(ng.gain, now, 0.01, 0.12, 0.17, 0.2 * v);
+      n.start(now); _safeStop(n, 0.3);
+      return { stop: () => { try { o.stop(); n.stop(); o.disconnect(); n.disconnect(); g.disconnect(); ng.disconnect(); f.disconnect(); } catch(e) {} } };
+    },
+  },
+  missile_drone: {
+    category: 'weapon', duration: 0.15,
+    create: (ctx, out, p) => {
+      const now = p.now; const v = p.volScale;
+      const o = _osc(ctx, 300, 'sine');
+      const g = _gain(ctx, 0);
+      o.connect(g); g.connect(out);
+      o.frequency.linearRampToValueAtTime(500, now + 0.1);
+      _scheduleGain(g.gain, now, 0.005, 0.06, 0.085, 0.12 * v);
+      o.start(now); _safeStop(o, 0.15);
+      return { stop: () => { try { o.stop(); o.disconnect(); g.disconnect(); } catch(e) {} } };
     },
   },
 

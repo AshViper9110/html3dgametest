@@ -42,12 +42,18 @@ class Projectile {
     this.isHoming = false;
     this.homingTargetId = null;
     this.homingStrength = 3;
-    this.maxAge = this.wp.projLifetime || 3;
+    this._distTraveled = 0;
+    this.maxDist = this.wp.range || 40;
+    this.maxAge = this.wp.projLifetime || 3;  // safety fallback
   }
 
   update(dt) {
     if (!this.alive) return;
     this.age += dt;
+
+    const speed = this.velocity.length();
+    this._distTraveled += speed * dt;
+    if (this._distTraveled >= this.maxDist) { this.destroy(); return; }
     if (this.age > this.maxAge) { this.destroy(); return; }
 
     this.mesh.position.x += this.velocity.x * dt;

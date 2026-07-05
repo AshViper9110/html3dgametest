@@ -298,7 +298,7 @@ class PassiveManager {
       }
     }
     if (mods.rangeMultiplier != null) {
-      if (projectile.maxAge) projectile.maxAge *= mods.rangeMultiplier;
+      projectile.maxDist *= mods.rangeMultiplier;
     }
 
     if (mods.pierceCount != null) {

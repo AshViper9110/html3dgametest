@@ -410,7 +410,7 @@ class Game {
     }
 
     if (this.passiveManager) {
-      this.passiveManager.assignPassive(this.localId, 'none');
+      this.passiveManager.assignPassive(this.localId, this.loadoutPassive);
       if (this.localPlayer) this.passiveManager.applyToPlayer(this.localPlayer);
     }
 
@@ -1772,6 +1772,9 @@ class Game {
         proj._gravityWell = (lp.weapon === 'black_hole_launcher');
         proj._isDrone = (lp.weapon === 'missile_drone');
         proj._droneTimer = 2.0;
+        if (this.passiveManager) {
+          this.passiveManager.applyToProjectile(proj, this.localId);
+        }
         this.projectiles.push(proj);
       }
     }
@@ -1803,8 +1806,16 @@ class Game {
       if (dist < 1.5) {
         this.trainingManager.recordHit(proj.wp ? (proj.wp.damage || 10) : 10);
         this.trainingManager.targets.flashTarget(t.id);
-        if (this.effectManager) {
-          this.effectManager.spawnHitEffect(t.group.position.clone(), proj.color);
+        const isExplosive = (proj.wp && proj.wp.explosive) || proj.explosiveAmmo;
+        if (isExplosive) {
+          if (this.effectManager) {
+            this.effectManager.spawnExplosion(t.group.position.clone(), proj.color || 0xff4400);
+          }
+          if (AUDIO) AUDIO.play('explosion', { position: t.group.position });
+        } else {
+          if (this.effectManager) {
+            this.effectManager.spawnHitEffect(t.group.position.clone(), proj.color);
+          }
         }
         proj.destroy();
         return;
@@ -2044,11 +2055,27 @@ class Game {
       if (!p.alive) { this.projectiles.splice(i, 1); continue; }
       p.update(dt);
 
+      /* Explosive projectile death: trigger explosion for explosive weapons */
+      if (!p.alive && ((p.wp && p.wp.explosive) || p.explosiveAmmo || p._gravityWell)) {
+        const ep = p.mesh.position.clone();
+        const eColor = p._gravityWell ? 0x2200aa : (p.color || 0xff4400);
+        if (this.effectManager) {
+          this.effectManager.spawnExplosion(ep, eColor);
+        }
+        if (AUDIO) AUDIO.play('explosion', { position: ep });
+        if (targets && !p._gravityWell) {
+          for (const t of targets) {
+            if (!t.alive) continue;
+            if (ep.distanceTo(t.group.position) < 3) {
+              this.trainingManager.recordHit(p.wp ? p.wp.damage : 20);
+              this.trainingManager.targets.flashTarget(t.id);
+            }
+          }
+        }
+      }
+
       /* Black Hole: spawn gravity zone on death */
       if (!p.alive && p._gravityWell) {
-        if (this.effectManager) {
-          this.effectManager.spawnExplosion(p.mesh.position.clone(), 0x2200aa);
-        }
         if (!this._trainingGravityZones) this._trainingGravityZones = [];
         this._trainingGravityZones.push({ pos: p.mesh.position.clone(), timer: 4 });
       }
