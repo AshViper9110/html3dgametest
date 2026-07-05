@@ -1,8 +1,3 @@
-/* ============================================================
-   NEON ARENA - ゲーム状態管理
-   状態遷移と定数を一元管理
-   ============================================================ */
-
 const GameState = Object.freeze({
   TITLE: 'TITLE',
   LOBBY: 'LOBBY',
@@ -13,7 +8,6 @@ const GameState = Object.freeze({
   TRAINING: 'TRAINING',
 });
 
-/* ネットワーク経由で同期するメッセージタイプ一覧 */
 const NetMsg = Object.freeze({
   JOIN: 'join',
   WELCOME: 'welcome',
@@ -32,7 +26,6 @@ const NetMsg = Object.freeze({
   MAP_SELECT: 'map_select',
   GAME_OVER: 'game_over',
   RELOAD_COMPLETE: 'reload_complete',
-  /* 新規メッセージ */
   READY: 'ready',
   WEAPON_CHANGE: 'weapon_change',
   NAME_CHANGE: 'name_change',
@@ -44,4 +37,14 @@ const NetMsg = Object.freeze({
   KILL_FEED: 'kill_feed',
   RESPAWN_REQUEST: 'respawn_request',
   CHEAT_DETECTED: 'cheat_detected',
+  INPUT: 'input',
+  INPUT_ACK: 'input_ack',
+  BEAM_FIRE: 'beam_fire',
+  BEAM_EFFECT: 'beam_effect',
+  PASSIVE_CHANGE: 'passive_change',
+  HEALTH_UPDATE: 'health_update',
+  SCORE_UPDATE: 'score_update',
+  STATE_DIFF: 'state_diff',
+  PING: 'ping',
+  PONG: 'pong',
 });

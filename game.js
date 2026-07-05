@@ -74,6 +74,9 @@ class Game {
     this.passiveManager = null;
     this.trainingManager = null;
     this.trainingUI = null;
+    this._interpBuffer = new Map();
+    this._inputSendTimer = 0;
+    this._lastSentInputSeq = 0;
   }
 
   get localPlayer() { return this.players.get(this.localId); }
@@ -253,10 +256,21 @@ class Game {
   }
 
   _clearArena() {
+    const disposed = new Set();
     this.arenaObjects.forEach(o => {
       this.scene.remove(o);
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) o.material.dispose();
+      if (o.geometry && !disposed.has(o.geometry)) {
+        o.geometry.dispose();
+        disposed.add(o.geometry);
+      }
+      if (o.material) {
+        if (Array.isArray(o.material)) {
+          o.material.forEach(m => { if (!disposed.has(m)) { m.dispose(); disposed.add(m); } });
+        } else if (!disposed.has(o.material)) {
+          o.material.dispose();
+          disposed.add(o.material);
+        }
+      }
     });
     this.arenaObjects = [];
     this.rimLights.forEach(l => this.scene.remove(l));
@@ -362,9 +376,17 @@ class Game {
     if (this.cheatManager) this.cheatManager.reset();
     if (this.effectManager) this.effectManager.clear();
     if (this.beamManager) this.beamManager.clear();
-    document.getElementById('kill-feed').innerHTML = '';
-    document.getElementById('kill-count').textContent = '0';
-    document.getElementById('death-count').textContent = '0';
+    if (this.passiveManager) this.passiveManager.reset();
+    if (this.matchStats) this.matchStats.reset();
+    if (this.killFeedManager) this.killFeedManager.clear();
+    if (this.cameraEffectManager) this.cameraEffectManager.reset();
+    if (AUDIO) AUDIO.stopAllBeamHums();
+    const kf = document.getElementById('kill-feed');
+    if (kf) kf.innerHTML = '';
+    const kc = document.getElementById('kill-count');
+    if (kc) kc.textContent = '0';
+    const dc = document.getElementById('death-count');
+    if (dc) dc.textContent = '0';
     this.kills = 0;
     this.deaths = 0;
     this.killStreak = 0;
@@ -374,6 +396,9 @@ class Game {
     this.gameTimer = CONFIG.gameTimeLimit;
     this.respawnTimer = 0;
     this.invincibleTimer = 0;
+    this._interpBuffer.clear();
+    this._inputSendTimer = 0;
+    this._lastSentInputSeq = 0;
   }
 
   _enterTraining() {
@@ -442,6 +467,7 @@ class Game {
   removePlayer(id) {
     const p = this.players.get(id);
     if (p) { p.destroy(); this.players.delete(id); }
+    this._interpBuffer.delete(id);
   }
 
   onConnected() {
@@ -523,6 +549,13 @@ class Game {
       case 'kill_feed': this._handleKillFeed(data); break;
       case 'cheat_detected': this._handleCheatDetected(data); break;
       case 'gravity_zone': this._handleGravityZone(data); break;
+      case 'input':
+        if (this.network.isHost) this._handleInput(data, conn);
+        break;
+      case NetMsg.STATE_DIFF: this._handleStateDiff(data); break;
+      case NetMsg.INPUT_ACK: this._handleInputAck(data); break;
+      case NetMsg.PING: this._handlePing(data, conn); break;
+      case NetMsg.PONG: this._handlePong(data); break;
     }
   }
 
@@ -617,6 +650,13 @@ class Game {
     if (data.alive !== undefined) p.alive = data.alive;
     if (data.health !== undefined) p.health = data.health;
     if (data.weapon !== undefined) p.weapon = data.weapon;
+    if (!this._interpBuffer.has(data.id)) this._interpBuffer.set(data.id, []);
+    const buf = this._interpBuffer.get(data.id);
+    buf.push({
+      pos: { x: data.pos.x, y: data.pos.y, z: data.pos.z },
+      rot: data.rot, time: Date.now(),
+    });
+    while (buf.length > CONFIG.stateBufferSize) buf.shift();
     if (this.network.isHost) {
       this.network.broadcast(data, this._findConn(data.id));
     }
@@ -742,7 +782,8 @@ class Game {
     const pos = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
     if (AUDIO) AUDIO.play('wall_hit', { position: pos });
     if (this.effectManager) {
-      this.effectManager.spawnHitEffect(pos.clone(), data.color || 0xffffff);
+      const surfaceType = data.surface || 'wall';
+      this.effectManager.spawnHitEffect(pos.clone(), data.color || 0xffffff, surfaceType);
     }
     this._removeLocalProjectile(data.pid);
   }
@@ -784,6 +825,120 @@ class Game {
     this.cameraEffectManager.explosionShake(4);
   }
 
+  /* ---- 入力処理（ホスト：権威的移動） ---- */
+  _handleInput(data, conn) {
+    if (!conn) return;
+    const peerId = conn.peer;
+    if (!this.network.isHost) return;
+    const p = this.players.get(peerId);
+    if (!p || !p.alive) return;
+    const cv = this.cheatValidator;
+    if (cv) {
+      const vr = cv.validatePacket(data, peerId);
+      if (!vr.ok) { if (this.cheatManager) this.cheatManager.report(peerId, vr.reason); return; }
+    }
+    if (data.forward !== undefined || data.strafe !== undefined) {
+      let mx = 0, mz = 0;
+      if (data.forward < 0) mz -= 1;
+      if (data.forward > 0) mz += 1;
+      if (data.strafe < 0) mx -= 1;
+      if (data.strafe > 0) mx += 1;
+      if (mx !== 0 || mz !== 0) {
+        const len = Math.sqrt(mx * mx + mz * mz);
+        mx /= len; mz /= len;
+        const fwd = new THREE.Vector3(0, 0, -1)
+          .applyAxisAngle(new THREE.Vector3(0, 1, 0), p.rotation);
+        const right = new THREE.Vector3(1, 0, 0)
+          .applyAxisAngle(new THREE.Vector3(0, 1, 0), p.rotation);
+        _v3.copy(fwd).multiplyScalar(-mz);
+        _v3b.copy(right).multiplyScalar(mx);
+        _v3.add(_v3b).normalize();
+        const speed = CONFIG.playerSpeed * (p.moveSpeedMult || 1);
+        _v3.multiplyScalar(speed * 0.016);
+        const newX = p.position.x + _v3.x;
+        const newZ = p.position.z + _v3.z;
+        const half = (this.arenaMap ? this.arenaMap.size : 40) / 2 - 0.8;
+        if (Math.abs(newX) <= half && Math.abs(newZ) <= half) {
+          p.position.x = newX;
+          p.position.z = newZ;
+          p.targetPosition.copy(p.position);
+        }
+      }
+    }
+    if (data.mouseX !== undefined && data.mouseX !== 0) {
+      p.rotation -= data.mouseX * 0.003;
+      p.targetRotation = p.rotation;
+    }
+    this.network.sendTo(peerId, { type: NetMsg.INPUT_ACK, lastSeq: data.seq });
+    if (this.hostAuthority && this.arenaMap) {
+      _v3a.set(p.position.x, 0, p.position.z);
+      this.hostAuthority.recordPosition(peerId, _v3a, p.rotation, Date.now());
+    }
+  }
+
+  /* ---- 状態差分（クライアント補正） ---- */
+  _handleStateDiff(data) {
+    const p = this.players.get(data.id);
+    if (!p) return;
+    const isLocal = data.id === this.network.myId;
+    if (isLocal) {
+      const serverPos = new THREE.Vector3(data.pos.x, 0, data.pos.z);
+      const dist = p.position.distanceTo(serverPos);
+      const maxErr = CONFIG.playerSpeed * 0.3;
+      if (dist > maxErr) {
+        p.position.copy(serverPos);
+        p.targetPosition.copy(serverPos);
+        if (data.rot !== undefined) p.rotation = data.rot;
+        const pending = this.network.getUnacknowledgedInputs();
+        for (const entry of pending) {
+          const inp = entry.input;
+          let mx = 0, mz = 0;
+          if (inp.forward < 0) mz -= 1;
+          if (inp.forward > 0) mz += 1;
+          if (inp.strafe < 0) mx -= 1;
+          if (inp.strafe > 0) mx += 1;
+          if (mx !== 0 || mz !== 0) {
+            const len = Math.sqrt(mx * mx + mz * mz);
+            mx /= len; mz /= len;
+            const fwd = new THREE.Vector3(0, 0, -1)
+              .applyAxisAngle(new THREE.Vector3(0, 1, 0), p.rotation);
+            const right = new THREE.Vector3(1, 0, 0)
+              .applyAxisAngle(new THREE.Vector3(0, 1, 0), p.rotation);
+            _v3.copy(fwd).multiplyScalar(-mz);
+            _v3b.copy(right).multiplyScalar(mx);
+            _v3.add(_v3b).normalize();
+            const speed = CONFIG.playerSpeed * (p.moveSpeedMult || 1);
+            _v3.multiplyScalar(speed * 0.016);
+            p.position.x += _v3.x;
+            p.position.z += _v3.z;
+          }
+        }
+        p.targetPosition.copy(p.position);
+      }
+    } else {
+      _v3a.set(data.pos.x, 0, data.pos.z);
+      p.targetPosition.copy(_v3a);
+      if (data.rot !== undefined) p.targetRotation = data.rot;
+      if (data.health !== undefined) p.health = data.health;
+      if (data.alive !== undefined) p.alive = data.alive;
+    }
+  }
+
+  /* ---- 入力確認 ---- */
+  _handleInputAck(data) {
+    if (data.lastSeq) this.network.setLastAckedSeq(data.lastSeq);
+  }
+
+  /* ---- Ping ---- */
+  _handlePing(data, conn) {
+    if (!conn) return;
+    conn.send(this.network._wrap({ type: NetMsg.PONG, time: data.time }));
+  }
+
+  _handlePong(data) {
+    this.network.handlePong(data);
+  }
+
   _handleAmmoUpdate(data) {
     const lp = this.localPlayer;
     if (!lp) return;
@@ -813,6 +968,7 @@ class Game {
       p.resetVisualState();
       if (this.passiveManager && this.network.isHost) {
         this.passiveManager.applyToPlayer(p);
+        this.passiveManager.reloadPlayerAmmo(p.id);
       }
       if (data.pos) {
         p.position.set(data.pos.x, data.pos.y, data.pos.z);
@@ -943,6 +1099,7 @@ class Game {
     }
     if (this.gameState === GameState.LOBBY || this.gameState === GameState.RESULT) this._updateLobbyUI();
     if (this.network.isHost) {
+      this.network.broadcast({ type: 'passive_change', id: peerId, passiveId: data.passiveId }, conn);
       this._syncLobbyState();
     }
   }
@@ -1508,7 +1665,6 @@ class Game {
       p.alive = true;
       const weapon = this.clientWeapons.get(p.id) || WEAPON_REGISTRY.getAll()[0];
       p.weapon = weapon;
-      p.refillAmmo();
       const passiveId = this.clientPassives.get(p.id) || 'none';
       if (this.passiveManager) {
         this.passiveManager.assignPassive(p.id, passiveId);
@@ -1532,6 +1688,7 @@ class Game {
       this.updateHealthUI();
       this.updateHeatUI();
     }
+    if (this.cameraEffectManager) this.cameraEffectManager.roundStartEffect();
     this.setState(GameState.PLAYING);
     if (!this.pointerLocked) {
       setTimeout(() => this.renderer.domElement.requestPointerLock(), 500);
@@ -1603,8 +1760,11 @@ class Game {
           flashDir.z += (Math.random() - 0.5) * wp.spread;
           flashDir.normalize();
         }
-        this.effectManager.spawnMuzzleFlash(lp.position, flashDir, lp.color);
+        this.effectManager.spawnMuzzleFlash(lp.position, flashDir, lp.color, lp.weapon);
       }
+      const endPos = _v3a.copy(lp.position).addScaledVector(baseDir, (wp.range || 40) * 0.3);
+      this.effectManager.spawnTracer(lp.position, endPos, lp.color, 0.4);
+      this.effectManager.spawnCasing(lp.position, baseDir, lp.color);
     }
 
     if (AUDIO) AUDIO.playWeapon(lp.weapon, { position: lp.position });
@@ -1683,7 +1843,9 @@ class Game {
 
     if (this.effectManager) {
       const flashDir = baseDir.clone();
-      this.effectManager.spawnMuzzleFlash(lp.position, flashDir, lp.color);
+      this.effectManager.spawnMuzzleFlash(lp.position, flashDir, lp.color, lp.weapon);
+      const endPos = _v3a.copy(lp.position).addScaledVector(baseDir, (wp.range || 40) * 0.3);
+      this.effectManager.spawnTracer(lp.position, endPos, lp.color, 0.3);
     }
     if (AUDIO) AUDIO.playWeapon(lp.weapon, { position: lp.position });
 
@@ -1977,6 +2139,7 @@ class Game {
     }
     if (this.gameState === GameState.PLAYING) {
       this.network.sendState(dt);
+      this.network.sendStateDiff();
     }
     if (this.passiveManager) {
       this.passiveManager.updateAll(dt);
@@ -2272,6 +2435,9 @@ class Game {
     if (this.keys['a']) mx -= 1;
     if (this.keys['d']) mx += 1;
 
+    const isMultiplayer = !this.network.isHost && this.network.connected;
+    const inputMouseX = this.mouseDelta;
+
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
 
     if (mx !== 0 || mz !== 0) {
@@ -2318,6 +2484,7 @@ class Game {
       if (this.arenaMap && this.arenaMap.pads) {
         this._handlePadInteraction(lp, speed, dt);
       }
+      const moveDir = _v3c.copy(_v3).normalize();
       _v3.multiplyScalar(speed * dt);
       lp.position.x += _v3.x;
       lp.position.z += _v3.z;
@@ -2326,6 +2493,11 @@ class Game {
       lp.position.z = Math.max(-half, Math.min(half, lp.position.z));
       this._checkWallCollision(lp.position);
       lp.targetPosition.copy(lp.position);
+
+      if (this.effectManager && this.dashTimer <= 0 && speed > CONFIG.playerSpeed * 0.8) {
+        _v3a.set(lp.position.x, 0.1, lp.position.z);
+        this.effectManager.spawnSpeedLines(_v3a, moveDir, 1);
+      }
     }
 
     if (this.mouseDelta !== 0) {
@@ -2357,7 +2529,7 @@ class Game {
     }
     if (!wp) console.log('[Fire] handleInput: weapon=%s NOT FOUND in WEAPONS', lp.weapon);
     else if (!this.pointerLocked) console.log('[Fire] handleInput: pointerLocked=false');
-      if (shouldFire) {
+    else if (shouldFire) {
         const now = Date.now();
         const fireRateMult = this.passiveManager ? this.passiveManager.getFireRateMultiplier(this.localId) : 1;
         const effectiveInterval = (wp.fireRate * 1000) / fireRateMult;
@@ -2380,6 +2552,32 @@ class Game {
         if (Math.abs(lp.recoilOffset) < recovery) lp.recoilOffset = 0;
         else lp.recoilOffset -= Math.sign(lp.recoilOffset) * recovery;
       }
+
+    /* Send input to host (client prediction + server validation) */
+    if (isMultiplayer) {
+      this._inputSendTimer += dt;
+      if (this._inputSendTimer >= (CONFIG.inputSendRate || 0.016)) {
+        this._inputSendTimer = 0;
+        let fireInput = false;
+        const wp = WEAPONS[lp.weapon];
+        if (wp && this.pointerLocked) {
+          if (wp.fireMode === 'Semi' || wp.fireMode === 'Beam') fireInput = false;
+          else fireInput = this.mouseDown;
+        }
+        this.network.sendInput({
+          forward: -mz, strafe: mx,
+          mouseX: inputMouseX,
+          mouseY: 0,
+          fire: fireInput,
+          jump: false,
+          dash: this.dashTimer > 0,
+          reload: this.keys['r'] || false,
+          weaponChange: null,
+          passiveChange: null,
+        });
+        this.mouseDelta = 0;
+      }
+    }
   }
 
   _handlePadInteraction(lp, speed, dt) {
@@ -2616,6 +2814,22 @@ class Game {
       const redOverlay = document.getElementById('damage-overlay');
       if (redOverlay) redOverlay.style.opacity = '0';
     }
+    if (this.cameraEffectManager && this.cameraEffectManager.getWhiteFlash() > 0) {
+      const wf = document.getElementById('white-overlay') || (() => {
+        const el = document.createElement('div');
+        el.id = 'white-overlay';
+        el.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;
+          pointer-events:none;z-index:56;
+          background:radial-gradient(ellipse at center, rgba(255,255,255,0.4) 0%, transparent 70%);
+          opacity:0;transition:opacity 0.03s;`;
+        document.body.appendChild(el);
+        return el;
+      })();
+      wf.style.opacity = Math.min(1, this.cameraEffectManager.getWhiteFlash() * 2);
+    } else {
+      const wfl = document.getElementById('white-overlay');
+      if (wfl) wfl.style.opacity = '0';
+    }
   }
 
   /* ----------------------------------------------------------
@@ -2662,7 +2876,9 @@ class Game {
       this.kills++;
       document.getElementById('kill-count').textContent = this.kills;
       this.cameraEffectManager.killSlowMo();
-      this.cameraEffectManager.hitShake(5);
+      this.cameraEffectManager.killFlash();
+      if (data && data.headshot) this.cameraEffectManager.headshotEffect();
+      if (data && data.critical) this.cameraEffectManager.criticalEffect();
       this.killStreak = this.matchStats.getKillStreak(shooterId);
       this.killCountThisLife = this.killStreak;
 

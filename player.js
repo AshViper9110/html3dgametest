@@ -31,7 +31,10 @@ class Player {
     this.coolingSpeed = 0;
     this.overheated = false;
 
-    const geo = new THREE.BoxGeometry(CONFIG.playerSize, CONFIG.playerHeight, CONFIG.playerSize);
+    const bodySize = CONFIG.playerSize;
+    const bodyHeight = CONFIG.playerHeight;
+    const bodyGeoKey = 'player_body_' + bodySize + '_' + bodyHeight;
+    const bodyGeo = SHARED.geo(bodyGeoKey, () => new THREE.BoxGeometry(bodySize, bodyHeight, bodySize));
     const mat = new THREE.MeshStandardMaterial({
       color,
       emissive: color,
@@ -39,22 +42,24 @@ class Player {
       metalness: 0.1,
       roughness: 0.4,
     });
-    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh = new THREE.Mesh(bodyGeo, mat);
     this.scene.add(this.mesh);
 
-    const ggeo = new THREE.BoxGeometry(CONFIG.playerSize * 1.6, CONFIG.playerHeight * 0.2, CONFIG.playerSize * 1.6);
+    const ringGeoKey = 'player_ring_' + bodySize;
+    const ringGeo = SHARED.geo(ringGeoKey, () => new THREE.BoxGeometry(bodySize * 1.6, bodyHeight * 0.2, bodySize * 1.6));
     const gmat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.1 });
-    this.glowRing = new THREE.Mesh(ggeo, gmat);
+    this.glowRing = new THREE.Mesh(ringGeo, gmat);
     this.glowRing.position.y = 0.05;
     this.scene.add(this.glowRing);
 
-    this.edgeGeo = new THREE.EdgesGeometry(geo);
+    const edgeGeoKey = 'player_edge_' + bodySize + '_' + bodyHeight;
+    const edgeGeo = SHARED.geo(edgeGeoKey, () => new THREE.EdgesGeometry(new THREE.BoxGeometry(bodySize, bodyHeight, bodySize)));
     this.edgeMat = new THREE.LineBasicMaterial({
       color,
       transparent: true,
       opacity: 0.4,
     });
-    this.edgeLine = new THREE.LineSegments(this.edgeGeo, this.edgeMat);
+    this.edgeLine = new THREE.LineSegments(edgeGeo, this.edgeMat);
     this.scene.add(this.edgeLine);
 
     this.outlineMat = new THREE.LineBasicMaterial({
@@ -62,9 +67,10 @@ class Player {
       transparent: true,
       opacity: 0.15,
     });
-    const outlineGeo = new THREE.EdgesGeometry(
-      new THREE.BoxGeometry(CONFIG.playerSize * 1.3, CONFIG.playerHeight * 1.3, CONFIG.playerSize * 1.3)
-    );
+    const outlineGeoKey = 'player_outline_' + bodySize;
+    const outlineGeo = SHARED.geo(outlineGeoKey, () => new THREE.EdgesGeometry(
+      new THREE.BoxGeometry(bodySize * 1.3, bodyHeight * 1.3, bodySize * 1.3)
+    ));
     this.outlineLine = new THREE.LineSegments(outlineGeo, this.outlineMat);
     this.outlineLine.renderOrder = 1;
     this.scene.add(this.outlineLine);
@@ -224,9 +230,7 @@ class Player {
     const pulse = 0.25 + 0.15 * Math.sin(this.emissivePulseTimer);
     this.mesh.material.emissiveIntensity = this.damageFlashTimer > 0 ? 0.8 + 0.2 * Math.sin(this.damageFlashTimer * 50) : pulse;
     this.outlineMat.opacity = 0.1 + 0.1 * Math.sin(this.emissivePulseTimer);
-
     this.edgeMat.opacity = 0.3 + 0.15 * Math.sin(this.emissivePulseTimer);
-
     this.updateMesh();
   }
 
@@ -250,12 +254,9 @@ class Player {
     [this.mesh, this.glowRing, this.edgeLine, this.outlineLine].forEach(o => {
       if (o.parent) this.scene.remove(o);
     });
-    try { this.mesh.geometry.dispose(); this.mesh.material.dispose(); } catch(e) {}
-    try { this.glowRing.geometry.dispose(); this.glowRing.material.dispose(); } catch(e) {}
-    try { this.edgeGeo.dispose(); this.edgeMat.dispose(); } catch(e) {}
-    try {
-      if (this.outlineLine.geometry) this.outlineLine.geometry.dispose();
-      this.outlineMat.dispose();
-    } catch(e) {}
+    try { this.mesh.material.dispose(); } catch(e) {}
+    try { this.glowRing.material.dispose(); } catch(e) {}
+    try { this.edgeMat.dispose(); } catch(e) {}
+    try { this.outlineMat.dispose(); } catch(e) {}
   }
 }

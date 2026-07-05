@@ -8,9 +8,12 @@ class CameraEffectManager {
     this.fovDuration = 0;
     this.fovTarget = 0;
     this.redFlash = 0;
+    this.whiteFlash = 0;
     this.slowMo = 0;
     this.slowMoDuration = 0;
     this.originalDt = 0;
+    this._posX = 0;
+    this._posZ = 0;
   }
 
   hitShake(intensity) {
@@ -30,6 +33,39 @@ class CameraEffectManager {
     this.redFlash = 0.4;
   }
 
+  killFlash() {
+    this.whiteFlash = 0.6;
+    this.shakeIntensity = Math.max(this.shakeIntensity, 6);
+  }
+
+  headshotEffect() {
+    this.whiteFlash = 0.3;
+    this.shakeIntensity = Math.max(this.shakeIntensity, 10);
+    this.fovOffset = 5;
+    this.fovDuration = 0.1;
+  }
+
+  criticalEffect() {
+    this.whiteFlash = 0.2;
+    this.shakeIntensity = Math.max(this.shakeIntensity, 5);
+  }
+
+  roundStartEffect() {
+    this.fovOffset = -5;
+    this.fovDuration = 0.3;
+  }
+
+  victoryEffect() {
+    this.fovOffset = -8;
+    this.fovDuration = 0.5;
+  }
+
+  defeatEffect() {
+    this.redFlash = 0.8;
+    this.fovOffset = 3;
+    this.fovDuration = 0.4;
+  }
+
   killSlowMo() {
     this.slowMo = 1;
     this.slowMoDuration = 0.08;
@@ -46,11 +82,11 @@ class CameraEffectManager {
 
     if (this.fovDuration > 0) {
       this.fovDuration -= dt;
-      this.camera.fov = this.baseFov + this.fovOffset * (this.fovDuration / 0.15);
+      const t = Math.max(0, this.fovDuration / (this.fovDuration + dt || 1));
+      this.camera.fov = this.baseFov + this.fovOffset * t;
       this.camera.updateProjectionMatrix();
       if (this.fovDuration <= 0) {
         this.fovOffset = 0;
-        this.fovDuration = 0;
         this.camera.fov = this.baseFov;
         this.camera.updateProjectionMatrix();
       }
@@ -60,6 +96,10 @@ class CameraEffectManager {
       this.redFlash = Math.max(0, this.redFlash - dt * 2);
     }
 
+    if (this.whiteFlash > 0) {
+      this.whiteFlash = Math.max(0, this.whiteFlash - dt * 3);
+    }
+
     return dt;
   }
 
@@ -67,11 +107,16 @@ class CameraEffectManager {
     return this.redFlash;
   }
 
+  getWhiteFlash() {
+    return this.whiteFlash;
+  }
+
   reset() {
     this.shakeIntensity = 0;
     this.fovOffset = 0;
     this.fovDuration = 0;
     this.redFlash = 0;
+    this.whiteFlash = 0;
     this.slowMo = 0;
     this.slowMoDuration = 0;
     this.camera.fov = this.baseFov;

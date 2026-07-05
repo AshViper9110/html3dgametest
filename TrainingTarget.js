@@ -53,7 +53,7 @@ class TrainingTarget {
 
     const labelDiv = document.createElement('div');
     labelDiv.className = 'target-label';
-    labelDiv.textContent = `${pos.distanceTo(new THREE.Vector3(0, 0, 0)).toFixed(0)}m`;
+    labelDiv.textContent = `${Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z).toFixed(0)}m`;
     labelDiv.style.cssText = `position:absolute;color:#00f0ff;font-family:Orbitron,monospace;font-size:11px;
       pointer-events:none;text-shadow:0 0 8px rgba(0,240,255,0.5);`;
     document.body.appendChild(labelDiv);
@@ -153,7 +153,7 @@ class TrainingTarget {
       screenPos.project(game.camera);
       const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
       const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
-      const dist = t.pos.distanceTo(game.localPlayer ? game.localPlayer.position : new THREE.Vector3());
+      const dist = t.pos.distanceTo(game.localPlayer ? game.localPlayer.position : _v3a.set(0, 0, 0));
       t.labelDiv.style.left = x + 'px';
       t.labelDiv.style.top = (y - 30) + 'px';
       t.labelDiv.textContent = dist.toFixed(0) + 'm';

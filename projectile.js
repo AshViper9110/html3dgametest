@@ -1,7 +1,3 @@
-const _sharedProjGeo = new THREE.SphereGeometry(0.3, 6, 6);
-const _sharedProjGlowGeo = new THREE.SphereGeometry(0.6, 6, 6);
-const _v3_tmp = new THREE.Vector3();
-
 class Projectile {
   constructor(scene, origin, dir, ownerId, id, color, weapon, mapHalf) {
     this.scene = scene;
@@ -17,13 +13,13 @@ class Projectile {
     this.mapHalf = mapHalf !== undefined ? mapHalf : 40;
 
     this.mat = new THREE.MeshBasicMaterial({ color: this.color });
-    this.mesh = new THREE.Mesh(_sharedProjGeo, this.mat);
+    this.mesh = new THREE.Mesh(SHARED.geo('proj_main', () => new THREE.SphereGeometry(0.3, 6, 6)), this.mat);
     this.mesh.position.copy(origin);
     this.mesh.position.y += CONFIG.playerHeight * 0.6;
     this.scene.add(this.mesh);
 
     this.glowMat = new THREE.MeshBasicMaterial({ color: this.color, transparent: true, opacity: 0.25 });
-    this.glow = new THREE.Mesh(_sharedProjGlowGeo, this.glowMat);
+    this.glow = new THREE.Mesh(SHARED.geo('proj_glow', () => new THREE.SphereGeometry(0.6, 6, 6)), this.glowMat);
     this.glow.position.copy(this.mesh.position);
     this.scene.add(this.glow);
 
@@ -44,7 +40,7 @@ class Projectile {
     this.homingStrength = 3;
     this._distTraveled = 0;
     this.maxDist = this.wp.range || 40;
-    this.maxAge = this.wp.projLifetime || 3;  // safety fallback
+    this.maxAge = this.wp.projLifetime || 3;
   }
 
   update(dt) {
@@ -95,7 +91,8 @@ class Projectile {
   _spawnTrail() {
     const r = this.wp.projRadius || 0.2;
     const trailSize = r * (0.5 + this.speed * 0.01);
-    const geo = new THREE.SphereGeometry(Math.min(trailSize, 0.5), 4, 4);
+    const geoKey = 'trail_' + Math.min(trailSize, 0.5).toFixed(2);
+    const geo = SHARED.geo(geoKey, () => new THREE.SphereGeometry(Math.min(trailSize, 0.5), 4, 4));
     const mat = new THREE.MeshBasicMaterial({
       color: this.color,
       transparent: true,
@@ -104,7 +101,7 @@ class Projectile {
     const m = new THREE.Mesh(geo, mat);
     m.position.copy(this.mesh.position);
     this.scene.add(m);
-    this.trail.push({ mesh: m, life: 0, geo, mat });
+    this.trail.push({ mesh: m, life: 0, mat });
   }
 
   explosionFX() {
@@ -138,7 +135,7 @@ class Projectile {
 
   destroy() {
     if (!this.alive) return;
-    if (this.wp.explosive) this.explosionFX();
+    if (this.wp && this.wp.explosive) this.explosionFX();
     this.alive = false;
     if (this.mesh.parent) this.scene.remove(this.mesh);
     if (this.glow.parent) this.scene.remove(this.glow);
@@ -148,9 +145,32 @@ class Projectile {
     for (let i = 0; i < trails.length; i++) {
       const t = trails[i];
       if (t.mesh.parent) this.scene.remove(t.mesh);
-      t.geo.dispose();
       t.mat.dispose();
     }
     this.trail = [];
+    this.hitPlayers.clear();
   }
+}
+
+function createProjectilePool(scene) {
+  return new ObjectPool(
+    () => new Projectile(scene, _v3a.set(0, 0, 0), _v3b.set(0, 0, 1), '', '', 0xffffff, 'pistol', 40),
+    (p) => {
+      p.alive = false;
+      p.age = 0;
+      p._distTraveled = 0;
+      p.hitPlayers.clear();
+      p.exploded = false;
+      p.isHoming = false;
+      p.homingTargetId = null;
+      p.ricochetCount = 0;
+      p.pierceCount = 0;
+      p.passiveSizeMult = 1;
+      p.ricocheted = false;
+      p.trailTimer = 0;
+      p.isHostProjectile = false;
+      p.isRemote = false;
+    },
+    100
+  );
 }

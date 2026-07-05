@@ -1,8 +1,3 @@
-/* ============================================================
-   NEON ARENA - ネットワーク管理
-   PeerJSを用いたスター型ネットワーク
-   ============================================================ */
-
 class NetworkManager {
   constructor(game) {
     this.game = game;
@@ -14,7 +9,34 @@ class NetworkManager {
     this.myId = null;
     this.connected = false;
     this.sendTimer = 0;
-    this.peerPacketCount = new Map();
+    this._seq = 0;
+    this._processedPackets = new Set();
+    this._pingTimers = new Map();
+    this._rtt = new Map();
+    this._packetLoss = new Map();
+    this._inputSeq = 0;
+    this._lastAckedSeq = 0;
+    this._serverStates = [];
+    this._pendingInputs = [];
+    this._maxPendingInputs = CONFIG.maxPendingInputs || 100;
+  }
+
+  _wrap(data) {
+    if (!data || typeof data !== 'object') return null;
+    this._seq++;
+    return { ...data, _s: this._seq, _p: this.myId, _t: Date.now() };
+  }
+
+  _isDuplicate(packetId) {
+    if (!packetId) return false;
+    const key = String(packetId);
+    if (this._processedPackets.has(key)) return true;
+    this._processedPackets.add(key);
+    if (this._processedPackets.size > 20000) {
+      const iter = this._processedPackets.values();
+      for (let i = 0; i < 10000; i++) { this._processedPackets.delete(iter.next().value); }
+    }
+    return false;
   }
 
   async createRoom() {
@@ -43,7 +65,7 @@ class NetworkManager {
         this.conn = conn;
         this._setupConn(conn);
         conn.on('open', () => {
-          conn.send({ type: NetMsg.JOIN, name: playerName || 'Player' });
+          conn.send(this._wrap({ type: NetMsg.JOIN, name: playerName || 'Player' }));
           resolve();
         });
       });
@@ -52,12 +74,10 @@ class NetworkManager {
   }
 
   _setupConn(conn) {
-    console.log('[Network] _setupConn peerId=%s isHost=%s conn.open=%s', conn.peer, this.isHost, conn.open);
     conn.on('data', (data) => {
       this.game.handleMessage(data, conn);
     });
     conn.on('close', () => {
-      console.log('[Network] conn CLOSED peerId=%s isHost=%s', conn.peer, this.isHost);
       if (this.isHost) {
         const idx = this.connections.indexOf(conn);
         if (idx >= 0) this.connections.splice(idx, 1);
@@ -68,114 +88,166 @@ class NetworkManager {
       }
     });
     if (!this.isHost) {
-      conn.on('open', () => {
-        console.log('[Network] conn OPEN peerId=%s → connected=true', conn.peer);
-        this.connected = true;
-      });
+      conn.on('open', () => { this.connected = true; });
     }
   }
 
-  _disconnectPeer(conn) {
-    try { conn.close(); } catch(e) {}
-    const idx = this.connections.indexOf(conn);
-    if (idx >= 0) this.connections.splice(idx, 1);
-    this.game.onPlayerLeft(conn.peer);
-  }
-
   send(data) {
-    const canSend = this.conn && this.conn.open;
-    console.log('[Network] send type=%s connected=%s conn=%s open=%s canSend=%s',
-      data.type, this.connected, !!this.conn, this.conn ? this.conn.open : 'N/A', canSend);
-    if (canSend) this.conn.send(data);
-    else console.log('[Network] send BLOCKED: %s', !this.conn ? 'no conn' : 'conn not open');
+    const enveloped = this._wrap(data);
+    if (this.conn && this.conn.open) this.conn.send(enveloped);
   }
 
   sendTo(peerId, data) {
     if (this.isHost && peerId === this.myId) return;
     const conn = this.connections.find(c => c.peer === peerId);
-    if (conn && conn.open) conn.send(data);
+    if (conn && conn.open) conn.send(this._wrap(data));
   }
 
   broadcast(data, exclude) {
-    const targets = this.connections.filter(c => c !== exclude && c.open);
-    console.log('[Network] broadcast type=%s targetConnections=%d (total=%d exclude=%s)',
-      data.type, targets.length, this.connections.length, !!exclude);
+    const wrapped = this._wrap(data);
     this.connections.forEach(c => {
-      if (c !== exclude && c.open) c.send(data);
+      if (c !== exclude && c.open) c.send(wrapped);
     });
   }
 
-  sendState(dt) {
-    if (!this.connected && !this.isHost) return;
-    const p = this.game.localPlayer;
-    if (!p || !p.scene) return;
-    this.sendTimer += dt;
-    if (this.sendTimer < CONFIG.stateSendRate) return;
-    this.sendTimer = 0;
+  sendInput(input) {
+    this._inputSeq++;
     const data = {
-      type: 'state',
-      id: this.myId,
-      pos: { x: p.position.x, y: p.position.y, z: p.position.z },
-      rot: p.rotation,
-      health: p.health,
-      alive: p.alive,
-      weapon: p.weapon,
+      type: 'input',
+      seq: this._inputSeq,
+      forward: input.forward,
+      strafe: input.strafe,
+      mouseX: input.mouseX || 0,
+      mouseY: input.mouseY || 0,
+      fire: input.fire || false,
+      jump: input.jump || false,
+      dash: input.dash || false,
+      reload: input.reload || false,
+      weaponChange: input.weaponChange || null,
+      passiveChange: input.passiveChange || null,
       timestamp: Date.now(),
     };
-    if (this.isHost) {
-      this.broadcast(data);
-    } else {
-      this.send(data);
-    }
+    this._pendingInputs.push({ seq: this._inputSeq, input: data, time: Date.now() });
+    if (this._pendingInputs.length > this._maxPendingInputs) this._pendingInputs.shift();
+    this.send(data);
   }
 
   sendFireRequest(weapon, position, direction, inputId, color) {
-    console.log('[Network] send fire_request weapon=%s inputId=%s', weapon, inputId);
-    this.send({
+    const data = {
       type: 'fire_request',
       weapon,
-      position: { x: position.x, y: position.y, z: position.z },
-      direction: { x: direction.x, y: direction.y, z: direction.z },
-      timestamp: Date.now(),
+      position: { x: position.x, y: 0, z: position.z },
+      direction: { x: direction.x, y: 0, z: direction.z },
       inputId,
-      color,
-    });
+      color: color || 0xffffff,
+      timestamp: Date.now(),
+    };
+    this.send(data);
   }
 
   sendBeamFire(weapon, origin, direction, inputId, color) {
-    this.send({
+    const data = {
       type: 'beam_fire',
       weapon,
-      origin: { x: origin.x, y: origin.y, z: origin.z },
-      direction: { x: direction.x, y: direction.y, z: direction.z },
-      timestamp: Date.now(),
+      origin: { x: origin.x, y: 0, z: origin.z },
+      direction: { x: direction.x, y: 0, z: direction.z },
       inputId,
-      color,
+      color: color || 0xffffff,
+      timestamp: Date.now(),
+    };
+    this.send(data);
+  }
+
+  sendState(dt) {
+    if (!this.isHost || !this.connected) return;
+    this.sendTimer += dt;
+    if (this.sendTimer < CONFIG.stateSendRate) return;
+    this.sendTimer = 0;
+
+    const data = {
+      type: NetMsg.STATE,
+      players: [],
+      projectiles: [],
+      timestamp: Date.now(),
+    };
+    this.game.players.forEach((p, id) => {
+      data.players.push({
+        id, pos: { x: p.position.x, y: p.position.y, z: p.position.z },
+        rot: p.rotation, health: p.health, alive: p.alive,
+        weapon: p.weapon, kills: p.matchKills, deaths: p.matchDeaths,
+      });
+    });
+    this.broadcast(data);
+  }
+
+  sendStateDiff() {
+    if (!this.isHost) return;
+    this.game.players.forEach((p, id) => {
+      if (id === this.myId) return;
+      const state = {
+        type: NetMsg.STATE_DIFF,
+        id,
+        pos: { x: p.position.x, z: p.position.z },
+        rot: p.rotation,
+        health: p.health,
+        alive: p.alive,
+        timestamp: Date.now(),
+      };
+      this.sendTo(id, state);
     });
   }
 
-  /* ロビー同期メッセージ */
-  sendReady(ready) {
-    this.send({ type: NetMsg.READY, ready });
+  sendPing(targetId) {
+    const data = { type: NetMsg.PING, time: Date.now() };
+    if (targetId) this.sendTo(targetId, data);
+    else this.send(data);
   }
 
-  sendWeaponChange(weapon) {
-    this.send({ type: NetMsg.WEAPON_CHANGE, weapon });
+  handlePong(data) {
+    if (data && data.time) {
+      const rtt = Date.now() - data.time;
+      this._rtt.set(data._p || 'server', rtt);
+    }
   }
 
-  sendPassiveChange(passiveId) {
-    this.send({ type: 'passive_change', passiveId });
+  getRTT(peerId) { return this._rtt.get(peerId || 'server') || 0; }
+
+  getServerState(time) {
+    if (this._serverStates.length === 0) return null;
+    for (let i = this._serverStates.length - 1; i >= 0; i--) {
+      if (this._serverStates[i].time <= time) return this._serverStates[i];
+    }
+    return this._serverStates[0];
   }
 
-  sendNameChange(name) {
-    this.send({ type: NetMsg.NAME_CHANGE, name });
+  recordServerState(positions) {
+    this._serverStates.push({ time: Date.now(), positions });
+    while (this._serverStates.length > 60) this._serverStates.shift();
+  }
+
+  getPendingInput(fromSeq) {
+    return this._pendingInputs.filter(inp => inp.seq > fromSeq);
+  }
+
+  setLastAckedSeq(seq) {
+    this._lastAckedSeq = Math.max(this._lastAckedSeq, seq);
+    this._pendingInputs = this._pendingInputs.filter(inp => inp.seq > this._lastAckedSeq);
+  }
+
+  getUnacknowledgedInputs() {
+    return this._pendingInputs;
   }
 
   close() {
-    this.connections.forEach(c => c.close());
-    if (this.conn) this.conn.close();
-    if (this.peer) this.peer.destroy();
+    this.connections.forEach(c => { try { c.close(); } catch(e) {} });
+    if (this.conn) { try { this.conn.close(); } catch(e) {} }
+    if (this.peer) { try { this.peer.destroy(); } catch(e) {} }
     this.connections = [];
     this.connected = false;
+    this._processedPackets.clear();
+    this._pendingInputs = [];
+    this._serverStates = [];
+    this._lastAckedSeq = 0;
+    this._inputSeq = 0;
   }
 }

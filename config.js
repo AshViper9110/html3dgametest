@@ -23,6 +23,13 @@ const CONFIG = {
   dashCooldown: 0.8,     // ダッシュのクールダウン（秒）
   invincibleTime: 3,     // リスポーン後の無敵時間（秒）
   colors: { projectile: 0xffee00 },
+
+  /* ネットワーク同期 */
+  inputSendRate: 0,      // 入力送信間隔（0=毎フレーム）
+  maxPendingInputs: 100, // 未確認入力の最大数
+  stateBufferSize: 60,   // 状態バッファの最大数
+  interpolationDelay: 0.1, // 補間遅延（秒）
+  serverTickRate: 0.05,  // サーバーティック間隔（秒）
 };
 
 /* 武器定義は WeaponRegistry.js へ移行 */
@@ -36,4 +43,3 @@ const PLAYER_COLORS = [
 
 /* ベクトル演算用の再利用可能なオブジェクト */
 const _v3 = new THREE.Vector3();
-const _v3b = new THREE.Vector3();

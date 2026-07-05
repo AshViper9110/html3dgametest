@@ -1,27 +1,40 @@
 class ParticlePool {
   constructor(scene) {
     this.scene = scene;
-    this.pool = [];
-    this.active = [];
-    this.maxSize = 500;
-    this.sharedGeo = new THREE.SphereGeometry(0.08, 4, 4);
-    this.sharedSparkGeo = new THREE.BoxGeometry(0.05, 0.05, 0.15);
-  }
-
-  _createParticle() {
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
-    const mesh = new THREE.Mesh(this.sharedGeo, mat);
-    return { mesh, mat, life: 0, maxLife: 0, velocity: new THREE.Vector3() };
+    this.pool = new ObjectPool(
+      () => {
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+        const mesh = new THREE.Mesh(SHARED.geo('particle_main', () => new THREE.SphereGeometry(0.08, 4, 4)), mat);
+        return { mesh, mat, life: 0, maxLife: 0, velocity: new THREE.Vector3() };
+      },
+      (p) => {
+        if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+        p.mesh.visible = false;
+        p.velocity.set(0, 0, 0);
+        p.life = 0;
+        p.maxLife = 0;
+      },
+      500
+    );
+    this.poolSpark = new ObjectPool(
+      () => {
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+        const mesh = new THREE.Mesh(SHARED.geo('particle_spark', () => new THREE.BoxGeometry(0.05, 0.05, 0.15)), mat);
+        return { mesh, mat, life: 0, maxLife: 0, velocity: new THREE.Vector3() };
+      },
+      (p) => {
+        if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+        p.mesh.visible = false;
+        p.velocity.set(0, 0, 0);
+        p.life = 0;
+        p.maxLife = 0;
+      },
+      200
+    );
   }
 
   get(color, pos, vel, life, size) {
-    let p;
-    if (this.pool.length > 0) {
-      p = this.pool.pop();
-    } else {
-      p = this._createParticle();
-    }
-    p.mesh.material = p.mat;
+    const p = this.pool.get();
     p.mat.color.setHex(color);
     p.mat.opacity = 1;
     p.mesh.position.copy(pos);
@@ -32,19 +45,11 @@ class ParticlePool {
     p.alive = true;
     if (!p.mesh.parent) this.scene.add(p.mesh);
     p.mesh.visible = true;
-    this.active.push(p);
     return p;
   }
 
   getSpark(color, pos, vel, life) {
-    let p;
-    if (this.pool.length > 0) {
-      p = this.pool.pop();
-    } else {
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
-      const mesh = new THREE.Mesh(this.sharedSparkGeo, mat);
-      p = { mesh, mat, life: 0, maxLife: 0, velocity: new THREE.Vector3() };
-    }
+    const p = this.poolSpark.get();
     p.mat.color.setHex(color);
     p.mat.opacity = 1;
     p.mesh.position.copy(pos);
@@ -55,43 +60,43 @@ class ParticlePool {
     p.alive = true;
     if (!p.mesh.parent) this.scene.add(p.mesh);
     p.mesh.visible = true;
-    this.active.push(p);
     return p;
   }
 
   release(p) {
-    const idx = this.active.indexOf(p);
-    if (idx >= 0) this.active.splice(idx, 1);
-    p.mesh.visible = false;
-    if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
-    if (this.pool.length < this.maxSize) {
-      this.pool.push(p);
-    } else {
-      p.mat.dispose();
-    }
+    this.pool.release(p);
+  }
+
+  releaseSpark(p) {
+    this.poolSpark.release(p);
   }
 
   update(dt) {
-    for (let i = this.active.length - 1; i >= 0; i--) {
-      const p = this.active[i];
-      p.life += dt;
-      if (p.life >= p.maxLife) {
-        this.release(p);
-        continue;
+    const updateList = (items, pool) => {
+      for (let i = items.length - 1; i >= 0; i--) {
+        const p = items[i];
+        p.life += dt;
+        if (p.life >= p.maxLife) {
+          pool.release(p);
+          continue;
+        }
+        const t = p.life / p.maxLife;
+        p.mesh.position.x += p.velocity.x * dt;
+        p.mesh.position.y += p.velocity.y * dt;
+        p.mesh.position.z += p.velocity.z * dt;
+        p.velocity.y -= 5 * dt;
+        p.mat.opacity = 1 - t;
+        p.mesh.scale.setScalar(1 - t * 0.5);
       }
-      const t = p.life / p.maxLife;
-      p.mesh.position.x += p.velocity.x * dt;
-      p.mesh.position.y += p.velocity.y * dt;
-      p.mesh.position.z += p.velocity.z * dt;
-      p.velocity.y -= 5 * dt;
-      p.mat.opacity = 1 - t;
-      p.mesh.scale.setScalar(1 - t * 0.5);
-    }
+    };
+    updateList(this.pool.active, this.pool);
+    updateList(this.poolSpark.active, this.poolSpark);
   }
 
   releaseAll() {
-    [...this.active].forEach(p => this.release(p));
+    this.pool.releaseAll();
+    this.poolSpark.releaseAll();
   }
 
-  get activeCount() { return this.active.length; }
+  get activeCount() { return this.pool.activeCount + this.poolSpark.activeCount; }
 }

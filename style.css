@@ -27,53 +27,6 @@ body {
   display: block;
 }
 
-/* === オーバーレイ（接続画面） === */
-#overlay {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  background: rgba(10, 10, 18, 0.95);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  backdrop-filter: blur(8px);
-  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
-}
-
-#overlay.hidden {
-  display: none;
-}
-
-#overlay-inner {
-  background: rgba(20, 20, 35, 0.9);
-  border: 1px solid rgba(0, 240, 255, 0.3);
-  border-radius: 12px;
-  padding: clamp(24px, 3vw, 40px);
-  max-width: 520px;
-  width: min(90%, 520px);
-  text-align: center;
-  box-shadow: 0 0 60px rgba(0, 240, 255, 0.1), inset 0 0 60px rgba(0, 240, 255, 0.03);
-}
-
-#overlay-inner h1 {
-  font-family: 'Orbitron', monospace;
-  font-size: 2.4em;
-  font-weight: 900;
-  letter-spacing: 6px;
-  color: #00f0ff;
-  text-shadow: 0 0 20px rgba(0, 240, 255, 0.5), 0 0 60px rgba(0, 240, 255, 0.2);
-  margin-bottom: 4px;
-}
-
-#overlay-inner .subtitle {
-  color: #8888aa;
-  font-size: 0.9em;
-  letter-spacing: 4px;
-  margin-bottom: 30px;
-  text-transform: uppercase;
-}
-
 /* === ボタンスタイル === */
 .btn {
   font-family: 'Rajdhani', sans-serif;
@@ -146,19 +99,6 @@ textarea:focus {
   border-color: rgba(0, 240, 255, 0.6);
 }
 
-.step-label {
-  color: #6666aa;
-  font-size: 0.8em;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-  display: block;
-}
-
-.step-section {
-  margin-bottom: 16px;
-}
-
 .status-text {
   color: #8888aa;
   font-size: 0.9em;
@@ -169,31 +109,6 @@ textarea:focus {
 .status-text.active {
   color: #00f0ff;
   text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
-}
-
-
-.map-nav-btn {
-  font-family: 'Orbitron', monospace;
-  font-size: 1em;
-  padding: 8px 14px;
-  border: 1px solid rgba(0,240,255,0.3);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s;
-  background: rgba(0,0,0,0.3);
-  color: #00f0ff;
-}
-.map-nav-btn:hover {
-  background: rgba(0,240,255,0.1);
-  box-shadow: 0 0 15px rgba(0,240,255,0.2);
-}
-.map-nav-name {
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 0.85em;
-  color: #ccccee;
-  letter-spacing: 1px;
-  min-width: 180px;
-  text-align: center;
 }
 
 /* === クロスヘア === */
@@ -745,12 +660,6 @@ textarea:focus {
   font-weight: 600;
   text-align: right;
 }
-.stat-row.damage .stat-val {
-  color: #ff6b6b;
-}
-.stat-row.fire-rate .stat-val {
-  color: #ffd93d;
-}
 #death-screen .ws-name {
   font-size: 0.95em;
 }
@@ -890,42 +799,6 @@ textarea:focus {
 .pl-card-passive-icon {
   font-size: 0.75em;
   margin-right: 3px;
-}
-
-/* 旧式セレクタ（互換性維持） */
-.weapon-selector {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-.weapon-selector .map-btn {
-  padding: 6px 12px;
-  font-size: 0.7em;
-}
-.map-btn {
-  font-family: 'Rajdhani', sans-serif;
-  font-weight: 700;
-  font-size: 0.8em;
-  letter-spacing: 1px;
-  padding: 8px 14px;
-  border: 1px solid rgba(0,240,255,0.2);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s;
-  background: rgba(0,0,0,0.3);
-  color: #8888aa;
-  text-transform: uppercase;
-}
-.map-btn:hover {
-  border-color: rgba(0,240,255,0.4);
-  color: #ccccee;
-}
-.map-btn.active {
-  border-color: #00f0ff;
-  color: #00f0ff;
-  background: rgba(0,240,255,0.1);
-  box-shadow: 0 0 12px rgba(0,240,255,0.15);
 }
 
 /* Host/Client controls */
@@ -1508,13 +1381,6 @@ textarea:focus {
   text-shadow: 0 0 40px rgba(255,215,0,0.5);
   letter-spacing: 4px;
   word-break: break-word;
-}
-#result-draw {
-  font-family: 'Orbitron', monospace;
-  font-size: 3em;
-  font-weight: 900;
-  color: #8888aa;
-  letter-spacing: 8px;
 }
 #result-list {
   text-align: left;

@@ -13,7 +13,7 @@ class TrainingManager {
       lastHitTime: 0,
     };
     this.selectedPassives = [];
-    this.selectedWeapon = game.loadoutWeapon || 'pistol';
+    this.selectedWeapon = this.game.loadoutWeapon || 'pistol';
   }
 
   init() {
@@ -119,7 +119,7 @@ class TrainingManager {
       document.body.appendChild(distLabel);
 
       const screenPos = new THREE.Vector3(0, 1.5, z);
-      screenPos.project(game.camera);
+      screenPos.project(this.game.camera);
       const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
       const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
       distLabel.style.left = x + 'px';
@@ -241,12 +241,12 @@ class TrainingManager {
     for (const label of this._distLabels) {
       const z = parseFloat(label.dataset.z);
       const screenPos = new THREE.Vector3(0, 1.5, z);
-      screenPos.project(game.camera);
+      screenPos.project(this.game.camera);
       const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
       const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
       label.style.left = x + 'px';
       label.style.top = y + 'px';
-      label.style.display = game.gameState === 'TRAINING' ? '' : 'none';
+      label.style.display = this.game.gameState === 'TRAINING' ? '' : 'none';
     }
   }
 

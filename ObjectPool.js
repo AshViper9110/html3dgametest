@@ -46,3 +46,44 @@ class ObjectPool {
     this.pool = [];
   }
 }
+
+const SHARED = {
+  _geo: {},
+  _mat: {},
+
+  geo(key, factory) {
+    if (!this._geo[key]) this._geo[key] = factory();
+    return this._geo[key];
+  },
+
+  mat(key, factory) {
+    if (!this._mat[key]) this._mat[key] = factory();
+    return this._mat[key];
+  },
+
+  getMat(color, additive, opacity) {
+    const a = additive ? '_add' : '';
+    const o = '_o' + (opacity !== undefined ? Math.round(opacity * 100) : 100);
+    const key = 'shared_mat_' + color.toString(16) + a + o;
+    return this.mat(key, () => {
+      const m = new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: opacity !== undefined ? opacity : 1,
+        blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+        depthWrite: !additive,
+      });
+      return m;
+    });
+  },
+
+  disposeAll() {
+    for (const key in this._geo) { try { this._geo[key].dispose(); } catch(e) {} }
+    for (const key in this._mat) { try { this._mat[key].dispose(); } catch(e) {} }
+    this._geo = {};
+    this._mat = {};
+  }
+};
+
+const _v3a = new THREE.Vector3();
+const _v3b = new THREE.Vector3();
+const _v3c = new THREE.Vector3();
+const _quat = new THREE.Quaternion();

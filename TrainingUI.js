@@ -573,19 +573,37 @@ class TrainingUI {
   }
 
   _exitTraining() {
+    this.destroy();
+    this.game._clearArena();
+    this.game._createArena(this.game.selectedMap);
+    this.game.setState(GameState.TITLE);
+    if (AUDIO) AUDIO.play('ui_click');
+  }
+
+  destroy() {
     if (this._escHandler) {
       document.removeEventListener('keydown', this._escHandler);
       this._escHandler = null;
+    }
+    const ids = ['training-weapon-list', 'training-passive-list', 'training-apply-btn',
+      'training-close-btn', 'training-reset-btn', 'training-exit-btn',
+      'training-toggle-btn', 'training-guide-btn'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        const clone = el.cloneNode(true);
+        el.parentNode.replaceChild(clone, el);
+      }
+    });
+    const guideClose = document.querySelector('.tgg-close-btn');
+    if (guideClose) {
+      const clone = guideClose.cloneNode(true);
+      guideClose.parentNode.replaceChild(clone, guideClose);
     }
     if (this.game.trainingManager) {
       this.game.trainingManager.destroy();
       this.game.trainingManager = null;
     }
     this.game.trainingUI = null;
-    if (document.pointerLockElement) document.exitPointerLock();
-    this.game._clearArena();
-    this.game._createArena(this.game.selectedMap);
-    this.game.setState(GameState.TITLE);
-    if (AUDIO) AUDIO.play('ui_click');
   }
 }
